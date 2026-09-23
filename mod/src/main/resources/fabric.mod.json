@@ -1,0 +1,26 @@
+{
+    "schemaVersion": 1,
+    "id": "farlands-g2",
+    "version": "${version}",
+    "name": "FarLands G2 Mod",
+    "description": "Runtime support for the FarLands patched client (2^63 coordinates)",
+    "authors": ["FarLands Dev"],
+    "license": "MIT",
+    "environment": "*",
+    "depends": {
+        "fabricloader": ">=${loader_version}",
+        "minecraft": "${minecraft_version}"
+    },
+    "entrypoints": {
+        "main": ["com.farlands.g2.G2Mod"]
+    },
+    "mixins": [
+        "farlands-core.mixins.json",
+        "farlands-epoch.mixins.json",
+        "farlands-world.mixins.json",
+        "farlands-entity.mixins.json",
+        "farlands-stability.mixins.json",
+        "farlands-test.mixins.json",
+        "farlands-client.mixins.json"
+    ]
+}
