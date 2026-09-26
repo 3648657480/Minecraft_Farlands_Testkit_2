@@ -30,7 +30,8 @@
         "SurfaceRulesVerticalGradientMixin",
         "TreeFeatureMixin",
         "MineshaftSkipMixin",
-        "FlowingFluidRateLimitMixin"
+        "FlowingFluidRateLimitMixin",
+        "FarReadDiagMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }
