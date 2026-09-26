@@ -12,7 +12,7 @@ public class LevelRendererCamWrapMixin {
 
     @Unique
     private static double farlands$wrap(double v) {
-        if (com.farlands.g2.util.FarProjection.isEpochActive()) {
+        if (com.farlands.g2.util.FarProjection.isFarEngine()) {
             return v; // real coordinates must not be wrapped back
         }
         double floor = Math.floor(v);

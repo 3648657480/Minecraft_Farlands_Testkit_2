@@ -35,7 +35,7 @@ public class FlowingFluidRateLimitMixin {
     @Inject(method = "tick", at = @At("HEAD"), cancellable = true)
     private void farlands$rateLimit(ServerLevel level, BlockPos pos, BlockState state, FluidState fluidState,
             CallbackInfo ci) {
-        if (!FarProjection.isEpochActive()) {
+        if (!FarProjection.isFarEngine()) {
             return;
         }
         long now = level.getGameTime();

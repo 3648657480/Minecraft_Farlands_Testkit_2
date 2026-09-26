@@ -30,7 +30,7 @@ public class ClientLevelMixin {
 
     @Unique
     private static boolean farlands$epoch() {
-        return com.farlands.g2.util.FarProjection.isEpochActive();
+        return com.farlands.g2.util.FarProjection.isFarEngine();
     }
 
     @Unique

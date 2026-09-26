@@ -16,7 +16,7 @@ public final class FarRandom {
     }
 
     public static RandomSource at(PositionalRandomFactory factory, int x, int y, int z) {
-        if (!FarProjection.isEpochActive()) {
+        if (!FarProjection.isFarEngine()) {
             return factory.at(x, y, z);
         }
         long off = FarProjection.epochSeedOffset();

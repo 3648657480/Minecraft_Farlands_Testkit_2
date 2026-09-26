@@ -34,7 +34,7 @@ public abstract class DensityFunctionsEndIslandMixin {
     private void farlands$computeReal(DensityFunction.FunctionContext context,
             CallbackInfoReturnable<Double> cir) {
         if (!(context instanceof RealCoords rc)
-            || !com.farlands.g2.util.FarProjection.isEpochActive()) {
+                || !com.farlands.g2.util.FarProjection.isFarEngine()) {
             return; // leave vanilla behavior untouched outside the epoch domain
         }
         cir.setReturnValue((EndIslandMath.heightValue(this.islandNoise,

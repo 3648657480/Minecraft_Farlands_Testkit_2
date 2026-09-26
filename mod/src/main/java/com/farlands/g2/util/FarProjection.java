@@ -100,6 +100,18 @@ public final class FarProjection {
      * features do not repeat with the local int window.
      */
     public static long epochSeedOffset() {
+        // G2 wide route: no epoch offset. When generating far from the origin,
+        // derive the carver/feature seed offset from the real generation origin
+        // so far-domain carvers/features do not repeat with the local int
+        // window. Near the origin this is exactly 0, so normal-range terrain
+        // stays bit-identical.
+        Long ox = ORIGIN_X.get();
+        Long oz = ORIGIN_Z.get();
+        if (ox != null && oz != null
+                && (ox < -100_000_000L || ox > 100_000_000L
+                    || oz < -100_000_000L || oz > 100_000_000L)) {
+            return (ox >> 4) * 341873128712L + (oz >> 4) * 132897987541L;
+        }
         if (!isEpochActive()) {
             return 0L;
         }
@@ -132,6 +144,20 @@ public final class FarProjection {
      */
     public static boolean isEpochActive() {
         return epochInitialized;
+    }
+
+    /**
+     * G2 real-coordinate engine: the wide/real terrain engine is ALWAYS live.
+     * This is the gate for the B-line real-coordinate-ization (surface rules,
+     * geode/end-island density, far-random, collision domain, render cam).
+     *
+     * <p>Kept separate from {@link #isEpochActive()}, which only tracks whether
+     * an epoch <em>offset</em> has been set: in G2 the terrain generates at
+     * real coordinates with no epoch offset, so gating the B line on the epoch
+     * would silently disable it.</p>
+     */
+    public static boolean isFarEngine() {
+        return true;
     }
 
     public static double epochBlockX() {
@@ -248,7 +274,7 @@ public final class FarProjection {
      * @param axis 0 = X, 1 = Z (pro offsets differ per axis)
      */
     private static double applySamplePolicy(double real, int axis) {
-        if (!isEpochActive()) {
+        if (!isFarEngine()) {
             return real;
         }
         // pro experimental transform (defaults are strict no-ops)
@@ -314,7 +340,7 @@ public final class FarProjection {
      * the legacy unsigned fallback used by the J3/D-line patches.
      */
     public static double collisionX(int v) {
-        if (isEpochActive()) {
+        if (isFarEngine()) {
             return (double) v;
         }
         if (v < -100_000_000) {
@@ -325,7 +351,7 @@ public final class FarProjection {
 
     /** Collision-domain Z; see {@link #collisionX(int)}. */
     public static double collisionZ(int v) {
-        if (isEpochActive()) {
+        if (isFarEngine()) {
             return (double) v;
         }
         if (v < -100_000_000) {

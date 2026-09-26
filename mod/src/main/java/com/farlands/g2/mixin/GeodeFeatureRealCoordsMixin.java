@@ -20,7 +20,7 @@ public class GeodeFeatureRealCoordsMixin {
         at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/level/levelgen/synth/NormalNoise;getValue(DDD)D"))
     private double farlands$realGeodeNoise(NormalNoise noise, double x, double y, double z) {
-        if (!FarProjection.isEpochActive()) {
+        if (!FarProjection.isFarEngine()) {
             return noise.getValue(x, y, z);
         }
         return noise.getValue(FarProjection.unwrapX((int) x), y, FarProjection.unwrapZ((int) z));
