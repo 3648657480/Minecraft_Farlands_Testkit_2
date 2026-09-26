@@ -2,7 +2,7 @@ param(
     [Parameter(Mandatory = $true)][string]$Tag,
     [string]$Wide = "true",
     [string]$Continuity = "true",
-    [string]$Epoch = "true",
+    [string]$Epoch = "false",
     [Parameter(Mandatory = $true)][string]$TestGen,
     [string]$SpawnSet = "",
     [string]$TestSpawn = "",

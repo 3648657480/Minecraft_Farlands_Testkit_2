@@ -5,7 +5,7 @@ param(
     [ValidateSet("mod", "vanilla")][string]$Rig = "mod",
     [string]$Wide = "true",
     [string]$Continuity = "true",
-    [string]$Epoch = "true",
+    [string]$Epoch = "false",
     [int]$Settle = 400,
     [int]$Delay = 300,
     [int]$BgThreads = 1,

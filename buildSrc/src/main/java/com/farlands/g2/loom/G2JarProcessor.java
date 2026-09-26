@@ -78,9 +78,9 @@ public class G2JarProcessor implements MinecraftJarProcessor<G2JarProcessor.Spec
     @Override
     public Spec buildSpec(SpecContext context) {
         return new Spec(
-            Boolean.getBoolean("farlands.wide"),
-            Boolean.getBoolean("farlands.continuity"),
-            Boolean.getBoolean("farlands.epoch"),
+            FarLandsPatcher.flag("farlands.wide", true),
+            FarLandsPatcher.flag("farlands.continuity", true),
+            FarLandsPatcher.flag("farlands.epoch", false),
             FarLandsPatcher.unlockEnabled(),
             FarLandsPatcher.PATCH_REVISION);
     }

@@ -41,10 +41,21 @@ public final class FarLandsPatcher {
 
     public static FarLandsPatcher createDefault() {
         return createDefault(
-            Boolean.getBoolean("farlands.wide"),
-            Boolean.getBoolean("farlands.continuity"),
-            Boolean.getBoolean("farlands.epoch"),
+            flag("farlands.wide", true),
+            flag("farlands.continuity", true),
+            flag("farlands.epoch", false),
             unlockEnabled());
+    }
+
+    /**
+     * G2 engine defaults: wide + continuity ON, epoch OFF. An absent
+     * {@code -Dfarlands.<name>} property takes the default; an explicit
+     * {@code true}/{@code false} overrides it (epoch stays available as a
+     * fallback via {@code -Dfarlands.epoch=true}).
+     */
+    public static boolean flag(String name, boolean defaultValue) {
+        String v = System.getProperty(name);
+        return v == null || v.isEmpty() ? defaultValue : Boolean.parseBoolean(v);
     }
 
     /**
