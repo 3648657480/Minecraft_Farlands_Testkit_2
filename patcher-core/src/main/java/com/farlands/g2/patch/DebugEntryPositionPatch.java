@@ -156,21 +156,21 @@ public final class DebugEntryPositionPatch implements ClassPatch {
         il.add(new InsnNode(Opcodes.DUP));
         il.add(new InsnNode(Opcodes.ICONST_0));
         il.add(new VarInsnNode(Opcodes.ALOAD, 6));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g1/runtime/F3Helper", "xyzLine",
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g2/runtime/F3Helper", "xyzLine",
             "(Lnet/minecraft/world/entity/Entity;)Ljava/lang/String;", false));
         il.add(new InsnNode(Opcodes.AASTORE));
         // 1: Block (real)
         il.add(new InsnNode(Opcodes.DUP));
         il.add(new InsnNode(Opcodes.ICONST_1));
         il.add(new VarInsnNode(Opcodes.ALOAD, 6));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g1/runtime/F3Helper", "blockLine",
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g2/runtime/F3Helper", "blockLine",
             "(Lnet/minecraft/world/entity/Entity;)Ljava/lang/String;", false));
         il.add(new InsnNode(Opcodes.AASTORE));
         // 2: Chunk (real)
         il.add(new InsnNode(Opcodes.DUP));
         il.add(new InsnNode(Opcodes.ICONST_2));
         il.add(new VarInsnNode(Opcodes.ALOAD, 6));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g1/runtime/F3Helper", "chunkLine",
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g2/runtime/F3Helper", "chunkLine",
             "(Lnet/minecraft/world/entity/Entity;)Ljava/lang/String;", false));
         il.add(new InsnNode(Opcodes.AASTORE));
         // 3: Facing
@@ -201,7 +201,7 @@ public final class DebugEntryPositionPatch implements ClassPatch {
         il.add(new VarInsnNode(Opcodes.ALOAD, 5));
         il.add(new VarInsnNode(Opcodes.ALOAD, 2));
         il.add(new VarInsnNode(Opcodes.ALOAD, 6));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g1/runtime/F3Helper", "extraLines",
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g2/runtime/F3Helper", "extraLines",
             "(Lnet/minecraft/client/Minecraft;Lnet/minecraft/world/level/Level;"
                 + "Lnet/minecraft/world/entity/Entity;)Ljava/util/List;", false));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/util/ArrayList", "addAll",
@@ -248,7 +248,7 @@ public final class DebugEntryPositionPatch implements ClassPatch {
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/world/entity/Entity",
             axis == 0 ? "getX" : axis == 1 ? "getY" : "getZ", "()D", false));
         if (axis != 1) {
-            il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g1/util/FarProjection",
+            il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g2/util/FarProjection",
                 axis == 0 ? "displayX" : "displayZ", "(D)D", false));
         }
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Double", "valueOf",
@@ -380,7 +380,7 @@ public final class DebugEntryPositionPatch implements ClassPatch {
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/world/entity/Entity",
             axis == 0 ? "getX" : axis == 1 ? "getY" : "getZ", "()D", false));
         if (axis != 1) {
-            il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g1/util/FarProjection",
+            il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g2/util/FarProjection",
                 axis == 0 ? "displayX" : "displayZ", "(D)D", false));
         }
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Math", "floor", "(D)D", false));
@@ -394,7 +394,7 @@ public final class DebugEntryPositionPatch implements ClassPatch {
         il.add(new VarInsnNode(Opcodes.ALOAD, 6));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/world/entity/Entity",
             axis == 0 ? "getX" : "getZ", "()D", false));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g1/util/FarProjection",
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g2/util/FarProjection",
             axis == 0 ? "displayX" : "displayZ", "(D)D", false));
         il.add(new LdcInsnNode(16.0));
         il.add(new InsnNode(Opcodes.DDIV));

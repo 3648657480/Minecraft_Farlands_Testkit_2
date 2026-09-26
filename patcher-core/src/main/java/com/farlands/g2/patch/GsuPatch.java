@@ -30,7 +30,7 @@ import org.objectweb.asm.tree.VarInsnNode;
 public final class GsuPatch implements ClassPatch {
 
     private static final String TARGET = "net/minecraft/client/renderer/GlobalSettingsUniform";
-    private static final String HELPER = "com/farlands/g1/runtime/GsuHelper";
+    private static final String HELPER = "com/farlands/g2/runtime/GsuHelper";
     private static final String UPDATE_DESC =
         "(IIDJLnet/minecraft/client/DeltaTracker;ILnet/minecraft/world/phys/Vec3;Z)V";
 

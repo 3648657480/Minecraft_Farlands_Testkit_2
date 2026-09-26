@@ -6,10 +6,11 @@ param(
     [Parameter(Mandatory = $true)][string]$TestGen,
     [string]$SpawnSet = "",
     [string]$TestSpawn = "",
+    [string]$Dim = "",
     [int]$TimeoutMin = 12
 )
 
-$root = "C:\Project-G1"
+$root = "C:\Project-G2"
 $log = "C:\Users\EASON\AppData\Local\Temp\opencode\server-$Tag.log"
 Remove-Item $log -ErrorAction SilentlyContinue
 Remove-Item "$root\mod\run\world" -Recurse -Force -ErrorAction SilentlyContinue
@@ -18,8 +19,10 @@ $spawnArg = ""
 if ($SpawnSet -ne "") { $spawnArg = " -Dfarlands.spawnset=$SpawnSet" }
 $spawnSearchArg = ""
 if ($TestSpawn -ne "") { $spawnSearchArg = " -Dfarlands.testspawn=$TestSpawn" }
+$dimArg = ""
+if ($Dim -ne "") { $dimArg = " -Dfarlands.testgen.dim=$Dim" }
 
-$cmd = "cd /d $root && .\gradlew.bat -Dfarlands.wide=$Wide -Dfarlands.continuity=$Continuity -Dfarlands.epoch=$Epoch -Dfarlands.testgen=$TestGen$spawnArg$spawnSearchArg :mod:runServer --no-daemon -q > `"$log`" 2>&1"
+$cmd = "cd /d $root && .\gradlew.bat -Dfarlands.wide=$Wide -Dfarlands.continuity=$Continuity -Dfarlands.epoch=$Epoch -Dfarlands.testgen=$TestGen$spawnArg$spawnSearchArg$dimArg :mod:runServer --no-daemon -q > `"$log`" 2>&1"
 $proc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $cmd" -WindowStyle Hidden -PassThru
 
 $deadline = (Get-Date).AddMinutes($TimeoutMin)

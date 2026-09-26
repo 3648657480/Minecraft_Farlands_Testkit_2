@@ -7,7 +7,7 @@ param(
     [int]$TimeoutMin = 10
 )
 
-$root = "C:\Project-G1"
+$root = "C:\Project-G2"
 $log = "C:\Users\EASON\AppData\Local\Temp\opencode\server-$Tag.log"
 Remove-Item $log -ErrorAction SilentlyContinue
 

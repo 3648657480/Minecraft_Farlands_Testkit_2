@@ -26,10 +26,24 @@ public final class AquiferContextPatch implements ClassPatch {
 
     private static final Set<String> TARGETS = Set.of(
         "net/minecraft/world/level/levelgen/Aquifer$NoiseBasedAquifer",
-        "net/minecraft/world/level/levelgen/NoiseChunk"
+        "net/minecraft/world/level/levelgen/NoiseChunk",
+        // B line: biome climate noise (temperature/humidity/continentalness/...) is
+        // sampled through a SinglePointContext built from the LOCAL block coords, so
+        // biomes repeat with the local window at far coordinates. Routing it through
+        // RealContext makes the biome noise use the real coordinate too.
+        "net/minecraft/world/level/biome/Climate$Sampler",
+        // B line: FindTopSurface rebuilds an inner context from context.blockX()/blockZ()
+        // (int, local), throwing away the real coordinate the outer context carried.
+        "net/minecraft/world/level/levelgen/DensityFunctions$FindTopSurface",
+        // B line: the carver asks the aquifer for the substance at each carved block
+        // through a SinglePointContext (local) -> cave fluid uses local noise.
+        "net/minecraft/world/level/levelgen/carver/WorldCarver",
+        // B line: The End's biome source samples erosion through a SinglePointContext
+        // (local) built from the weird-section block coords.
+        "net/minecraft/world/level/biome/TheEndBiomeSource"
     );
     private static final String FROM = "net/minecraft/world/level/levelgen/DensityFunction$SinglePointContext";
-    private static final String TO = "com/farlands/g1/runtime/RealContext";
+    private static final String TO = "com/farlands/g2/runtime/RealContext";
 
     @Override
     public boolean matches(String internalName) {
@@ -57,7 +71,7 @@ public final class AquiferContextPatch implements ClassPatch {
                     && "net/minecraft/world/level/levelgen/PositionalRandomFactory".equals(mi.owner)
                     && "at".equals(mi.name) && "(III)Lnet/minecraft/util/RandomSource;".equals(mi.desc)) {
                     mi.setOpcode(Opcodes.INVOKESTATIC);
-                    mi.owner = "com/farlands/g1/runtime/FarAquiferHelper";
+                    mi.owner = "com/farlands/g2/runtime/FarAquiferHelper";
                     mi.itf = false;
                     mi.desc = "(Lnet/minecraft/world/level/levelgen/PositionalRandomFactory;III)Lnet/minecraft/util/RandomSource;";
                     changed = true;

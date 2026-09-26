@@ -332,7 +332,7 @@ public final class FarConfig {
         try {
             StringBuilder sb = new StringBuilder();
             sb.append("# ============================================================\n");
-            sb.append("#  FarLands G2 - GLOBAL TEMPLATE\n");
+            sb.append("#  FarLands G1 - GLOBAL TEMPLATE\n");
             sb.append("#  Defaults for NEW worlds. Edit this file before creating a\n");
             sb.append("#  world (or use the FarLands tabs on the create-world screen).\n");
             sb.append("#  Per-world farlands.properties overrides this once created.\n");
@@ -396,7 +396,7 @@ public final class FarConfig {
         try {
             StringBuilder sb = new StringBuilder();
             sb.append("# ============================================================\n");
-            sb.append("#  FarLands G2 - world configuration\n");
+            sb.append("#  FarLands G1 - world configuration\n");
             sb.append("#  Edit values, then re-enter the world (some need a restart).\n");
             sb.append("#  JVM flags override this file: -Dfarlands.<key>=<value>\n");
             sb.append("# ============================================================\n");

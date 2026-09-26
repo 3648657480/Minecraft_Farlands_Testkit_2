@@ -6,10 +6,11 @@ param(
     [string]$Wide = "true",
     [string]$Continuity = "true",
     [string]$Epoch = "true",
-    [int]$Settle = 200,
-    [int]$Delay = 0,
-    [int]$BgThreads = 0,
+    [int]$Settle = 400,
+    [int]$Delay = 300,
+    [int]$BgThreads = 1,
     [string]$Extra = "",
+    [string]$Dim = "",
     [int]$TimeoutMin = 15
 )
 
@@ -18,7 +19,7 @@ param(
 # The world is deleted first so the run starts from a clean generation.
 # Rig=mod runs the patched dev server (subject); Rig=vanilla runs the
 # unpatched harness server (reference). Both use the same testgen protocol.
-$root = "C:\Project-G1"
+$root = "C:\Project-G2"
 if ($Rig -eq "vanilla") {
     $runDir = "$root\vanilla-rig\run"
     $task = ":vanilla-rig:runServer"
@@ -32,7 +33,9 @@ Remove-Item "$runDir\world" -Recurse -Force -ErrorAction SilentlyContinue
 
 $bgArg = ""
 if ($BgThreads -gt 0) { $bgArg = " -Dmax.bg.threads=$BgThreads" }
-$cmd = "cd /d $root && .\gradlew.bat -Dfarlands.wide=$Wide -Dfarlands.continuity=$Continuity -Dfarlands.epoch=$Epoch -Dfarlands.testgen=$TestGen -Dfarlands.testgen.stop=true -Dfarlands.testgen.settle=$Settle -Dfarlands.testgen.delay=$Delay$bgArg $Extra $task --no-daemon -q > `"$log`" 2>&1"
+$dimArg = ""
+if ($Dim -ne "") { $dimArg = " -Dfarlands.testgen.dim=$Dim" }
+$cmd = "cd /d $root && .\gradlew.bat -Dfarlands.wide=$Wide -Dfarlands.continuity=$Continuity -Dfarlands.epoch=$Epoch -Dfarlands.testgen=$TestGen -Dfarlands.testgen.stop=true -Dfarlands.testgen.settle=$Settle -Dfarlands.testgen.delay=$Delay$bgArg$dimArg $Extra $task --no-daemon -q > `"$log`" 2>&1"
 $proc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $cmd" -WindowStyle Hidden -PassThru
 
 $deadline = (Get-Date).AddMinutes($TimeoutMin)

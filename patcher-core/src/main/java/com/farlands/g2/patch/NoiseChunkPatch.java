@@ -139,12 +139,12 @@ public final class NoiseChunkPatch implements ClassPatch {
         // publish the generation origin for origin-aware unwrap
         il.add(new VarInsnNode(Opcodes.LLOAD, 9));
         il.add(new VarInsnNode(Opcodes.LLOAD, 11));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g1/util/FarProjection",
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g2/util/FarProjection",
             "setGenerationOrigin", "(JJ)V", false));
         // freeze the coordinate domain at chunk construction
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g1/util/FarProjection",
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g2/util/FarProjection",
             "isEpochActive", "()Z", false));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g1/util/FarProjection",
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g2/util/FarProjection",
             "setGenerationEpochCells", "(Z)V", false));
         // construct
         il.add(new org.objectweb.asm.tree.TypeInsnNode(Opcodes.NEW, TARGET));

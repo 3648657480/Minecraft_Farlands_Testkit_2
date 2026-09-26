@@ -54,7 +54,7 @@ public final class Vec3iPatch implements ClassPatch {
         } else {
             // collision-domain accessor: local when the epoch is active,
             // legacy unsigned fallback otherwise (see FarProjection)
-            il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g1/util/FarProjection",
+            il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g2/util/FarProjection",
                 "collision" + field.toUpperCase(), "(I)D", false));
         }
         il.add(new InsnNode(Opcodes.DRETURN));

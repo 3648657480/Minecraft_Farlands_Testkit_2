@@ -54,7 +54,7 @@ public final class WorldDraft {
         }
         try {
             StringBuilder sb = new StringBuilder();
-            sb.append("# FarLands G2 - world configuration (set on the create-world screen)\n");
+            sb.append("# FarLands G1 - world configuration (set on the create-world screen)\n");
             sb.append("# Edit this file and re-enter the world; see docs/CONFIG.md.\n");
             for (String key : KEYS) {
                 String v = draft.getProperty(key);

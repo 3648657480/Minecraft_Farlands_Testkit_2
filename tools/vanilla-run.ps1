@@ -9,7 +9,7 @@ param(
 # F0-2 reference rig runner: starts the no-mod/no-patch dev server, forces the
 # fixed chunk set via RCON (forceload), settles, saves, stops, then moves the
 # world into the evidence directory. Always single-threaded (deterministic).
-$root = "C:\Project-G1"
+$root = "C:\Project-G2"
 $log = "C:\Users\EASON\AppData\Local\Temp\opencode\vanilla-$Tag.log"
 $RconPort = 25575
 $RconPassword = "farlands"
