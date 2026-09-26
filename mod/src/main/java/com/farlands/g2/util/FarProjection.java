@@ -222,13 +222,17 @@ public final class FarProjection {
      * collision). Unsigned handling belongs to the E line (beyond 2^31).</p>
      */
     public static double unwrapX(int v) {
-        Boolean epochCells = GENERATION_EPOCH_CELLS.get();
-        if (epochCells != null && epochCells && isEpochActive()) {
-            return applySamplePolicy(epochBlockX + (double) v, 0);
-        }
+        // G2 wide route first: when generation carries a far real origin, the
+        // wrapped value is interpreted relative to it. The epoch branch (an
+        // OFFSET applied to a small local origin) only applies when the wide
+        // origin is near 0, so it never shadows the real domain.
         Long origin = ORIGIN_X.get();
         if (origin != null && (origin < -100_000_000L || origin > 100_000_000L)) {
             return applySamplePolicy((double) (origin + (v - (int) (long) origin)), 0);
+        }
+        Boolean epochCells = GENERATION_EPOCH_CELLS.get();
+        if (epochCells != null && epochCells && isEpochActive()) {
+            return applySamplePolicy(epochBlockX + (double) v, 0);
         }
         if (isEpochActive()) {
             return applySamplePolicy(epochBlockX + (double) v, 0);
@@ -237,13 +241,13 @@ public final class FarProjection {
     }
 
     public static double unwrapZ(int v) {
-        Boolean epochCells = GENERATION_EPOCH_CELLS.get();
-        if (epochCells != null && epochCells && isEpochActive()) {
-            return applySamplePolicy((double) epochBlockZ + (double) v, 1);
-        }
         Long origin = ORIGIN_Z.get();
         if (origin != null && (origin < -100_000_000L || origin > 100_000_000L)) {
             return applySamplePolicy((double) (origin + (v - (int) (long) origin)), 1);
+        }
+        Boolean epochCells = GENERATION_EPOCH_CELLS.get();
+        if (epochCells != null && epochCells && isEpochActive()) {
+            return applySamplePolicy((double) epochBlockZ + (double) v, 1);
         }
         if (isEpochActive()) {
             return applySamplePolicy((double) epochBlockZ + (double) v, 1);

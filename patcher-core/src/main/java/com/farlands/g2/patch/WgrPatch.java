@@ -25,10 +25,10 @@ import org.objectweb.asm.tree.VarInsnNode;
  * {@code MineshaftPieces.isInInvalidLocation} querying a biome outside the
  * region) then crashes chunk generation.</p>
  *
- * <p>The fix rewrites the throw path: while the epoch is active, an unavailable
- * chunk returns the region's center chunk (same degradation the fork build uses
- * beyond 134M) instead of throwing. With the epoch dormant, vanilla behavior is
- * unchanged.</p>
+ * <p>The fix rewrites the throw path: while the real-coordinate engine is
+ * active (always, in G2), an unavailable chunk returns the region's center
+ * chunk (same degradation the fork build uses beyond 134M) instead of throwing.
+ * Only jars without the projection take the original path.</p>
  */
 public final class WgrPatch implements ClassPatch {
 
@@ -64,7 +64,7 @@ public final class WgrPatch implements ClassPatch {
         // made the old check think the class was always already patched.)
         for (AbstractInsnNode n : getChunk.instructions) {
             if (n instanceof MethodInsnNode mi && mi.getOpcode() == Opcodes.INVOKESTATIC
-                && PROJECTION.equals(mi.owner) && "isEpochActive".equals(mi.name)) {
+                && PROJECTION.equals(mi.owner) && "isFarEngine".equals(mi.name)) {
                 return original; // already patched
             }
         }
@@ -81,10 +81,10 @@ public final class WgrPatch implements ClassPatch {
             throw new IllegalStateException(TARGET + ": IllegalStateException throw site not found");
         }
 
-        // Epoch active -> return this.center instead of throwing.
+        // Real-coordinate engine -> return this.center instead of throwing.
         LabelNode doThrow = new LabelNode();
         InsnList guard = new InsnList();
-        guard.add(new MethodInsnNode(Opcodes.INVOKESTATIC, PROJECTION, "isEpochActive", "()Z", false));
+        guard.add(new MethodInsnNode(Opcodes.INVOKESTATIC, PROJECTION, "isFarEngine", "()Z", false));
         guard.add(new JumpInsnNode(Opcodes.IFEQ, doThrow));
         guard.add(new VarInsnNode(Opcodes.ALOAD, 0));
         guard.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "center",
