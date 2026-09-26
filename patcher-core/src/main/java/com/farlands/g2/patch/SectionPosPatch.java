@@ -8,7 +8,9 @@ import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.LdcInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.TypeInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
 
 /**
@@ -78,9 +80,34 @@ public final class SectionPosPatch implements ClassPatch {
             add(new InsnNode(Opcodes.LRETURN));
         }});
 
+        // SectionPos extends Vec3i, whose fields Vec3iPatch widened to long with
+        // getLongX/Y/Z(). Vanilla origin() = sectionToBlockCoord(x()) = (int)s<<4,
+        // which wraps to Integer.MIN_VALUE at section 2^27 (block 2^31). Derive
+        // the block corner from the wide section coords instead. center() builds
+        // on origin() and BlockPos.offset (already widened), so it inherits this.
+        rewrite(node, "origin", "()Lnet/minecraft/core/BlockPos;", wideOrigin());
+
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
         return cw.toByteArray();
+    }
+
+    /** {@code new BlockPos(getLongX()<<4, getLongY()<<4, getLongZ()<<4)} (wide corner). */
+    private static InsnList wideOrigin() {
+        InsnList il = new InsnList();
+        il.add(new TypeInsnNode(Opcodes.NEW, "net/minecraft/core/BlockPos"));
+        il.add(new InsnNode(Opcodes.DUP));
+        for (String axis : new String[]{"X", "Y", "Z"}) {
+            il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Vec3i",
+                "getLong" + axis, "()J", false));
+            il.add(new IntInsnNode(Opcodes.BIPUSH, 4));
+            il.add(new InsnNode(Opcodes.LSHL));
+        }
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, "net/minecraft/core/BlockPos",
+            "<init>", "(JJJ)V", false));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return il;
     }
 
     private static InsnList pack() {
