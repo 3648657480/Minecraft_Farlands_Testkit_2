@@ -59,6 +59,7 @@ public final class Vec3iWidePatch implements ClassPatch {
         }
 
         addLongAccessors(node);
+        addLongSetters(node);
         widenArithmetic(node);
 
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
@@ -75,6 +76,28 @@ public final class Vec3iWidePatch implements ClassPatch {
             mn.instructions.add(new VarInsnNode(Opcodes.ALOAD, 0));
             mn.instructions.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, axis.toLowerCase(), "J"));
             mn.instructions.add(new InsnNode(Opcodes.LRETURN));
+            node.methods.add(mn);
+        }
+    }
+
+    /**
+     * Long-domain setters for the widened private fields. These must be added
+     * after the field-widening pass so their {@code PUTFIELD} already carries
+     * the {@code J} descriptor and is not rewritten again. Consumers that must
+     * store a coordinate that does not fit an int (e.g. the ore vein loop at
+     * block 2^31) use these to write the wide value directly.
+     */
+    private static void addLongSetters(ClassNode node) {
+        if (node.methods.stream().anyMatch(m -> "setLongX".equals(m.name))) {
+            return;
+        }
+        for (String axis : new String[]{"X", "Y", "Z"}) {
+            MethodNode mn = new MethodNode(Opcodes.ACC_PUBLIC, "setLong" + axis, "(J)Lnet/minecraft/core/Vec3i;", null, null);
+            mn.instructions.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            mn.instructions.add(new VarInsnNode(Opcodes.LLOAD, 1));
+            mn.instructions.add(new FieldInsnNode(Opcodes.PUTFIELD, TARGET, axis.toLowerCase(), "J"));
+            mn.instructions.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            mn.instructions.add(new InsnNode(Opcodes.ARETURN));
             node.methods.add(mn);
         }
     }

@@ -64,6 +64,19 @@ public final class BoundingBoxPatch implements ClassPatch {
         rewrite(node, "getCenter", "()Lnet/minecraft/core/BlockPos;", center());
         rewrite(node, "getLength", "()Lnet/minecraft/core/Vec3i;", length());
 
+        // fromCorners builds a box from two Vec3i corners. At 2^31 the int
+        // getX/getZ wrap and place the two (in truth adjacent) corners on
+        // opposite sides of zero, producing a box spanning ~4.3 billion blocks
+        // (e.g. UnderwaterMagmaFeature iterates it and spins). Compute the
+        // extremes in the wide domain and clamp into the same int-safe range
+        // the accessors already use; at normal coordinates getLongX == getX so
+        // the result is identical. Only meaningful when Vec3i is widened.
+        if (FarLandsPatcher.flag("farlands.wide", true)) {
+            rewrite(node, "fromCorners",
+                "(Lnet/minecraft/core/Vec3i;Lnet/minecraft/core/Vec3i;)L" + TARGET + ";",
+                fromCornersWide());
+        }
+
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
         return cw.toByteArray();
@@ -184,6 +197,43 @@ public final class BoundingBoxPatch implements ClassPatch {
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Math", "clamp", "(JII)I", false));
     }
 
+    /** Wide-safe {@code fromCorners}: min/max in long, clamped to the int-safe XZ range. */
+    private static InsnList fromCornersWide() {
+        InsnList il = new InsnList();
+        il.add(new TypeInsnNode(Opcodes.NEW, TARGET));
+        il.add(new InsnNode(Opcodes.DUP));
+        cornerAxis(il, "X", true);   // minX
+        cornerY(il, true);                 // minY
+        cornerAxis(il, "Z", true);   // minZ
+        cornerAxis(il, "X", false);  // maxX
+        cornerY(il, false);                // maxY
+        cornerAxis(il, "Z", false);  // maxZ
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TARGET, "<init>", "(IIIIII)V", false));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return il;
+    }
+
+    /** X/Z are read via {@code getLongX/Z} and clamped into the int-safe range. */
+    private static void cornerAxis(InsnList il, String axis, boolean min) {
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Vec3i", "getLong" + axis, "()J", false));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Vec3i", "getLong" + axis, "()J", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Math", min ? "min" : "max", "(JJ)J", false));
+        il.add(new LdcInsnNode(-2_117_483_648L));
+        il.add(new LdcInsnNode(2_117_483_647L));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Math", "clamp", "(JJJ)J", false));
+        il.add(new InsnNode(Opcodes.L2I));
+    }
+
+    private static void cornerY(InsnList il, boolean min) {
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Vec3i", "getY", "()I", false));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Vec3i", "getY", "()I", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Math", min ? "min" : "max", "(II)I", false));
+    }
+
     private static InsnList length() {
         InsnList il = new InsnList();
         il.add(new TypeInsnNode(Opcodes.NEW, "net/minecraft/core/Vec3i"));
@@ -207,3 +257,4 @@ public final class BoundingBoxPatch implements ClassPatch {
         il.add(new InsnNode(Opcodes.L2I));
     }
 }
+

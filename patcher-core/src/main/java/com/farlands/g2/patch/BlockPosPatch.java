@@ -22,16 +22,29 @@ import org.objectweb.asm.tree.VarInsnNode;
 public final class BlockPosPatch implements ClassPatch {
 
     private static final String TARGET = "net/minecraft/core/BlockPos";
+    private static final String MUTABLE = "net/minecraft/core/BlockPos$MutableBlockPos";
 
     @Override
     public boolean matches(String internalName) {
-        return TARGET.equals(internalName);
+        return TARGET.equals(internalName) || MUTABLE.equals(internalName);
     }
 
     @Override
     public byte[] apply(byte[] original) {
         ClassNode node = new ClassNode();
         new ClassReader(original).accept(node, 0);
+
+        if (MUTABLE.equals(node.name)) {
+            // Reused-position setter in the long domain: store the three wide
+            // fields directly. The inherited BlockPos(JJJ) constructor exists,
+            // but the mutable must be updated in place.
+            if (find(node, "set", "(JJJ)Lnet/minecraft/core/BlockPos$MutableBlockPos;") == null) {
+                node.methods.add(longSetter());
+            }
+            ClassWriter mw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
+            node.accept(mw);
+            return mw.toByteArray();
+        }
 
         if (find(node, "<init>", "(JJJ)V") != null) {
             return original;
@@ -51,6 +64,33 @@ public final class BlockPosPatch implements ClassPatch {
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
         return cw.toByteArray();
+    }
+
+    /**
+     * {@code MutableBlockPos.set(long,long,long)}: writes the three widened
+     * {@code Vec3i} fields through {@code Vec3i.setLongX/Y/Z}. The int
+     * {@code set(III)} keeps its wrap semantics; this is the wide path used by
+     * the ore vein loop.
+     */
+    private static MethodNode longSetter() {
+        MethodNode mn = new MethodNode(Opcodes.ACC_PUBLIC, "set",
+            "(JJJ)Lnet/minecraft/core/BlockPos$MutableBlockPos;", null, null);
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Vec3i", "setLongX", "(J)Lnet/minecraft/core/Vec3i;", false));
+        il.add(new InsnNode(Opcodes.POP));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 3));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Vec3i", "setLongY", "(J)Lnet/minecraft/core/Vec3i;", false));
+        il.add(new InsnNode(Opcodes.POP));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 5));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Vec3i", "setLongZ", "(J)Lnet/minecraft/core/Vec3i;", false));
+        il.add(new InsnNode(Opcodes.POP));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return mn;
     }
 
     private static MethodNode longConstructor() {
