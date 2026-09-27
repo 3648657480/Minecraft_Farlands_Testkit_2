@@ -14,21 +14,34 @@ import org.objectweb.asm.tree.TypeInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
 
 /**
- * Repacks {@code SectionPos.asLong} from 22+22+20 bits to 27+27+10 bits
- * (x: bits 37-63, z: bits 10-36, y: bits 0-9).
+ * Repacks {@code SectionPos.asLong} from 22+22+20 bits to 29+29+6 bits
+ * (x: bits 35-63, z: bits 6-34, y: bits 0-5).
  *
- * <p>The packed key is only produced and consumed through the SectionPos
- * accessors, so the layout change is transparent to the whole game. It
- * extends the section-key addressing from 2^22 sections (67M blocks) to
- * 2^26 sections (1.07G blocks), and aligns the key wrap exactly with the
- * +/-2^31 block boundary of the int domain. Y keeps 10 bits (+/-512
- * sections, far beyond any world height).</p>
+ * <p>27+27+10 was still one bit too small: the 2^31 block boundary is section
+ * 2^27, and a signed 27-bit section field can only hold -2^26..2^26-1, so
+ * section 2^27-1 aliased to -1. The lossy key collided for exactly the chunks
+ * the boundary test generates (134217727 = 2^27-1), corrupting section
+ * caches (BulkSectionAccess), lighting storage and everything keyed on the
+ * packed long. 29 bits hold -2^28..2^28-1 sections (-4.29G..+4.29G blocks),
+ * i.e. the whole int block domain with room past 2^31; the 6-bit y covers
+ * -32..31 sections (-512..496 blocks), far beyond any world height.</p>
+ *
+ * <p>Because every producer and consumer of the packed long goes through the
+ * {@code asLong/x(J)/y(J)/z(J)} accessors, the layout change is opaque. The
+ * remaining int-shaped producers ({@code asLong(BlockPos)},
+ * {@code blockToSectionCoord}) are reworked to read the wide block fields so
+ * the key no longer aliases at the boundary.</p>
  */
 public final class SectionPosPatch implements ClassPatch {
 
     private static final String TARGET = "net/minecraft/core/SectionPos";
-    private static final long X_MASK = 0x7FFFFFFL; // 27 bits
-    private static final long Y_MASK = 0x3FFL;     // 10 bits
+    private static final String BLOCKPOS = "net/minecraft/core/BlockPos";
+    private static final String VEC3I = "net/minecraft/core/Vec3i";
+    private static final long X_MASK = 0x1FFFFFFFL; // 29 bits
+    private static final long Y_MASK = 0x3FL;       // 6 bits
+    private static final int X_SHIFT = 35;
+    private static final int Z_SHIFT = 6;
+    private static final int Y_SHIFT = 0;
 
     @Override
     public boolean matches(String internalName) {
@@ -47,35 +60,36 @@ public final class SectionPosPatch implements ClassPatch {
                 "farlands$wrap", "I", null, 134217728));
         }
 
-        rewrite(node, "asLong", "(III)J", pack());        rewrite(node, "x", "(J)I", new InsnList() {{
+        rewrite(node, "asLong", "(III)J", pack());
+        rewrite(node, "x", "(J)I", new InsnList() {{
             add(new VarInsnNode(Opcodes.LLOAD, 0));
-            add(new IntInsnNode(Opcodes.BIPUSH, 37));
+            add(new IntInsnNode(Opcodes.BIPUSH, X_SHIFT));
             add(new InsnNode(Opcodes.LSHR));
             add(new InsnNode(Opcodes.L2I));
             add(new InsnNode(Opcodes.IRETURN));
         }});
         rewrite(node, "z", "(J)I", new InsnList() {{
             add(new VarInsnNode(Opcodes.LLOAD, 0));
-            add(new IntInsnNode(Opcodes.BIPUSH, 27));
+            add(new IntInsnNode(Opcodes.BIPUSH, 64 - X_SHIFT));
             add(new InsnNode(Opcodes.LSHL));
-            add(new IntInsnNode(Opcodes.BIPUSH, 37));
+            add(new IntInsnNode(Opcodes.BIPUSH, X_SHIFT));
             add(new InsnNode(Opcodes.LSHR));
             add(new InsnNode(Opcodes.L2I));
             add(new InsnNode(Opcodes.IRETURN));
         }});
         rewrite(node, "y", "(J)I", new InsnList() {{
             add(new VarInsnNode(Opcodes.LLOAD, 0));
-            add(new IntInsnNode(Opcodes.BIPUSH, 54));
+            add(new IntInsnNode(Opcodes.BIPUSH, 64 - Z_SHIFT));
             add(new InsnNode(Opcodes.LSHL));
-            add(new IntInsnNode(Opcodes.BIPUSH, 54));
+            add(new IntInsnNode(Opcodes.BIPUSH, 64 - Z_SHIFT));
             add(new InsnNode(Opcodes.LSHR));
             add(new InsnNode(Opcodes.L2I));
             add(new InsnNode(Opcodes.IRETURN));
         }});
-        // column key: zero the y bits (bits 0-9 in the widened layout)
+        // column key: zero the y bits (bits 0..5 in the widened layout)
         rewrite(node, "getZeroNode", "(J)J", new InsnList() {{
             add(new VarInsnNode(Opcodes.LLOAD, 0));
-            add(new LdcInsnNode(-1024L));
+            add(new LdcInsnNode(-64L));
             add(new InsnNode(Opcodes.LAND));
             add(new InsnNode(Opcodes.LRETURN));
         }});
@@ -87,25 +101,69 @@ public final class SectionPosPatch implements ClassPatch {
         // on origin() and BlockPos.offset (already widened), so it inherits this.
         rewrite(node, "origin", "()Lnet/minecraft/core/BlockPos;", wideOrigin());
 
+        // asLong(BlockPos) was the one producer still reading the wrapped int
+        // view; derive the section coords from the wide block fields.
+        rewrite(node, "asLong", "(Lnet/minecraft/core/BlockPos;)J", asLongBlockPos());
+
+        // Wide section-coord decode used by consumers that must not wrap at
+        // block 2^31 (e.g. BulkSectionAccess resolving the owning chunk).
+        if (!hasLongBlockToSection(node)) {
+            node.methods.add(longBlockToSection());
+        }
+
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
         return cw.toByteArray();
     }
 
+    private static boolean hasLongBlockToSection(ClassNode node) {
+        return node.methods.stream().anyMatch(m -> "blockToSectionCoord".equals(m.name) && "(J)I".equals(m.desc));
+    }
+
+    /** {@code (int)(blockX >> 4)} in the wide domain (floor division by 16). */
+    private static MethodNode longBlockToSection() {
+        MethodNode mn = new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "blockToSectionCoord", "(J)I", null, null);
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.LLOAD, 0));
+        il.add(new IntInsnNode(Opcodes.BIPUSH, 4));
+        il.add(new InsnNode(Opcodes.LSHR));
+        il.add(new InsnNode(Opcodes.L2I));
+        il.add(new InsnNode(Opcodes.IRETURN));
+        return mn;
+    }
+
+    /**
+     * {@code asLong((int)(getLongX()>>4), (int)(getLongY()>>4), (int)(getLongZ()>>4))}
+     * - every axis converted from block to section coordinates in the wide
+     * domain. The section coords fit an int for the whole int block domain
+     * (and past 2^31 in the wide fields), so the packed key is exact.
+     */
+    private static InsnList asLongBlockPos() {
+        InsnList il = new InsnList();
+        for (String axis : new String[]{"X", "Y", "Z"}) {
+            il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLong" + axis, "()J", false));
+            il.add(new IntInsnNode(Opcodes.BIPUSH, 4));
+            il.add(new InsnNode(Opcodes.LSHR));
+            il.add(new InsnNode(Opcodes.L2I));
+        }
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "asLong", "(III)J", false));
+        il.add(new InsnNode(Opcodes.LRETURN));
+        return il;
+    }
+
     /** {@code new BlockPos(getLongX()<<4, getLongY()<<4, getLongZ()<<4)} (wide corner). */
     private static InsnList wideOrigin() {
         InsnList il = new InsnList();
-        il.add(new TypeInsnNode(Opcodes.NEW, "net/minecraft/core/BlockPos"));
+        il.add(new TypeInsnNode(Opcodes.NEW, BLOCKPOS));
         il.add(new InsnNode(Opcodes.DUP));
         for (String axis : new String[]{"X", "Y", "Z"}) {
             il.add(new VarInsnNode(Opcodes.ALOAD, 0));
-            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Vec3i",
-                "getLong" + axis, "()J", false));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLong" + axis, "()J", false));
             il.add(new IntInsnNode(Opcodes.BIPUSH, 4));
             il.add(new InsnNode(Opcodes.LSHL));
         }
-        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, "net/minecraft/core/BlockPos",
-            "<init>", "(JJJ)V", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, BLOCKPOS, "<init>", "(JJJ)V", false));
         il.add(new InsnNode(Opcodes.ARETURN));
         return il;
     }
@@ -114,13 +172,13 @@ public final class SectionPosPatch implements ClassPatch {
         InsnList il = new InsnList();
         il.add(new InsnNode(Opcodes.LCONST_0));
         il.add(new VarInsnNode(Opcodes.LSTORE, 3));
-        // x << 37
+        // x << 35
         il.add(new VarInsnNode(Opcodes.LLOAD, 3));
         il.add(new VarInsnNode(Opcodes.ILOAD, 0));
         il.add(new InsnNode(Opcodes.I2L));
         il.add(new LdcInsnNode(X_MASK));
         il.add(new InsnNode(Opcodes.LAND));
-        il.add(new IntInsnNode(Opcodes.BIPUSH, 37));
+        il.add(new IntInsnNode(Opcodes.BIPUSH, X_SHIFT));
         il.add(new InsnNode(Opcodes.LSHL));
         il.add(new InsnNode(Opcodes.LOR));
         il.add(new VarInsnNode(Opcodes.LSTORE, 3));
@@ -132,13 +190,13 @@ public final class SectionPosPatch implements ClassPatch {
         il.add(new InsnNode(Opcodes.LAND));
         il.add(new InsnNode(Opcodes.LOR));
         il.add(new VarInsnNode(Opcodes.LSTORE, 3));
-        // z << 10
+        // z << 6
         il.add(new VarInsnNode(Opcodes.LLOAD, 3));
         il.add(new VarInsnNode(Opcodes.ILOAD, 2));
         il.add(new InsnNode(Opcodes.I2L));
         il.add(new LdcInsnNode(X_MASK));
         il.add(new InsnNode(Opcodes.LAND));
-        il.add(new IntInsnNode(Opcodes.BIPUSH, 10));
+        il.add(new IntInsnNode(Opcodes.BIPUSH, Z_SHIFT));
         il.add(new InsnNode(Opcodes.LSHL));
         il.add(new InsnNode(Opcodes.LOR));
         il.add(new VarInsnNode(Opcodes.LSTORE, 3));

@@ -7,6 +7,7 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.VarInsnNode;
@@ -23,6 +24,9 @@ public final class BlockPosPatch implements ClassPatch {
 
     private static final String TARGET = "net/minecraft/core/BlockPos";
     private static final String MUTABLE = "net/minecraft/core/BlockPos$MutableBlockPos";
+    private static final String VEC3I = "net/minecraft/core/Vec3i";
+    private static final String MUTABLE_RET = "Lnet/minecraft/core/BlockPos$MutableBlockPos;";
+    private static final String SET_LONG = "(JJJ)" + MUTABLE_RET;
 
     @Override
     public boolean matches(String internalName) {
@@ -38,28 +42,52 @@ public final class BlockPosPatch implements ClassPatch {
             // Reused-position setter in the long domain: store the three wide
             // fields directly. The inherited BlockPos(JJJ) constructor exists,
             // but the mutable must be updated in place.
-            if (find(node, "set", "(JJJ)Lnet/minecraft/core/BlockPos$MutableBlockPos;") == null) {
+            if (find(node, "set", SET_LONG) == null) {
                 node.methods.add(longSetter());
             }
+            // Route the value-producing mutators through the wide fields so a
+            // feature that derived a coordinate beyond the int range (e.g. a
+            // reach that crosses block 2^31) does not wrap before it is stored.
+            rewrite(node, "setWithOffset",
+                "(Lnet/minecraft/core/Vec3i;Lnet/minecraft/core/Direction;)" + MUTABLE_RET,
+                setWithOffsetDir());
+            rewrite(node, "setWithOffset",
+                "(Lnet/minecraft/core/Vec3i;III)" + MUTABLE_RET,
+                setWithOffsetInts());
+            rewrite(node, "setWithOffset",
+                "(Lnet/minecraft/core/Vec3i;Lnet/minecraft/core/Vec3i;)" + MUTABLE_RET,
+                setWithOffsetVec());
+            rewrite(node, "set", "(Lnet/minecraft/core/Vec3i;)" + MUTABLE_RET, setVec());
+            rewrite(node, "move", "(III)" + MUTABLE_RET, moveInts());
+            rewrite(node, "move", "(Lnet/minecraft/core/Direction;I)" + MUTABLE_RET, moveDir());
+            rewrite(node, "move", "(Lnet/minecraft/core/Vec3i;)" + MUTABLE_RET, moveVec());
             ClassWriter mw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
             node.accept(mw);
             return mw.toByteArray();
         }
 
-        if (find(node, "<init>", "(JJJ)V") != null) {
-            return original;
+        if (find(node, "<init>", "(JJJ)V") == null) {
+            node.methods.add(longConstructor());
+            rewrite(node, "offset", "(III)Lnet/minecraft/core/BlockPos;",
+                newInstance("offset", new int[]{0, 1, 2}));
+            rewrite(node, "multiply", "(I)Lnet/minecraft/core/BlockPos;",
+                newInstance("multiply", new int[]{0, 1, 2}));
+            rewrite(node, "subtract", "(Lnet/minecraft/core/Vec3i;)Lnet/minecraft/core/BlockPos;",
+                subtractBody());
+            rewrite(node, "relative", "(Lnet/minecraft/core/Direction;I)Lnet/minecraft/core/BlockPos;",
+                relativeBody());
+            rewrite(node, "cross", "(Lnet/minecraft/core/Vec3i;)Lnet/minecraft/core/BlockPos;",
+                crossBody());
         }
-        node.methods.add(longConstructor());
-        rewrite(node, "offset", "(III)Lnet/minecraft/core/BlockPos;",
-            newInstance("offset", new int[]{0, 1, 2}));
-        rewrite(node, "multiply", "(I)Lnet/minecraft/core/BlockPos;",
-            newInstance("multiply", new int[]{0, 1, 2}));
-        rewrite(node, "subtract", "(Lnet/minecraft/core/Vec3i;)Lnet/minecraft/core/BlockPos;",
-            subtractBody());
-        rewrite(node, "relative", "(Lnet/minecraft/core/Direction;I)Lnet/minecraft/core/BlockPos;",
-            relativeBody());
-        rewrite(node, "cross", "(Lnet/minecraft/core/Vec3i;)Lnet/minecraft/core/BlockPos;",
-            crossBody());
+        // betweenClosed(a, b) computes its extents with the int getters, so two
+        // corners that straddle block 2^31 (a = origin-r, b = origin+r with
+        // origin = 2^31) produce a span that overflows int and an iterator over
+        // billions of positions (DiskFeature spins until the watchdog kills the
+        // tick). Compute the extents in the wide domain and clamp to the int
+        // range; at normal coordinates this is identity.
+        rewrite(node, "betweenClosed",
+            "(Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/BlockPos;)Ljava/lang/Iterable;",
+            betweenClosedWide());
 
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
@@ -91,6 +119,146 @@ public final class BlockPosPatch implements ClassPatch {
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new InsnNode(Opcodes.ARETURN));
         return mn;
+    }
+
+    /**
+     * Builds {@code this.set(x, y, z)} where the three long values are pushed
+     * by the given emitters against {@code this} (slot 0).
+     */
+    private static InsnList setCall(AxisEmitter x, AxisEmitter y, AxisEmitter z) {
+        InsnList il = new InsnList();
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        x.emit(il);
+        y.emit(il);
+        z.emit(il);
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, MUTABLE, "set", SET_LONG, false));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return il;
+    }
+
+    @FunctionalInterface
+    private interface AxisEmitter {
+        void emit(InsnList il);
+    }
+
+    /** {@code v.getLongA() + delta} where delta is an int local / constant. */
+    private static AxisEmitter argLong(String axis, int slot) {
+        return il -> {
+            il.add(new VarInsnNode(Opcodes.ALOAD, slot));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLong" + axis, "()J", false));
+        };
+    }
+
+    private static AxisEmitter addInt(AxisEmitter base, int slot) {
+        return il -> {
+            base.emit(il);
+            il.add(new VarInsnNode(Opcodes.ILOAD, slot));
+            il.add(new InsnNode(Opcodes.I2L));
+            il.add(new InsnNode(Opcodes.LADD));
+        };
+    }
+
+    private static AxisEmitter addStep(AxisEmitter base, String stepAxis, int dirSlot, int amountSlot) {
+        return il -> {
+            base.emit(il);
+            il.add(new VarInsnNode(Opcodes.ALOAD, dirSlot));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Direction",
+                "getStep" + stepAxis, "()I", false));
+            il.add(new InsnNode(Opcodes.I2L));
+            il.add(new VarInsnNode(Opcodes.ILOAD, amountSlot));
+            il.add(new InsnNode(Opcodes.I2L));
+            il.add(new InsnNode(Opcodes.LMUL));
+            il.add(new InsnNode(Opcodes.LADD));
+        };
+    }
+
+    /** {@code base + direction.getStepA()} (single step, no distance). */
+    private static AxisEmitter addStepOnce(AxisEmitter base, String stepAxis, int dirSlot) {
+        return il -> {
+            base.emit(il);
+            il.add(new VarInsnNode(Opcodes.ALOAD, dirSlot));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Direction",
+                "getStep" + stepAxis, "()I", false));
+            il.add(new InsnNode(Opcodes.I2L));
+            il.add(new InsnNode(Opcodes.LADD));
+        };
+    }
+
+    private static InsnList setWithOffsetDir() {
+        return setCall(addStepOnce(argLong("X", 1), "X", 2),
+            addStepOnce(argLong("Y", 1), "Y", 2), addStepOnce(argLong("Z", 1), "Z", 2));
+    }
+
+    private static InsnList setWithOffsetInts() {
+        return setCall(addInt(argLong("X", 1), 2), addInt(argLong("Y", 1), 3),
+            addInt(argLong("Z", 1), 4));
+    }
+
+    private static InsnList setWithOffsetVec() {
+        return setCall(addVec(argLong("X", 1), "X", 2), addVec(argLong("Y", 1), "Y", 2),
+            addVec(argLong("Z", 1), "Z", 2));
+    }
+
+    private static AxisEmitter addVec(AxisEmitter base, String axis, int slot) {
+        return il -> {
+            base.emit(il);
+            il.add(new VarInsnNode(Opcodes.ALOAD, slot));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLong" + axis, "()J", false));
+            il.add(new InsnNode(Opcodes.LADD));
+        };
+    }
+
+    private static InsnList setVec() {
+        return setCall(argLong("X", 1), argLong("Y", 1), argLong("Z", 1));
+    }
+
+    private static InsnList moveInts() {
+        return setCall(addInt(selfLong("X"), 1), addInt(selfLong("Y"), 2),
+            addInt(selfLong("Z"), 3));
+    }
+
+    private static InsnList moveDir() {
+        return setCall(addStep(selfLong("X"), "X", 1, 2), addStep(selfLong("Y"), "Y", 1, 2),
+            addStep(selfLong("Z"), "Z", 1, 2));
+    }
+
+    private static InsnList moveVec() {
+        return setCall(addVec(selfLong("X"), "X", 1), addVec(selfLong("Y"), "Y", 1),
+            addVec(selfLong("Z"), "Z", 1));
+    }
+
+    private static AxisEmitter selfLong(String axis) {
+        return il -> {
+            il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLong" + axis, "()J", false));
+        };
+    }
+
+    /**
+     * Wide-safe {@code betweenClosed(BlockPos, BlockPos)}: min/max of the two
+     * corners in long, each clamped into the int range, then delegated to the
+     * vanilla int iterator. At normal coords the long min/max equal the int
+     * ones, so the produced box (and its iteration order) is unchanged.
+     */
+    private static InsnList betweenClosedWide() {
+        InsnList il = new InsnList();
+        for (int pass = 0; pass < 2; pass++) {
+            boolean min = pass == 0;
+            for (String axis : new String[]{"X", "Y", "Z"}) {
+                il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+                il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLong" + axis, "()J", false));
+                il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+                il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLong" + axis, "()J", false));
+                il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Math", min ? "min" : "max", "(JJ)J", false));
+                il.add(new LdcInsnNode(Integer.MIN_VALUE));
+                il.add(new LdcInsnNode(Integer.MAX_VALUE));
+                il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Math", "clamp", "(JII)I", false));
+            }
+        }
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "betweenClosed",
+            "(IIIIII)Ljava/lang/Iterable;", false));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return il;
     }
 
     private static MethodNode longConstructor() {

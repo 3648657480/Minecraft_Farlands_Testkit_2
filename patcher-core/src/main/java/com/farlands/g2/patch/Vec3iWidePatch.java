@@ -108,10 +108,31 @@ public final class Vec3iWidePatch implements ClassPatch {
         }
         node.methods.add(longConstructor());
         rewrite(node, "offset", "(III)Lnet/minecraft/core/Vec3i;", newInstance("offset", new int[]{0, 1, 2}));
+        // offset(Vec3i) is the common path used by feature code (e.g. disk/column
+        // helpers): route it through the wide fields instead of the int getters.
+        rewrite(node, "offset", "(Lnet/minecraft/core/Vec3i;)Lnet/minecraft/core/Vec3i;", offsetVecBody());
         rewrite(node, "multiply", "(I)Lnet/minecraft/core/Vec3i;", newInstance("multiply", new int[]{0, 1, 2}));
         rewrite(node, "subtract", "(Lnet/minecraft/core/Vec3i;)Lnet/minecraft/core/Vec3i;", subtractBody());
         rewrite(node, "relative", "(Lnet/minecraft/core/Direction;I)Lnet/minecraft/core/Vec3i;", relativeBody());
         rewrite(node, "cross", "(Lnet/minecraft/core/Vec3i;)Lnet/minecraft/core/Vec3i;", crossBody());
+    }
+
+    /** {@code new Vec3i(getLongX()+v.getLongX(), getLongY()+v.getLongY(), getLongZ()+v.getLongZ())} */
+    private static InsnList offsetVecBody() {
+        InsnList il = new InsnList();
+        il.add(new org.objectweb.asm.tree.TypeInsnNode(Opcodes.NEW, TARGET));
+        il.add(new InsnNode(Opcodes.DUP));
+        for (int i = 0; i < 3; i++) {
+            String axis = "XYZ".substring(i, i + 1);
+            il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TARGET, "getLong" + axis, "()J", false));
+            il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TARGET, "getLong" + axis, "()J", false));
+            il.add(new InsnNode(Opcodes.LADD));
+        }
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TARGET, "<init>", "(JJJ)V", false));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return il;
     }
 
     private static MethodNode longConstructor() {
