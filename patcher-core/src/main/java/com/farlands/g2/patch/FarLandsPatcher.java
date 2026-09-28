@@ -22,7 +22,18 @@ import java.util.zip.ZipOutputStream;
  */
 public final class FarLandsPatcher {
 
-    public static final String VERSION = "1.0.0";
+    /**
+     * Version, read from the jar manifest ({@code Implementation-Version}, set
+     * from the repo-root {@code VERSION} at build time) so it is never
+     * hardcoded. Falls back to {@code "dev"} for exploded class dirs.
+     */
+    public static final String VERSION = resolveVersion();
+
+    private static String resolveVersion() {
+        Package pkg = FarLandsPatcher.class.getPackage();
+        String v = pkg == null ? null : pkg.getImplementationVersion();
+        return v == null || v.isBlank() ? "dev" : v;
+    }
 
     /**
      * Patch-set revision. The dev jar processor caches the patched Minecraft
@@ -159,37 +170,89 @@ public final class FarLandsPatcher {
         int patchedClasses = 0;
         int totalClasses = 0;
 
-        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(input));
-             ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(output))) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                if (entry.isDirectory()) {
-                    continue;
-                }
-                String name = entry.getName();
-                if (isSignatureEntry(name)) {
-                    zis.closeEntry();
-                    continue; // drop jar signature files: modified bytes would fail digest checks
-                }
-                zos.putNextEntry(new ZipEntry(name));
-                byte[] data = zis.readAllBytes();
-                if (name.endsWith(".class")) {
-                    totalClasses++;
-                    String internal = name.substring(0, name.length() - ".class".length());
-                    byte[][] outHolder = new byte[1][];
-                    String changedBy = patchClassAndDescribe(internal, data, outHolder);
-                    byte[] out = outHolder[0];
-                    if (changedBy != null) {
-                        patchedClasses++;
-                        counts.merge(changedBy, 1, Integer::sum);
+        if (input.toAbsolutePath().normalize().equals(output.toAbsolutePath().normalize())) {
+            throw new IOException("input and output must differ: " + input);
+        }
+
+        // Pre-flight: the input must be a complete, readable zip (central
+        // directory / END record). A truncated or corrupt jar would otherwise be
+        // silently re-emitted as a small, unusable jar.
+        try (java.util.zip.ZipFile ignored = new java.util.zip.ZipFile(input.toFile())) {
+            ignored.size();
+        } catch (IOException e) {
+            throw new IOException("Input jar is not a valid/complete zip (corrupt or truncated): "
+                + input + " - restore it from your backup and retry.", e);
+        }
+
+        // Write to a sibling temp file, validate it, then move it into place, so
+        // an interrupted run never leaves a half-written jar.
+        Path tmp = output.resolveSibling(output.getFileName() + ".part");
+        Files.deleteIfExists(tmp);
+        try {
+            // Read via ZipFile (central directory) rather than ZipInputStream:
+            // the sequential reader can mis-handle data descriptors / skip
+            // entries, leaving the output jar missing or corrupting resources
+            // (e.g. lang files / textures). ZipFile is authoritative, and we
+            // preserve each entry's compression method and directory entries.
+            try (java.util.zip.ZipFile zf = new java.util.zip.ZipFile(input.toFile());
+                 ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(tmp))) {
+                java.util.Enumeration<? extends ZipEntry> en = zf.entries();
+                while (en.hasMoreElements()) {
+                    ZipEntry entry = en.nextElement();
+                    String name = entry.getName();
+                    if (entry.isDirectory()) {
+                        zos.putNextEntry(new ZipEntry(name)); // keep directory entries
+                        zos.closeEntry();
+                        continue;
                     }
+                    if (isSignatureEntry(name)) {
+                        continue; // drop jar signature files: modified bytes would fail digest checks
+                    }
+                    byte[] data;
+                    try (java.io.InputStream is = zf.getInputStream(entry)) {
+                        data = is.readAllBytes();
+                    }
+                    byte[] out = data;
+                    if (name.endsWith(".class")) {
+                        totalClasses++;
+                        String internal = name.substring(0, name.length() - ".class".length());
+                        byte[][] outHolder = new byte[1][];
+                        String changedBy = patchClassAndDescribe(internal, data, outHolder);
+                        out = outHolder[0];
+                        if (changedBy != null) {
+                            patchedClasses++;
+                            counts.merge(changedBy, 1, Integer::sum);
+                        }
+                    }
+                    ZipEntry ne = new ZipEntry(name);
+                    ne.setMethod(entry.getMethod());
+                    if (entry.getMethod() == ZipEntry.STORED) {
+                        ne.setSize(out.length);
+                        ne.setCompressedSize(out.length);
+                        java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+                        crc.update(out);
+                        ne.setCrc(crc.getValue());
+                    }
+                    zos.putNextEntry(ne);
                     zos.write(out);
-                } else {
-                    zos.write(data);
+                    zos.closeEntry();
                 }
-                zos.closeEntry();
-                zis.closeEntry();
             }
+            // Validate: the temp must be a readable zip with entries.
+            try (java.util.zip.ZipFile zf = new java.util.zip.ZipFile(tmp.toFile())) {
+                if (zf.size() == 0) {
+                    throw new IOException("patched jar has no entries");
+                }
+            }
+        } catch (IOException e) {
+            Files.deleteIfExists(tmp);
+            throw e;
+        }
+        try {
+            Files.move(tmp, output, java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+            Files.move(tmp, output, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         }
         return new PatchReport(totalClasses, patchedClasses, counts);
     }
