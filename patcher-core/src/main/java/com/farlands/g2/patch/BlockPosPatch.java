@@ -39,6 +39,14 @@ public final class BlockPosPatch implements ClassPatch {
         new ClassReader(original).accept(node, 0);
 
         if (MUTABLE.equals(node.name)) {
+            // Wide constructor: BlockPos.mutable() and other value-producing
+            // conversions must be able to carry the long fields. Without it
+            // they fall back to the (III) constructor and the int accessors,
+            // silently wrapping a reach that crosses block 2^31 (Column.scan
+            // then probes two different columns and reports a negative range).
+            if (find(node, "<init>", "(JJJ)V") == null) {
+                node.methods.add(mutableLongConstructor());
+            }
             // Reused-position setter in the long domain: store the three wide
             // fields directly. The inherited BlockPos(JJJ) constructor exists,
             // but the mutable must be updated in place.
@@ -78,6 +86,19 @@ public final class BlockPosPatch implements ClassPatch {
                 relativeBody());
             rewrite(node, "cross", "(Lnet/minecraft/core/Vec3i;)Lnet/minecraft/core/BlockPos;",
                 crossBody());
+            // Value-producing conversions that still went through the int
+            // accessors. `mutable()` is the Column.scan path (the initial
+            // predicate probe uses the wide BlockPos while the directional
+            // scans use the int-truncated mutable, so at the 2^31 seam they
+            // read two different columns and Column$Range throws "negative
+            // height"); `atY`/`relative` carry the wide X/Z through the
+            // speleothem write path. At normal coordinates the long equals the
+            // int, so all three are identity.
+            rewrite(node, "mutable", "()Lnet/minecraft/core/BlockPos$MutableBlockPos;",
+                mutableBody());
+            rewrite(node, "atY", "(I)Lnet/minecraft/core/BlockPos;", atYBody());
+            rewrite(node, "relative", "(Lnet/minecraft/core/Direction;)Lnet/minecraft/core/BlockPos;",
+                relativeOneBody());
         }
         // betweenClosed(a, b) computes its extents with the int getters, so two
         // corners that straddle block 2^31 (a = origin-r, b = origin+r with
@@ -333,6 +354,72 @@ public final class BlockPosPatch implements ClassPatch {
         il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TARGET, "<init>", "(JJJ)V", false));
         il.add(new InsnNode(Opcodes.ARETURN));
         return il;
+    }
+
+    /**
+     * {@code new MutableBlockPos(getLongX(), getLongY(), getLongZ())}. The
+     * wide constructor keeps a reach beyond the int range intact instead of
+     * truncating it through {@code getX()}.
+     */
+    private static InsnList mutableBody() {
+        InsnList il = new InsnList();
+        il.add(new org.objectweb.asm.tree.TypeInsnNode(Opcodes.NEW, MUTABLE));
+        il.add(new InsnNode(Opcodes.DUP));
+        for (String axis : new String[]{"X", "Y", "Z"}) {
+            il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLong" + axis, "()J", false));
+        }
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, MUTABLE, "<init>", "(JJJ)V", false));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return il;
+    }
+
+    /** {@code new BlockPos(getLongX(), (long) y, getLongZ())} (wide X/Z). */
+    private static InsnList atYBody() {
+        InsnList il = new InsnList();
+        il.add(new org.objectweb.asm.tree.TypeInsnNode(Opcodes.NEW, TARGET));
+        il.add(new InsnNode(Opcodes.DUP));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLongX", "()J", false));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 1));
+        il.add(new InsnNode(Opcodes.I2L));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLongZ", "()J", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TARGET, "<init>", "(JJJ)V", false));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return il;
+    }
+
+    /** Single-step {@code relative(Direction)} in the wide domain. */
+    private static InsnList relativeOneBody() {
+        InsnList il = new InsnList();
+        il.add(new org.objectweb.asm.tree.TypeInsnNode(Opcodes.NEW, TARGET));
+        il.add(new InsnNode(Opcodes.DUP));
+        for (String axis : new String[]{"X", "Y", "Z"}) {
+            il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLong" + axis, "()J", false));
+            il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Direction",
+                "getStep" + axis, "()I", false));
+            il.add(new InsnNode(Opcodes.I2L));
+            il.add(new InsnNode(Opcodes.LADD));
+        }
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TARGET, "<init>", "(JJJ)V", false));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return il;
+    }
+
+    /** {@code MutableBlockPos(JJJ)} delegating to {@code BlockPos(JJJ)}. */
+    private static MethodNode mutableLongConstructor() {
+        MethodNode mn = new MethodNode(Opcodes.ACC_PUBLIC, "<init>", "(JJJ)V", null, null);
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 1));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 3));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 5));
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TARGET, "<init>", "(JJJ)V", false));
+        il.add(new InsnNode(Opcodes.RETURN));
+        return mn;
     }
 
     private static InsnList crossBody() {
