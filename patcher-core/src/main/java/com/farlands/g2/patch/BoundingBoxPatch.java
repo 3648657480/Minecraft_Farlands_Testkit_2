@@ -77,6 +77,15 @@ public final class BoundingBoxPatch implements ClassPatch {
                 fromCornersWide());
         }
 
+        // Direct (IIIIII) constructions (encapsulate / encapsulating /
+        // orientBox / features computing corners with int getX()/getZ())
+        // can receive one endpoint that wrapped across the 2^31 seam while
+        // the other did not: min > max. Normalize such a wrap-crossing pair
+        // back into the int-safe XZ range the accessors already use, so the
+        // box never logs "inverted bounds" and never spans ~2^32 blocks.
+        addWrapHelpers(node);
+        patchConstructor(node);
+
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
         return cw.toByteArray();
@@ -255,6 +264,97 @@ public final class BoundingBoxPatch implements ClassPatch {
         il.add(new InsnNode(Opcodes.I2L));
         il.add(new InsnNode(Opcodes.LSUB));
         il.add(new InsnNode(Opcodes.L2I));
+    }
+
+    // ---- wrap-aware constructor normalization ----------------------------
+
+    /**
+     * Adds the two private static helpers used by the constructor preamble.
+     * Each takes the raw (min,max) pair and, only when the pair is inverted
+     * but the unsigned order is sane (i.e. it crossed the 2^31 seam), returns
+     * the clamped endpoint; otherwise it returns the raw value unchanged.
+     */
+    private static void addWrapHelpers(ClassNode node) {
+        if (node.methods.stream().anyMatch(m -> "farlands$wrapMin".equals(m.name))) {
+            return;
+        }
+        node.methods.add(wrapHelper("farlands$wrapMin", true));
+        node.methods.add(wrapHelper("farlands$wrapMax", false));
+    }
+
+    private static MethodNode wrapHelper(String name, boolean min) {
+        MethodNode m = new MethodNode(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, name, "(II)I", null, null);
+        InsnList il = m.instructions;
+        org.objectweb.asm.tree.LabelNode ret = new org.objectweb.asm.tree.LabelNode();
+        // if (max >= min) return raw;
+        il.add(new VarInsnNode(Opcodes.ILOAD, 1));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 0));
+        il.add(new org.objectweb.asm.tree.JumpInsnNode(Opcodes.IF_ICMPGE, ret));
+        // long umin = min & 0xFFFFFFFFL;
+        il.add(new VarInsnNode(Opcodes.ILOAD, 0));
+        il.add(new InsnNode(Opcodes.I2L));
+        il.add(new LdcInsnNode(0xFFFFFFFFL));
+        il.add(new InsnNode(Opcodes.LAND));
+        il.add(new VarInsnNode(Opcodes.LSTORE, 2));
+        // long umax = max & 0xFFFFFFFFL;
+        il.add(new VarInsnNode(Opcodes.ILOAD, 1));
+        il.add(new InsnNode(Opcodes.I2L));
+        il.add(new LdcInsnNode(0xFFFFFFFFL));
+        il.add(new InsnNode(Opcodes.LAND));
+        il.add(new VarInsnNode(Opcodes.LSTORE, 4));
+        // if (umax < umin) return raw;  (genuine bug, leave vanilla to handle)
+        il.add(new VarInsnNode(Opcodes.LLOAD, 4));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 2));
+        il.add(new InsnNode(Opcodes.LCMP));
+        il.add(new org.objectweb.asm.tree.JumpInsnNode(Opcodes.IFLT, ret));
+        // if (umax - umin > 1e9) return raw;  (not a short seam-crossing span)
+        il.add(new VarInsnNode(Opcodes.LLOAD, 4));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 2));
+        il.add(new InsnNode(Opcodes.LSUB));
+        il.add(new LdcInsnNode(1_000_000_000L));
+        il.add(new InsnNode(Opcodes.LCMP));
+        il.add(new org.objectweb.asm.tree.JumpInsnNode(Opcodes.IFGT, ret));
+        // return (int) Math.clamp(umax | umin, -CLAMP_XZ-1, CLAMP_XZ);
+        il.add(new VarInsnNode(Opcodes.LLOAD, min ? 2 : 4));
+        il.add(new LdcInsnNode(-CLAMP_XZ - 1));
+        il.add(new LdcInsnNode(CLAMP_XZ));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Math", "clamp", "(JJJ)J", false));
+        il.add(new InsnNode(Opcodes.L2I));
+        il.add(new InsnNode(Opcodes.IRETURN));
+        il.add(ret);
+        // return raw;
+        il.add(new VarInsnNode(Opcodes.ILOAD, min ? 0 : 1));
+        il.add(new InsnNode(Opcodes.IRETURN));
+        return m;
+    }
+
+    /** Rewrites the X and Z argument pairs of the {@code (IIIIII)} constructor. */
+    private static void patchConstructor(ClassNode node) {
+        MethodNode ctor = find(node, "<init>", "(IIIIII)V");
+        if (ctor == null) {
+            throw new IllegalStateException(TARGET + "#<init>(IIIIII)V not found");
+        }
+        InsnList il = new InsnList();
+        axisNorm(il, 1, 4); // X
+        axisNorm(il, 3, 6); // Z
+        AbstractInsnNode first = ctor.instructions.getFirst();
+        ctor.instructions.insertBefore(first, il);
+    }
+
+    private static void axisNorm(InsnList il, int minSlot, int maxSlot) {
+        // preserve the raw pair across the two helper calls
+        il.add(new VarInsnNode(Opcodes.ILOAD, minSlot));
+        il.add(new VarInsnNode(Opcodes.ISTORE, 7));
+        il.add(new VarInsnNode(Opcodes.ILOAD, maxSlot));
+        il.add(new VarInsnNode(Opcodes.ISTORE, 8));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 7));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 8));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "farlands$wrapMin", "(II)I", false));
+        il.add(new VarInsnNode(Opcodes.ISTORE, minSlot));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 7));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 8));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "farlands$wrapMax", "(II)I", false));
+        il.add(new VarInsnNode(Opcodes.ISTORE, maxSlot));
     }
 }
 

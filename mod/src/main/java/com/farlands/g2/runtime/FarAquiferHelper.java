@@ -23,4 +23,27 @@ public final class FarAquiferHelper {
         }
         return factory.at(x, y, z);
     }
+
+    /**
+     * Aquifer X grid index ({@code Aquifer$NoiseBasedAquifer.gridX(blockX-5)})
+     * computed from the WIDE block coordinate.
+     *
+     * <p>The int {@code blockX} the aquifer is handed wraps at +/-2^31, so
+     * {@code blockX - 5} overflows on the high edge of a chunk and the grid
+     * index lands on the wrong lattice cell (the trench). {@link
+     * com.farlands.g2.util.FarProjection#unwrapX(int)} restores the real
+     * coordinate from the generation origin before the long-domain floor
+     * division. At normal coordinates it is the exact signed int, so the
+     * result is bit-identical to {@code (blockX - 5) >> 4}.</p>
+     */
+    public static int aquiferGridX(int blockX) {
+        long real = (long) com.farlands.g2.util.FarProjection.unwrapX(blockX);
+        return (int) Math.floorDiv(real - 5L, 16L);
+    }
+
+    /** Aquifer Z grid index; see {@link #aquiferGridX(int)}. */
+    public static int aquiferGridZ(int blockZ) {
+        long real = (long) com.farlands.g2.util.FarProjection.unwrapZ(blockZ);
+        return (int) Math.floorDiv(real - 5L, 16L);
+    }
 }

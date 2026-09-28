@@ -14,28 +14,38 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.VarInsnNode;
 
 /**
- * Fixes the aquifer lattice size computation at the +/-2^31 seam.
+ * Widens the aquifer lattice origin at the +/-2^31 seam.
  *
- * <p>{@code Aquifer$NoiseBasedAquifer.<init>} computes
- * {@code gridSizeX = gridX(maxBlockX-5) - gridX(minBlockX-5) + 1} with int
- * arithmetic. For chunks whose block coordinates straddle the int wrap the
- * two grid values carry opposite signs, producing a huge/negative span.
- * The following multiplication
- * {@code gridSizeX * gridSizeY * gridSizeZ} overflows int and routinely
- * lands on a giant positive value, so every aquifer at the seam allocates
- * a multi-hundred-MB {@code FluidStatus[]} (measured: 97 arrays = 7.5 GB
- * of transient garbage, OOM'ing the game).</p>
+ * <p>{@code Aquifer$NoiseBasedAquifer.<init>} derives its grid origin and
+ * span from the int {@code ChunkPos.getMinBlockX()/getMaxBlockX()}, i.e.
+ * {@code chunk.x << 4}. At block 2^31 the shift wraps to
+ * {@code Integer.MIN_VALUE}, and the subsequent {@code -5} overflows again.
+ * The min and max grid values then land in <em>different</em> int domains
+ * (min wraps to a large positive lattice, max stays negative), producing
+ * an inverted lattice. Three failures follow:</p>
+ * <ol>
+ *   <li>{@code gridSizeX*gridSizeY*gridSizeZ} overflows to a huge/negative
+ *       value and {@code new FluidStatus[...]} OOMs;</li>
+ *   <li>{@code maxPreliminarySurfaceLevel(fromGridX(minGridX,0), ...,
+ *       fromGridX(maxGrid,9), ...)} is called with inverted corners;</li>
+ *   <li>the cache cells are seeded on the wrong side of the seam (the
+ *       "trench" / 沟).</li>
+ * </ol>
  *
- * <p>The fix rewrites only {@code gridSizeX}/{@code gridSizeZ} from the wide
- * chunk coordinates ({@code ChunkPos.xLong()/zLong()} - requires the B line
- * container widening). {@code minGridX}/{@code minGridZ} intentionally keep
- * their vanilla (wrapped) values so the lattice indexing in
- * {@code computeSubstance}/{@code getIndex}, which also computes grid
- * coordinates from wrapped ints, stays self-consistent.</p>
+ * <p>Fix: derive {@code minGridX}/{@code minGridZ} and the max-grid locals
+ * from {@code ChunkPos.xLong()/zLong()} in the long domain
+ * ({@code ((xLong<<4)-5)>>4}), and route {@code computeSubstance}'s cache
+ * grid coordinates through {@code FarAquiferHelper.aquiferGridX/Z}, which
+ * recovers the wide block coordinate before the floor division. The stored
+ * fields stay {@code int} (a grid index fits comfortably at 2^31); at normal
+ * coordinates every expression collapses to the vanilla int arithmetic, so
+ * generation is bit-identical.</p>
  */
 public final class AquiferLatticePatch implements ClassPatch {
 
     private static final String TARGET = "net/minecraft/world/level/levelgen/Aquifer$NoiseBasedAquifer";
+    private static final String CHUNKPOS = "net/minecraft/world/level/ChunkPos";
+    private static final String HELPER = "com/farlands/g2/runtime/FarAquiferHelper";
     private static final String CTOR_DESC =
         "(Lnet/minecraft/world/level/levelgen/NoiseChunk;Lnet/minecraft/world/level/ChunkPos;"
             + "Lnet/minecraft/world/level/levelgen/NoiseRouter;"
@@ -52,14 +62,49 @@ public final class AquiferLatticePatch implements ClassPatch {
         ClassNode node = new ClassNode();
         new ClassReader(original).accept(node, 0);
 
-        boolean changed = false;
-        for (MethodNode m : node.methods) {
-            if (!"<init>".equals(m.name) || !CTOR_DESC.equals(m.desc)) {
-                continue;
-            }
-            changed |= fixGridSize(m, "gridSizeX", "xLong");
-            changed |= fixGridSize(m, "gridSizeZ", "zLong");
+        MethodNode ctor = find(node, "<init>", CTOR_DESC);
+        if (ctor == null) {
+            return original;
         }
+        // Idempotency: after patching the constructor stores minGridX twice
+        // (vanilla then our wide recompute).
+        if (countPutField(ctor, "minGridX") > 1) {
+            return original;
+        }
+
+        boolean changed = false;
+        // minGridX = ((xLong<<4) - 5) >> 4   (was gridX(getMinBlockX()-5), int)
+        FieldInsnNode putMinX = findPutField(ctor, "minGridX");
+        if (putMinX != null) {
+            ctor.instructions.insert(putMinX, wideMinGrid("xLong", "minGridX"));
+            changed = true;
+        }
+        // maxGridX local (slot 8) = (((xLong<<4)+15) - 5) >> 4 + 1
+        VarInsnNode store8 = findIStore(ctor, 8);
+        if (store8 != null) {
+            ctor.instructions.insert(store8, wideMaxGrid("xLong", 8));
+            changed = true;
+        }
+        FieldInsnNode putMinZ = findPutField(ctor, "minGridZ");
+        if (putMinZ != null) {
+            ctor.instructions.insert(putMinZ, wideMinGrid("zLong", "minGridZ"));
+            changed = true;
+        }
+        VarInsnNode store11 = findIStore(ctor, 11);
+        if (store11 != null) {
+            ctor.instructions.insert(store11, wideMaxGrid("zLong", 11));
+            changed = true;
+        }
+
+        // computeSubstance: route the cache grid coords through the wide
+        // helpers instead of gridX/gridZ of the wrapped block coordinate.
+        for (MethodNode m : node.methods) {
+            if ("computeSubstance".equals(m.name)) {
+                changed |= replaceGridCall(m, "gridX", "aquiferGridX");
+                changed |= replaceGridCall(m, "gridZ", "aquiferGridZ");
+            }
+        }
+
         if (!changed) {
             return original;
         }
@@ -69,29 +114,51 @@ public final class AquiferLatticePatch implements ClassPatch {
         return cw.toByteArray();
     }
 
-    /**
-     * After the vanilla {@code putfield gridSize*} instruction, re-computes the
-     * field from wide coordinates: real span is always 3 grid cells for one
-     * chunk. New locals start at 15 (vanilla uses up to 14).
-     */
-    private static boolean fixGridSize(MethodNode m, String field, String axisAccessor) {
-        FieldInsnNode put = null;
+    private static MethodNode find(ClassNode node, String name, String desc) {
+        for (MethodNode m : node.methods) {
+            if (name.equals(m.name) && desc.equals(m.desc)) {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    private static FieldInsnNode findPutField(MethodNode m, String field) {
         for (AbstractInsnNode insn : m.instructions) {
             if (insn instanceof FieldInsnNode fi && fi.getOpcode() == Opcodes.PUTFIELD
                 && TARGET.equals(fi.owner) && field.equals(fi.name)) {
-                put = fi;
-                break;
+                return fi;
             }
         }
-        if (put == null) {
-            return false;
-        }
+        return null;
+    }
 
-        int minLocal = 15;
-        int maxLocal = 16;
+    private static int countPutField(MethodNode m, String field) {
+        int n = 0;
+        for (AbstractInsnNode insn : m.instructions) {
+            if (insn instanceof FieldInsnNode fi && fi.getOpcode() == Opcodes.PUTFIELD
+                && TARGET.equals(fi.owner) && field.equals(fi.name)) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    private static VarInsnNode findIStore(MethodNode m, int slot) {
+        for (AbstractInsnNode insn : m.instructions) {
+            if (insn instanceof VarInsnNode v && v.getOpcode() == Opcodes.ISTORE && v.var == slot) {
+                return v;
+            }
+        }
+        return null;
+    }
+
+    /** Leaves {@code ((xLong<<4) - 5) >> 4} on the stack and stores it in {@code field}. */
+    private static InsnList wideMinGrid(String axisAccessor, String field) {
         InsnList il = new InsnList();
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new VarInsnNode(Opcodes.ALOAD, 2));
-        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/world/level/ChunkPos", axisAccessor, "()J", false));
+        il.add(chunkLong(axisAccessor));
         il.add(new LdcInsnNode(4));
         il.add(new InsnNode(Opcodes.LSHL));
         il.add(new LdcInsnNode(5L));
@@ -99,9 +166,15 @@ public final class AquiferLatticePatch implements ClassPatch {
         il.add(new LdcInsnNode(4));
         il.add(new InsnNode(Opcodes.LSHR));
         il.add(new InsnNode(Opcodes.L2I));
-        il.add(new VarInsnNode(Opcodes.ISTORE, minLocal));
+        il.add(new FieldInsnNode(Opcodes.PUTFIELD, TARGET, field, "I"));
+        return il;
+    }
+
+    /** Stores {@code (((xLong<<4)+15) - 5) >> 4 + 1} into local {@code slot}. */
+    private static InsnList wideMaxGrid(String axisAccessor, int slot) {
+        InsnList il = new InsnList();
         il.add(new VarInsnNode(Opcodes.ALOAD, 2));
-        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/world/level/ChunkPos", axisAccessor, "()J", false));
+        il.add(chunkLong(axisAccessor));
         il.add(new LdcInsnNode(4));
         il.add(new InsnNode(Opcodes.LSHL));
         il.add(new LdcInsnNode(15L));
@@ -113,24 +186,41 @@ public final class AquiferLatticePatch implements ClassPatch {
         il.add(new InsnNode(Opcodes.L2I));
         il.add(new InsnNode(Opcodes.ICONST_1));
         il.add(new InsnNode(Opcodes.IADD));
-        il.add(new VarInsnNode(Opcodes.ISTORE, maxLocal));
-        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
-        il.add(new VarInsnNode(Opcodes.ILOAD, maxLocal));
-        il.add(new VarInsnNode(Opcodes.ILOAD, minLocal));
-        il.add(new InsnNode(Opcodes.ISUB));
-        il.add(new InsnNode(Opcodes.ICONST_1));
-        il.add(new InsnNode(Opcodes.IADD));
-        il.add(new FieldInsnNode(Opcodes.PUTFIELD, TARGET, field, "I"));
-        if (put.getNext() == null) {
-            m.instructions.add(il);
-        } else {
-            m.instructions.insert(put.getNext(), il);
+        il.add(new VarInsnNode(Opcodes.ISTORE, slot));
+        return il;
+    }
+
+    private static MethodInsnNode chunkLong(String accessor) {
+        return new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNKPOS, accessor, "()J", false);
+    }
+
+    /**
+     * Replaces {@code iload block; bipush -5; iadd; invokestatic gridX(int)}
+     * with {@code iload block; invokestatic helper(int)} in the given method.
+     */
+    private static boolean replaceGridCall(MethodNode m, String gridName, String helperName) {
+        for (AbstractInsnNode insn : m.instructions) {
+            if (!(insn instanceof MethodInsnNode mi) || mi.getOpcode() != Opcodes.INVOKESTATIC
+                || !TARGET.equals(mi.owner) || !gridName.equals(mi.name) || !"(I)I".equals(mi.desc)) {
+                continue;
+            }
+            AbstractInsnNode iadd = insn.getPrevious();
+            AbstractInsnNode bipush = iadd == null ? null : iadd.getPrevious();
+            if (iadd == null || iadd.getOpcode() != Opcodes.IADD
+                || bipush == null || bipush.getOpcode() != Opcodes.BIPUSH) {
+                continue;
+            }
+            m.instructions.remove(iadd);
+            m.instructions.remove(bipush);
+            m.instructions.set(insn,
+                new MethodInsnNode(Opcodes.INVOKESTATIC, HELPER, helperName, "(I)I", false));
+            return true;
         }
-        return true;
+        return false;
     }
 
     @Override
     public String describe(String internalName) {
-        return "AquiferLatticePatch (gridSizeX/Z wrap-safe at 2^31)";
+        return "AquiferLatticePatch (wide grid origin + cache coords at 2^31)";
     }
 }
