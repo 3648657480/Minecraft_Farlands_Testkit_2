@@ -166,6 +166,54 @@ testgen 规格串：`0,0;62,62;62500,62500;625000,625000;1812500,1812500`
 
 ---
 
+## 7. W5-E：2^31 缝上区块生成刷怪死循环（NaturalSpawner）
+
+- 日期：2026-09-29
+- 假设：`NaturalSpawner.spawnMobsForChunkGeneration` 用 int 计算候选窗口 `[xo, xo+16)`
+  （`xo = ChunkPos.getMinBlockX() = chunkX<<4`）。当 `xo+16` 在 2^31 缝上溢出时，窗口判定
+  `x < xo+16` 永远为真/永远为假，重采样 `while` 循环不终止 → 服务端 tick 挂起（Watchdog STUCK）。
+- 参数：种子 `12345`；坐标 `(134217727,46656)`（`forest`，CREATURE 非空）；
+  wide=true continuity=true epoch=false；`-Dmax.bg.threads=1`；`Settle=20`；其余同 §2.2。
+- 版本标记：
+  - 对照（补丁集临时去掉 `NaturalSpawnerWidePatch`，PATCH_REVISION=27 临时构建）：
+    `[FarLands-G2] Scanned 10952 classes, patched 57`
+  - 修复（PATCH_REVISION=26，含 `NaturalSpawnerWidePatch`）：
+    `[FarLands-G2] Scanned 10952 classes, patched 58`，
+    `NaturalSpawnerWidePatch (wide creature spawn at 2^31): 1`
+- 预期（对照）：服务端在 `generateSpawn` 阶段挂起；Watchdog 报 STUCK/RUNNABLE，栈顶为
+  `NaturalSpawner.spawnMobsForChunkGeneration`。
+- 实测（对照）：`[Watchdog] STUCK thread=Worker-Main-8 state=RUNNABLE`；
+  `NaturalSpawner.spawnMobsForChunkGeneration(NaturalSpawner.java:523)` →
+  `NoiseBasedChunkGenerator.spawnOriginalMobs(:504)` → `ChunkStatusTasks.generateSpawn(:131)`；
+  60 s 后 Watchdog 强制关闭。
+- 实测（修复）：同坐标 `gen OK`（无 STUCK）。bytecode 复验（javap）：
+  `ChunkPos.getMinBlockXLong/getMinBlockZLong` 进入方法；窗口判定为 long `lcmp`；
+  `getTopNonCollidingPos` 描述符 `(LevelReader,EntityType,long,long)`；
+  与原版 RNG 调用序列逐项一致（13 次调用，顺序相同）。
+- 结论：**在本实验条件下**，2^31 缝上的 `(134217727, z)` 与镜像 `(-134217729, z)` 在 CREATURE
+  非空生物群系会触发该 int 窗口溢出死循环；宽化后同条件不再复现。此结论仅适用于上述条件
+  （R10：不构成对外部记录的否定或"更准确"声称）。
+- 证据：`exp-spctrl.log`、`crash-2026-09-29_13.53.10-server.txt`、`exp-spfinal.log`、
+  `exp-spdetA.log` / `exp-spdetB.log`（修复后同坐标 `gen OK`）。
+
+### 7.1 远域 WG 指纹不可复现（预存观察，非本轮引入）
+
+- 同构建、同坐标 `(134217727,46656)`、背靠背两次：`surf=a56522585a67 floor=021ce9138846` 与
+  `surf=88534b3d37a1 floor=f057a32b3690`（`topY=72`、biome 相同）。
+- 海洋坐标 `(134217727,0)` 的既有日志（无刷怪路径参与）也出现多种 floor 值。
+- 因此 2^31 远域的 WG 指纹**不满足 §2.1 的同配置可复现性**；本轮仅把"挂起/不挂起"作为该
+  坐标的判定量，未从远域哈希下结论；机制未在本轮归因。
+
+### 7.2 未处理：trees 远读（不同路径）
+
+- 现象（用户提供）：`placed_feature / trees_birch_and_oak_leaf_litter` 生成期出现
+  "unsafe terrain read ... chunk [-132342728,-3] while generating [-134217725,-3]
+  (distance: 1874997)"。
+- 该读取发生在特征放置状态，不在 `spawnMobsForChunkGeneration`（SPAWN 状态）路径上；
+  本轮未定位、未修改，列为遗留项。
+
+---
+
 ## 8. 远域现象表（本项目实验条件下的实测结果）
 
 > **表述原则（R10）**：本表全部数值均为**特定实验条件下的特定结果**，不构成对 Minecraft Wiki
