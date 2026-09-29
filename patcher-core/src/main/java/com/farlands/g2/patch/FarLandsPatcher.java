@@ -41,7 +41,7 @@ public final class FarLandsPatcher {
      * to the patch set (not just the wide/continuity/epoch/unlock flags) must
      * bump it, otherwise dev runs silently reuse a stale patched jar.
      */
-    public static final int PATCH_REVISION = 23;
+    public static final int PATCH_REVISION = 24;
 
     private final List<ClassPatch> patches = new ArrayList<>();
 
@@ -102,6 +102,9 @@ public final class FarLandsPatcher {
             p.register(new SectionPosPatch());
             p.register(new BulkSectionAccessPatch());
             p.register(new WorldGenRegionWidePatch());
+            p.register(new WorldGenRegionHeightPatch());
+            p.register(new HeightmapPlacementPatch());
+            p.register(new LevelReaderHeightmapPosPatch());
             p.register(new NoiseChunkPatch());
             p.register(new OreFeaturePatch());
             p.register(new PlacementModifierWidePatch());
