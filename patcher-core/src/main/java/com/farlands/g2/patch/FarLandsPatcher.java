@@ -106,6 +106,7 @@ public final class FarLandsPatcher {
             p.register(new OreFeaturePatch());
             p.register(new PlacementModifierWidePatch());
             p.register(new FeatureOriginWidePatch());
+            p.register(new StructureWidePatch());
         }
         if (epoch) {
             p.register(new ChunkPosEpochPatch());
