@@ -52,6 +52,35 @@ import org.objectweb.asm.tree.VarInsnNode;
  *       {@code getLongX/getLongZ}).</li>
  * </ul>
  *
+ * <p>W5-F extends the same method family to the positions the spawn step
+ * derives <em>from the candidate doubles</em>. The candidate x/z are real
+ * (long) values, but every conversion back to a {@code BlockPos} used the
+ * int domain:</p>
+ * <ul>
+ *   <li>{@code NaturalSpawner} passed {@code BlockPos.containing(fx, y, fz)}
+ *       to {@code SpawnPlacements.checkSpawnRules}: {@code Mth.floor(double)}
+ *       wraps at {@code +/-2^31} and the predicate reads the mirrored
+ *       negative chunk. The position is now built as a wide
+ *       {@code BlockPos(JJJ)} from {@code Math.floor}.</li>
+ *   <li>{@code Entity.setPosRaw} cached {@code blockPosition} from
+ *       {@code Mth.floor(x)} ints, so every entity-derived query
+ *       ({@code PathfinderMob.checkSpawnRules}/{@code getWalkTargetValue},
+ *       {@code Mob.finalizeSpawn}, ...) resolved the wrapped chunk. The cache
+ *       is now built from {@code Mth.lfloor(x/y/z)} with the wide
+ *       {@code BlockPos(JJJ)} constructor. At normal coordinates the long
+ *       equals the int it replaced.</li>
+ *   <li>{@code LevelReader.containsAnyLiquid} looped int
+ *       {@code Mth.floor(minX) .. Mth.ceil(maxX)}: past 2^31 the wrapped
+ *       floor and the saturating ceil form a ~4.29e9-iteration loop that
+ *       reads wrapped chunks - the spawn-step STUCK watchdog stack
+ *       ({@code Mob.checkSpawnObstruction} -&gt; {@code containsAnyLiquid}).
+ *       The loop now runs in the long domain ({@code Mth.lfloor}/
+ *       {@code Mth.ceilLong} + wide {@code MutableBlockPos.set}).</li>
+ *   <li>{@code WorldGenRegion.addFreshEntity} derived the target section
+ *       from {@code entity.getBlockX()}, which wraps past 2^31 and is not in
+ *       the generation cache. It now uses {@code Mth.lfloor(entity.getX()) >> 4}.</li>
+ * </ul>
+ *
  * <p>RNG call order, loop order and every int/double expression are kept
  * exactly as vanilla; at normal coordinates the long equals the int it
  * replaced (values, comparisons and produced positions), so the spawn
@@ -60,6 +89,7 @@ import org.objectweb.asm.tree.VarInsnNode;
 public final class NaturalSpawnerWidePatch implements ClassPatch {
 
     private static final String TARGET = "net/minecraft/world/level/NaturalSpawner";
+    private static final String WORLD_GEN_REGION = "net/minecraft/server/level/WorldGenRegion";
     private static final String HOLDER = "net/minecraft/core/Holder";
     private static final String BIOME = "net/minecraft/world/level/biome/Biome";
     private static final String CHUNKPOS = "net/minecraft/world/level/ChunkPos";
@@ -95,6 +125,7 @@ public final class NaturalSpawnerWidePatch implements ClassPatch {
     private static final String AABB = "net/minecraft/world/phys/AABB";
     private static final String OPTIONAL = "java/util/Optional";
     private static final String MTH = "net/minecraft/util/Mth";
+    private static final String MATH = "java/lang/Math";
     private static final String LOGGER = "org/slf4j/Logger";
 
     private static final String GENERATE_DESC =
@@ -108,13 +139,39 @@ public final class NaturalSpawnerWidePatch implements ClassPatch {
 
     @Override
     public boolean matches(String internalName) {
-        return TARGET.equals(internalName);
+        return TARGET.equals(internalName) || ENTITY.equals(internalName)
+            || LEVEL_READER.equals(internalName) || WORLD_GEN_REGION.equals(internalName);
     }
 
     @Override
     public byte[] apply(byte[] original) {
         ClassNode node = new ClassNode();
         new ClassReader(original).accept(node, 0);
+
+        if (ENTITY.equals(node.name)) {
+            if (!widenSetPosRaw(node)) {
+                return original;
+            }
+            ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
+            node.accept(cw);
+            return cw.toByteArray();
+        }
+        if (LEVEL_READER.equals(node.name)) {
+            if (!widenContainsAnyLiquid(node)) {
+                return original;
+            }
+            ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
+            node.accept(cw);
+            return cw.toByteArray();
+        }
+        if (WORLD_GEN_REGION.equals(node.name)) {
+            if (!widenAddFreshEntity(node)) {
+                return original;
+            }
+            ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
+            node.accept(cw);
+            return cw.toByteArray();
+        }
 
         MethodNode spawn = find(node, "spawnMobsForChunkGeneration", GENERATE_DESC);
         if (spawn == null) {
@@ -405,17 +462,15 @@ public final class NaturalSpawnerWidePatch implements ClassPatch {
 
         // if (!SpawnPlacements.checkSpawnRules(type, level, CHUNK_GENERATION,
         //         BlockPos.containing(fx, pos.getY(), fz), level.getRandom())) continue;
+        // W5-F: wide containing - past 2^31 the vanilla int floor wraps and the
+        // predicate reads the mirrored negative chunk instead of this one.
         il.add(new VarInsnNode(Opcodes.ALOAD, 11));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, SPAWNER_DATA, "type",
             "()L" + ENTITY_TYPE + ";", false));
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new FieldInsnNode(Opcodes.GETSTATIC, SPAWN_REASON, "CHUNK_GENERATION",
             "L" + SPAWN_REASON + ";"));
-        il.add(new VarInsnNode(Opcodes.DLOAD, 27));
-        il.add(posY(25));
-        il.add(new VarInsnNode(Opcodes.DLOAD, 29));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, BLOCKPOS, "containing",
-            "(DDD)L" + BLOCKPOS + ";", false));
+        il.add(wideContaining(27, 25, 29));
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new MethodInsnNode(Opcodes.INVOKEINTERFACE, SERVER_ACCESSOR, "getRandom",
             "()L" + RANDOM + ";", true));
@@ -612,6 +667,29 @@ public final class NaturalSpawnerWidePatch implements ClassPatch {
         return il;
     }
 
+    /**
+     * Wide {@code BlockPos.containing(fx, y, z)}:
+     * {@code new BlockPos(Math.floor(fx), (long) pos.getY(), Math.floor(fz))}.
+     * {@code fx}/{@code fz} are double locals, {@code posSlot} holds the
+     * candidate {@code BlockPos} whose integer (already real) y is reused.
+     */
+    private static InsnList wideContaining(int fxSlot, int posSlot, int fzSlot) {
+        InsnList il = new InsnList();
+        il.add(new TypeInsnNode(Opcodes.NEW, BLOCKPOS));
+        il.add(new InsnNode(Opcodes.DUP));
+        il.add(new VarInsnNode(Opcodes.DLOAD, fxSlot));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, MATH, "floor", "(D)D", false));
+        il.add(new InsnNode(Opcodes.D2L));
+        il.add(new VarInsnNode(Opcodes.ALOAD, posSlot));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, BLOCKPOS, "getY", "()I", false));
+        il.add(new InsnNode(Opcodes.I2L));
+        il.add(new VarInsnNode(Opcodes.DLOAD, fzSlot));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, MATH, "floor", "(D)D", false));
+        il.add(new InsnNode(Opcodes.D2L));
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, BLOCKPOS, "<init>", "(JJJ)V", false));
+        return il;
+    }
+
     // ------------------------------------------------------------------
     // getTopNonCollidingPos
     // ------------------------------------------------------------------
@@ -692,6 +770,264 @@ public final class NaturalSpawnerWidePatch implements ClassPatch {
             true));
         il.add(new InsnNode(Opcodes.ARETURN));
         return il;
+    }
+
+    // ------------------------------------------------------------------
+    // Entity.setPosRaw - wide blockPosition cache
+    // ------------------------------------------------------------------
+
+    /**
+     * {@code Entity.setPosRaw(DDD)} derives the cached {@code blockPosition}
+     * from {@code Mth.floor(x/y/z)} ints. Past 2^31 those wrap and every
+     * entity-derived query (mob spawn rules, finalizeSpawn, entity add)
+     * resolves the mirrored negative chunk; the spawn step then reads
+     * outside the write zone and {@code containsAnyLiquid} loops over the
+     * wrapped AABB range. Replace only the {@code new BlockPos(i, j, k)}
+     * construction with the wide {@code Mth.lfloor} values; the int floors
+     * stay for the surrounding vanilla logic. At normal coordinates the long
+     * equals the int it replaced, so the cached position is unchanged.
+     */
+    private static boolean widenSetPosRaw(ClassNode node) {
+        MethodNode m = find(node, "setPosRaw", "(DDD)V");
+        if (m == null) {
+            throw new IllegalStateException(ENTITY + "#setPosRaw(DDD) not found");
+        }
+        AbstractInsnNode ctor = null;
+        for (AbstractInsnNode insn : m.instructions) {
+            if (insn instanceof MethodInsnNode mi && mi.getOpcode() == Opcodes.INVOKESPECIAL
+                    && BLOCKPOS.equals(mi.owner) && "<init>".equals(mi.name)
+                    && "(III)V".equals(mi.desc)) {
+                AbstractInsnNode next = insn.getNext();
+                while (next != null && next.getOpcode() < 0) {
+                    next = next.getNext(); // skip labels/line numbers
+                }
+                if (next instanceof FieldInsnNode fi && fi.getOpcode() == Opcodes.PUTFIELD
+                        && ENTITY.equals(fi.owner) && "blockPosition".equals(fi.name)) {
+                    ctor = insn;
+                }
+            }
+        }
+        if (ctor == null) {
+            for (AbstractInsnNode insn : m.instructions) {
+                if (insn instanceof MethodInsnNode mi && MTH.equals(mi.owner)
+                        && "lfloor".equals(mi.name)) {
+                    return false; // already patched
+                }
+            }
+            throw new IllegalStateException(ENTITY + "#setPosRaw: BlockPos(III) ctor not found");
+        }
+        AbstractInsnNode load9 = ctor.getPrevious();
+        AbstractInsnNode load8 = load9 == null ? null : load9.getPrevious();
+        AbstractInsnNode load7 = load8 == null ? null : load8.getPrevious();
+        AbstractInsnNode dup = load7 == null ? null : load7.getPrevious();
+        AbstractInsnNode newInsn = dup == null ? null : dup.getPrevious();
+        boolean shape = load9 instanceof VarInsnNode a && a.getOpcode() == Opcodes.ILOAD && a.var == 9
+            && load8 instanceof VarInsnNode b && b.getOpcode() == Opcodes.ILOAD && b.var == 8
+            && load7 instanceof VarInsnNode c && c.getOpcode() == Opcodes.ILOAD && c.var == 7
+            && dup != null && dup.getOpcode() == Opcodes.DUP
+            && newInsn != null && newInsn.getOpcode() == Opcodes.NEW;
+        if (!shape) {
+            throw new IllegalStateException(ENTITY + "#setPosRaw: unexpected BlockPos ctor shape");
+        }
+        InsnList repl = new InsnList();
+        repl.add(new TypeInsnNode(Opcodes.NEW, BLOCKPOS));
+        repl.add(new InsnNode(Opcodes.DUP));
+        for (int slot : new int[]{1, 3, 5}) {
+            repl.add(new VarInsnNode(Opcodes.DLOAD, slot));
+            repl.add(new MethodInsnNode(Opcodes.INVOKESTATIC, MTH, "lfloor", "(D)J", false));
+        }
+        repl.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, BLOCKPOS, "<init>", "(JJJ)V", false));
+        m.instructions.insertBefore(newInsn, repl);
+        for (AbstractInsnNode n = newInsn; n != null; ) {
+            AbstractInsnNode next = n.getNext();
+            m.instructions.remove(n);
+            if (n == ctor) {
+                break;
+            }
+            n = next;
+        }
+        m.localVariables = null;
+        return true;
+    }
+
+    // ------------------------------------------------------------------
+    // LevelReader.containsAnyLiquid - long loop bounds
+    // ------------------------------------------------------------------
+
+    /**
+     * {@code containsAnyLiquid(AABB)}:
+     * {@code long minX = Mth.lfloor(box.minX), maxX = Mth.ceilLong(box.maxX), ...;
+     *  MutableBlockPos pos = new MutableBlockPos();
+     *  for (long x = minX; x < maxX; x++) for (long y ...) for (long z ...) {
+     *      pos.set(x, y, z);
+     *      if (!this.getBlockState(pos).getFluidState().isEmpty()) return true;
+     *  } return false;}
+     *
+     * <p>Past 2^31 the wrapped int {@code Mth.floor} lower bound and the
+     * saturating {@code Mth.ceil} upper bound form a ~4.29e9 iteration loop
+     * (spawn-step watchdog STUCK). The long bounds describe the small real
+     * box the AABB actually spans, and the wide position keeps the block
+     * reads in the real chunk. Normal coordinates are identical.</p>
+     */
+    private static boolean widenContainsAnyLiquid(ClassNode node) {
+        MethodNode m = find(node, "containsAnyLiquid", "(L" + AABB + ";)Z");
+        if (m == null) {
+            throw new IllegalStateException(LEVEL_READER + "#containsAnyLiquid not found");
+        }
+        for (AbstractInsnNode insn : m.instructions) {
+            if (insn instanceof MethodInsnNode mi && MTH.equals(mi.owner)
+                    && "ceilLong".equals(mi.name)) {
+                return false; // already patched
+            }
+        }
+        String fluid = "net/minecraft/world/level/material/FluidState";
+        LabelNode loopX = new LabelNode();
+        LabelNode loopY = new LabelNode();
+        LabelNode loopZ = new LabelNode();
+        LabelNode nextY = new LabelNode();
+        LabelNode nextX = new LabelNode();
+        LabelNode done = new LabelNode();
+
+        InsnList il = new InsnList();
+        longSlot(il, 2, "minX");
+        longSlot(il, 4, "maxX");
+        longSlot(il, 6, "minY");
+        longSlot(il, 8, "maxY");
+        longSlot(il, 10, "minZ");
+        longSlot(il, 12, "maxZ");
+        // MutableBlockPos pos = new MutableBlockPos();
+        il.add(new TypeInsnNode(Opcodes.NEW, MUTABLE));
+        il.add(new InsnNode(Opcodes.DUP));
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, MUTABLE, "<init>", "()V", false));
+        il.add(new VarInsnNode(Opcodes.ASTORE, 14));
+        // x = minX
+        il.add(new VarInsnNode(Opcodes.LLOAD, 2));
+        il.add(new VarInsnNode(Opcodes.LSTORE, 15));
+        il.add(loopX);
+        il.add(new VarInsnNode(Opcodes.LLOAD, 15));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 4));
+        il.add(new InsnNode(Opcodes.LCMP));
+        il.add(new JumpInsnNode(Opcodes.IFGE, done));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 6));
+        il.add(new VarInsnNode(Opcodes.LSTORE, 17));
+        il.add(loopY);
+        il.add(new VarInsnNode(Opcodes.LLOAD, 17));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 8));
+        il.add(new InsnNode(Opcodes.LCMP));
+        il.add(new JumpInsnNode(Opcodes.IFGE, nextX));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 10));
+        il.add(new VarInsnNode(Opcodes.LSTORE, 19));
+        il.add(loopZ);
+        il.add(new VarInsnNode(Opcodes.LLOAD, 19));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 12));
+        il.add(new InsnNode(Opcodes.LCMP));
+        il.add(new JumpInsnNode(Opcodes.IFGE, nextY));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 14));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 15));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 17));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 19));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, MUTABLE, "set",
+            "(JJJ)L" + MUTABLE + ";", false));
+        il.add(new InsnNode(Opcodes.POP));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 14));
+        il.add(new MethodInsnNode(Opcodes.INVOKEINTERFACE, LEVEL_READER, "getBlockState",
+            "(L" + BLOCKPOS + ";)L" + BLOCKSTATE + ";", true));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, BLOCKSTATE, "getFluidState",
+            "()L" + fluid + ";", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, fluid, "isEmpty", "()Z", false));
+        LabelNode continueZ = new LabelNode();
+        il.add(new JumpInsnNode(Opcodes.IFNE, continueZ));
+        il.add(new InsnNode(Opcodes.ICONST_1));
+        il.add(new InsnNode(Opcodes.IRETURN));
+        il.add(continueZ);
+        longIncrement(il, 19);
+        il.add(new JumpInsnNode(Opcodes.GOTO, loopZ));
+        il.add(nextY);
+        longIncrement(il, 17);
+        il.add(new JumpInsnNode(Opcodes.GOTO, loopY));
+        il.add(nextX);
+        longIncrement(il, 15);
+        il.add(new JumpInsnNode(Opcodes.GOTO, loopX));
+        il.add(done);
+        il.add(new InsnNode(Opcodes.ICONST_0));
+        il.add(new InsnNode(Opcodes.IRETURN));
+
+        m.instructions.clear();
+        m.localVariables = null;
+        m.tryCatchBlocks.clear();
+        m.instructions.add(il);
+        m.maxLocals = 21;
+        return true;
+    }
+
+    /** {@code dst = Mth.lfloor/Mth.ceilLong(this.box.<field>)}. */
+    private static void longSlot(InsnList il, int dst, String field) {
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new FieldInsnNode(Opcodes.GETFIELD, AABB, field, "D"));
+        String fn = field.startsWith("min") ? "lfloor" : "ceilLong";
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, MTH, fn, "(D)J", false));
+        il.add(new VarInsnNode(Opcodes.LSTORE, dst));
+    }
+
+    /** {@code local += 1} for a long local. */
+    private static void longIncrement(InsnList il, int slot) {
+        il.add(new VarInsnNode(Opcodes.LLOAD, slot));
+        il.add(new InsnNode(Opcodes.LCONST_1));
+        il.add(new InsnNode(Opcodes.LADD));
+        il.add(new VarInsnNode(Opcodes.LSTORE, slot));
+    }
+
+    // ------------------------------------------------------------------
+    // WorldGenRegion.addFreshEntity - wide section lookup
+    // ------------------------------------------------------------------
+
+    /**
+     * Vanilla derives the target section from {@code entity.getBlockX()}
+     * ({@code Mth.floor(x)} int), which wraps past 2^31; the wrapped section
+     * is not in the generation cache and the add dies/lands in the mirror.
+     * Use the real block coordinate: {@code (int)(Mth.lfloor(entity.getX()) >> 4)}.
+     * At normal coordinates this equals the vanilla section.
+     */
+    private static boolean widenAddFreshEntity(ClassNode node) {
+        MethodNode m = find(node, "addFreshEntity", "(L" + ENTITY + ";)Z");
+        if (m == null) {
+            throw new IllegalStateException(WORLD_GEN_REGION + "#addFreshEntity not found");
+        }
+        for (AbstractInsnNode insn : m.instructions) {
+            if (insn instanceof MethodInsnNode mi && MTH.equals(mi.owner)
+                    && "lfloor".equals(mi.name)) {
+                return false; // already patched
+            }
+        }
+        InsnList il = new InsnList();
+        for (int dst : new int[]{2, 3}) {
+            String axis = dst == 2 ? "X" : "Z";
+            il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, ENTITY, "get" + axis, "()D", false));
+            il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, MTH, "lfloor", "(D)J", false));
+            il.add(new IntInsnNode(Opcodes.BIPUSH, 4));
+            il.add(new InsnNode(Opcodes.LSHR));
+            il.add(new InsnNode(Opcodes.L2I));
+            il.add(new VarInsnNode(Opcodes.ISTORE, dst));
+        }
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 2));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 3));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, WORLD_GEN_REGION, "getChunk",
+            "(II)Lnet/minecraft/world/level/chunk/ChunkAccess;", false));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/world/level/chunk/ChunkAccess",
+            "addEntity", "(L" + ENTITY + ";)V", false));
+        il.add(new InsnNode(Opcodes.ICONST_1));
+        il.add(new InsnNode(Opcodes.IRETURN));
+
+        m.instructions.clear();
+        m.localVariables = null;
+        m.tryCatchBlocks.clear();
+        m.instructions.add(il);
+        m.maxLocals = 4;
+        return true;
     }
 
     // ------------------------------------------------------------------

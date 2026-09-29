@@ -212,6 +212,44 @@ testgen 规格串：`0,0;62,62;62500,62500;625000,625000;1812500,1812500`
 - 该读取发生在特征放置状态，不在 `spawnMobsForChunkGeneration`（SPAWN 状态）路径上；
   本轮未定位、未修改，列为遗留项。
 
+### 7.3 W5-F：spawn 状态内仍残留的 int 回绕（位置换算）— 已修复
+
+- 日期：2026-09-29
+- 假设：W5-E 宽化了 `spawnMobsForChunkGeneration` 的候选列，但候选的 double 坐标换算回
+  `BlockPos` 仍走 int 域：`NaturalSpawner` 的 `BlockPos.containing(fx,y,fz)`、
+  `Entity.setPosRaw` 缓存的 `blockPosition`、`LevelReader.containsAnyLiquid` 的
+  `Mth.floor..Mth.ceil` 循环、`WorldGenRegion.addFreshEntity` 的 section 换算。
+  2^31 之后这些位置落到镜像负半轴：spawn 状态读取写区外的区块，且
+  `containsAnyLiquid` 的 floor 回绕 + ceil 饱和形成约 4.29e9 次迭代循环 →
+  `Mob.checkSpawnObstruction` 空转，Watchdog STUCK。
+- 参数：种子 `12345`；坐标 `(134217731,1025)`（镜像生物群系 plains，实际为 forest）；
+  wide=true continuity=true epoch=false；`-Dmax.bg.threads=1`。
+- 版本标记：修复前 PATCH_REVISION=26（对照，临时打开 far-read 诊断）：
+  `[FarLands-G2][diag] FAR read chunk=(-134217725,1025) center=(134217731,1025) writeRadius=-1 step=minecraft:spawn`，
+  调用链 `Mob.checkSpawnObstruction → LevelReader.containsAnyLiquid`；随后
+  `[Watchdog] STUCK thread=Worker-Main-3 state=RUNNABLE`，60 s 强制关闭
+  （`crash-2026-09-29_15.05.28-server.txt`）。修复后 PATCH_REVISION=28
+  （27 为首版修复、28 为 BlockPos ctor 匹配加固后的最终构建）。
+- 预期（修复）：同坐标 `gen OK`；spawn 状态 0 条 unsafe read；0 次 STUCK。
+- 实测（修复）：`(134217731,1025)`、`(134217727,46656)`、`(134217731,46656)` 均 `gen OK`；
+  无 `step: minecraft:spawn` 的 unsafe read；STUCK=0；spawn 尝试坐标为真实宽值
+  （`x=2147483708 z=16408`，类型 pig）。
+- 正常坐标复验（逐位不变）：`(0,0) surf=b9216bad2029 floor=8936c275d063 biome=4bf4e2ea5526`；
+  `(62,62) floor=8682357e5167 biome=bb77ccfc9cac`。
+- bytecode 复验（javap，REV27 合并 jar）：`NaturalSpawner` 内
+  `java/lang/Math.floor` + `BlockPos.<init>(JJJ)`；`Entity.setPosRaw` 内
+  `Mth.lfloor`×3 + `BlockPos.<init>(JJJ)`；`LevelReader.containsAnyLiquid` 使用
+  `Mth.lfloor`/`Mth.ceilLong` 与 long 循环；`WorldGenRegion.addFreshEntity` 使用
+  `entity.getX/getZ + Mth.lfloor >> 4`。
+- 结论：**在本实验条件下**，spawn 状态残留的 int 回绕位于"实拟坐标→BlockPos"的换算点；
+  宽化后同条件不再挂起、不再产生 spawn 状态写区外读取。此结论仅适用于上述条件（R10）。
+- 遗留（本轮未改）：`spawnOriginalMobs` 的生物群系 holder 仍由
+  `chunkPos.getWorldPosition()`（int 回绕）经 `BiomeManager.getBiome` 取得，远域可能选到
+  镜像生物群系（本例 forest→plains）；trees 远读同 §7.2。
+- 证据：`exp-s2x-attempt.log`（对照，挂起+STUCK）、`exp-s2x-fix1.log`、
+  `exp-s2x-final.log`、`exp-s2x-final-nodiag.log`（spawn 状态 unsafe read=0、STUCK=0）、
+  `exp-s2n-final.log`（正常坐标指纹逐位不变）。
+
 ---
 
 ## 8. 远域现象表（本项目实验条件下的实测结果）
