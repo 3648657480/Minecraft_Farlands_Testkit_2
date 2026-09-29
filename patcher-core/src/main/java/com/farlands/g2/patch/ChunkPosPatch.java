@@ -9,6 +9,7 @@ import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.VarInsnNode;
@@ -113,11 +114,65 @@ public final class ChunkPosPatch implements ClassPatch {
             node.methods.add(ctor);
         }
 
+        addWideBlockAccessors(node);
+
         replaceRecordEquals(node);
 
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
         return cw.toByteArray();
+    }
+
+    /**
+     * Wide block-coordinate accessors: {@code getMinBlockXLong()},
+     * {@code getMiddleBlockXLong()}, {@code getBlockXLong(int)} (and Z).
+     *
+     * <p>The vanilla int accessors derive block coordinates with
+     * {@code SectionPos.sectionToBlockCoord}, i.e. {@code chunk.x << 4} in the
+     * int domain, which wraps at chunk {@code 2^27} (block {@code 2^31}).
+     * Carvers and the carver-biome lookup consume those int results as
+     * doubles/long grid coordinates, so a wrapped chunk silently carves the
+     * wrong columns. These long variants compute the same expression from the
+     * widened x/z storage; at normal coordinates every result equals the int
+     * one it replaces.</p>
+     */
+    private static void addWideBlockAccessors(ClassNode node) {
+        if (node.methods.stream().anyMatch(m -> "getMinBlockXLong".equals(m.name))) {
+            return;
+        }
+        for (String axis : new String[]{"x", "z"}) {
+            String suffix = axis.toUpperCase(java.util.Locale.ROOT);
+            node.methods.add(blockAccessor(axis, "getMinBlock" + suffix + "Long", 0L));
+            node.methods.add(blockAccessor(axis, "getMiddleBlock" + suffix + "Long", 8L));
+            MethodNode offset = new MethodNode(Opcodes.ACC_PUBLIC,
+                "getBlock" + suffix + "Long", "(I)J", null, null);
+            InsnList oi = offset.instructions;
+            oi.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            oi.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, axis, "J"));
+            oi.add(new LdcInsnNode(4));
+            oi.add(new InsnNode(Opcodes.LSHL));
+            oi.add(new VarInsnNode(Opcodes.ILOAD, 1));
+            oi.add(new InsnNode(Opcodes.I2L));
+            oi.add(new InsnNode(Opcodes.LADD));
+            oi.add(new InsnNode(Opcodes.LRETURN));
+            node.methods.add(offset);
+        }
+    }
+
+    /** {@code (chunkX << 4) + constant}. */
+    private static MethodNode blockAccessor(String axis, String name, long constant) {
+        MethodNode mn = new MethodNode(Opcodes.ACC_PUBLIC, name, "()J", null, null);
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, axis, "J"));
+        il.add(new LdcInsnNode(4));
+        il.add(new InsnNode(Opcodes.LSHL));
+        if (constant != 0L) {
+            il.add(new LdcInsnNode(constant));
+            il.add(new InsnNode(Opcodes.LADD));
+        }
+        il.add(new InsnNode(Opcodes.LRETURN));
+        return mn;
     }
 
     /**

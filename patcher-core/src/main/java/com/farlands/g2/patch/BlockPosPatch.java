@@ -99,6 +99,14 @@ public final class BlockPosPatch implements ClassPatch {
             rewrite(node, "atY", "(I)Lnet/minecraft/core/BlockPos;", atYBody());
             rewrite(node, "relative", "(Lnet/minecraft/core/Direction;)Lnet/minecraft/core/BlockPos;",
                 relativeOneBody());
+            // The copy constructor is the truncation point of every
+            // value-producing conversion that still routes through
+            // `new BlockPos(vec)`, most importantly
+            // MutableBlockPos.immutable() (VegetationPatchFeature stores the
+            // ground column it returns in a Set and places at it later).
+            // Copy the widened fields directly; at normal coordinates the long
+            // equals the int getter it replaced.
+            rewrite(node, "<init>", "(Lnet/minecraft/core/Vec3i;)V", vecCopyBody());
         }
         // betweenClosed(a, b) computes its extents with the int getters, so two
         // corners that straddle block 2^31 (a = origin-r, b = origin+r with
@@ -406,6 +414,23 @@ public final class BlockPosPatch implements ClassPatch {
         }
         il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TARGET, "<init>", "(JJJ)V", false));
         il.add(new InsnNode(Opcodes.ARETURN));
+        return il;
+    }
+
+    /**
+     * {@code this(v.getLongX(), v.getLongY(), v.getLongZ())}: the copy
+     * constructor keeps the widened coordinates instead of re-reading the
+     * wrapped int getters.
+     */
+    private static InsnList vecCopyBody() {
+        InsnList il = new InsnList();
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        for (String axis : new String[]{"X", "Y", "Z"}) {
+            il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLong" + axis, "()J", false));
+        }
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TARGET, "<init>", "(JJJ)V", false));
+        il.add(new InsnNode(Opcodes.RETURN));
         return il;
     }
 
