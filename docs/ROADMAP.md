@@ -52,6 +52,15 @@ G2 = 沿用 G1 的全部经验与工具链，但**放弃 epoch（local 域）路
 ## 当前状态
 
 - 基线：G1 代码（可构建）。已完成身份迁移（`farlands-g1` → `farlands-g2`，包 `com.farlands.g2`）。
-- 下一里程碑：**W1 宽容器**。
+- W1/W2/W4 容器与含水层宽化、W5 部分消费者已完成（记录见 `docs/EXPERIMENTS.md` §7）。
+- **里程碑（2026-09-29 定）**：
+  - **M1（当前）**：可及域（chunk ∈ int 域 ⇒ 真实 block ±2^35）无回绕读写（diag=0）、`gen OK`、
+    正常坐标逐位不变。已知阻断（优先级）：bug A（surface 生物群系回绕崩溃）>
+    bug C（特征回绕写）> bug B（MAX−1/MAX 静默挂起，归 W4）。
+  - **M2**：W4（chunk key 128bit + 存档 + 客户端）→ headless 可在 chunk 2^49（真实 block 2^53）
+    生成并给出量化指纹（第一个现象的可测量形态）。
+  - **M3**：客户端/渲染 → 进游戏目视现象。
+  - 判据：只修挡 M1/M2 验收的；其余记账。
+- 观测侦察记录：`docs/EXPERIMENTS.md` §9；半成品分支 `wip/m1-surface-feature-wrap`（未验证）。
 - 随基线带入的历史结论：`docs/EXPERIMENTS.md`（现象表 / 起点随种子浮动）、
   `docs/archive/WIDE-DESIGN.md`（宽化设计账本与当年失败链）。

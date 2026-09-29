@@ -309,3 +309,39 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 
 **F3 显示（本项目 1.0.0）**：XYZ/Block/Chunk 显示真实坐标（超 double 精度用 BigInteger 精确值）；
 另有 `Local (in-epoch)`、`Epoch ... Laps (2^31)`、`Real double ULP` 行。
+
+---
+
+## 9. M1 侦察：可及域扫描与 2^31 int 回绕边界（2026-09-29）
+
+- 目的：确定"当前可寻址域"（chunk ∈ int 域 ⇒ 真实 block ±2^35）的干净程度与剩余回绕点，
+  为后续修复定账（M1）。
+- 参数：种子 `12345`；wide=true continuity=true epoch=false；`-Dmax.bg.threads=1`；
+  `-Dfarlands.diag.farread=true`；fresh world；Settle=120；协议同 §2.2。
+- 预期（先写）：全部 `gen OK`、无 STUCK、无 unsafe read；本区间 double ulp=1 ⇒ 预期"无距离现象"；
+  任何异常记为 bug（现象自 2^53 block 起，需 W4 寻址才可达）。
+- 实测：
+  - `134217727,0`（2^27，对照）/ `268435455,0` / `536870911,0` / `1073741823,0`（2^30）/
+    `1610612736,0`（3·2^29）：`gen OK`。
+  - `1610612736,0`：features 步刷屏
+    `Detected setBlock in a far chunk [1,0], pos: MutableBlockPos{x=16..31, y=62, z=16..31}`——
+    特征回绕写（**bug C**，与 §7.2 trees 远读同类）。
+  - `2147482646,0`（MAX−1002）：`generateSurface` 抛
+    `IllegalArgumentException: Requested out of range value (-1004,-1) from
+    StaticCache2D[2147482635,-9,2147482656,12]`；栈
+    `SurfaceSystem.buildSurface(:124) → BiomeManager.getBiome(:79) → LevelReader.getNoiseBiome(:64)
+    → WorldGenRegion.getChunk(:128)`；worker 死亡后 future 永不完成 → 60 s Watchdog（**bug A**）。
+  - `2147483646,0` / `2147483647,0`（MAX−1 / MAX）：静默挂起——无异常、无 RUNNABLE worker、
+    future 挂起（**bug B**，疑似 int 上界/区域边界，归 W4 域；不追）。
+  - 负侧镜像（`-2147483646` / `-2147483647`）未测（被 bug B 阻塞）。
+- 结论（本实验条件下，R10）：
+  1. 2^27~2^30 段未见回绕异常；3·2^29 起 features 出现回绕写；MAX−1002 起 surface 步崩溃；
+     MAX−1/MAX 静默挂起。
+  2. 可及域内**无距离现象**；因此可及域内一切异常均为 int 回绕 bug，
+     不存在"把现象修坏"的问题。
+  3. "静默挂起"≠"没崩溃"：road1/cei1/cei2 的挂起无异常、无 worker；bis1 为 worker 抛异常后
+     future 永不完成。今后挂起必须检查 `Caught exception in thread` 与未来状态。
+- 证据：`logs/m1-recon-20260929/`（`exp-road1.log` / `exp-cei1.log` / `exp-cei2.log` /
+  `exp-bis1.log` + `crash-2026-09-29_16.06.04 / 16.33.19 / 16.46.15-server.txt`；`logs/` 未跟踪）。
+- 后续：修 bug A（surface 生物群系宽化）＋ bug C（特征回绕写）；bug B 记账给 W4。
+  半成品存于分支 `wip/m1-surface-feature-wrap`（未验证，勿并入）。
