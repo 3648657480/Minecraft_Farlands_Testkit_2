@@ -79,3 +79,35 @@ headless 在 chunk 2^49（真实 block 2^53）生成并给出量化指纹（第�
 
 - M1 代表集重跑：对照指纹逐位一致、14/14 `gen OK`、diag=0、刷屏=0（§13 口径）。
 - 未完成前不得开始 W4-2；每一步一轮、预期先行。
+
+### W4-1b 变换规格（2026-10-12 已抓形，待实现）
+
+目标类 `net/minecraft/server/level/ChunkMap`；把 3 个映射
+（`updatingChunkMap`/`visibleChunkMap`/`pendingUnloads`）从
+`Long2ObjectLinkedOpenHashMap<ChunkHolder>`（32+32 打包键）换成
+`com.scalarwide.mc.Wide128FlatMap`（128 位 `Wide128` 键）。
+
+vanilla 字节码里需改写的**全部形态**（javap 实测）：
+
+| 形态 | owner.desc | 改为 |
+|---|---|---|
+| 字段声明/初始化 | `Lnet/.../Long2ObjectLinkedOpenHashMap;` ×3 | `Lcom/scalarwide/mc/Wide128FlatMap;` |
+| `new` | `Long2ObjectLinkedOpenHashMap.<init>()V` | `Wide128FlatMap.<init>()V` |
+| `clone()` | `...Long2ObjectLinkedOpenHashMap.clone()Long2ObjectLinkedOpenHashMap;` | `Wide128FlatMap.clone()LWide128FlatMap;` |
+| `get` | `...get(J)Ljava/lang/Object;` | 桥 `farlands$cmGet(LWide128FlatMap;J)LObject;` |
+| `put` | `...put(JLjava/lang/Object;)Ljava/lang/Object;` | 桥 `farlands$cmPut(...)` |
+| `remove(J)` | `...remove(J)Ljava/lang/Object;` | 桥 `farlands$cmRemove` |
+| `remove(JLjava/lang/Object;)` | `...remove(JLjava/lang/Object;)Z` | 桥 `farlands$cmRemove2` |
+| `containsKey` | `...containsKey(J)Z` | 桥 `farlands$cmContains`（如出现） |
+| `isEmpty/size` | `()Z / ()I` | 同 desc，owner 改 `Wide128FlatMap` |
+| `values()` | `...values()Lit/unimi/dsi/fastutil/objects/ObjectCollection;` | `Wide128FlatMap.values()Ljava/util/List;` |
+| `ObjectCollection.iterator()` | `...iterator()Lit/.../ObjectIterator;` | `java/util/List.iterator()Ljava/util/Iterator;`（下游 next/hasNext 已是 java/util/Iterator ✓） |
+| `long2ObjectEntrySet()` | `...()Lit/.../Long2ObjectSortedMap$FastSortedEntrySet;` | **定向重写该循环**：迭代 `values()`，`posKey` 由 `holder.getPos().pack()` 导出；`Entry.getLongKey()/getValue()` 替换为 holder 派生 |
+
+- 桥方法（注入 ChunkMap，static）：`keyOf(J)` = `Wide128.of((long)(int)packed, packed>>32)`
+  （int 域精确；远超域由 W4-2 的宽入口直接构造宽键）；`cmGet/cmPut/cmRemove/cmRemove2/cmContains`
+  接受 `(Wide128FlatMap, J[, Object])`。
+- 注意事项：表的迭代顺序由插入序变表序（`pendingUnloads` 卸载次序可能变，仅时序、不判指纹）；
+  `chunksToEagerlySave`/`nextChunkSaveTime` 暂留 64 位（记账，后续项）。
+- 验证门：CLI 重放后 javap 结构核对 + **真跑控制坐标**（ChunkMap 在服务器启动即加载，
+  VerifyError/NoSuchMethodError 会立即暴露）；再跑 M1 代表集对照指纹。
