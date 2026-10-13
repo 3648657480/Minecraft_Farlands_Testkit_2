@@ -392,3 +392,24 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 遗留（M1 判据"diag=0"未达）：far-read 诊断线每轮仍有 1 条（如 `chunk=(1610612737,2)
   center=(1610612736,1)`，与 §7.2 trees 远读 / `GeodeFeature` 链同族）——下一步定位该读取源。
 - 证据：`logs/m1-bugC-20261012/`（`c1-bugC` / `c2-z1` / `c3-batch` / `c4-rev28` / `c5-restore`）。
+
+## 12. M1 收尾：far-read 诊断线归因与仪器修正（2026-10-12）
+
+- 现象：每次远端扫描都出现 1 条 `[FarLands-G2][diag] first FAR unsafe terrain read`
+  （如 `chunk=(1610612737,2) center=(1610612736,1) writeRadius=1`，调用链
+  `WorldGenRegion.getBlockState ← GeodeFeature.place`）。
+- 定位：诊断 mixin 注入在 `warnIfReadOutsideWriteZone(II)` 的 HEAD 并直接 dump——而 vanilla
+  对每次读取都无条件调用该方法、越界判定在方法体内。即**仪器只在"坐标远"上筛选，未复刻
+  "是否真越界"**；被报的读距中心 (1,1) ≤ writeRadius=1，实为 GeodeFeature 采样自身壁块的
+  **合法邻块读取**。
+- 验证（关诊断，量 vanilla 真警告）：扫描集 `134217727,0;1610612736,0;2147482646,0;
+  -2147482646,0`（Settle=120）→ `Detected unsafe terrain read` **0 条**、far-chunk-setBlock 0、
+  4/4 `gen OK` ⇒ 不存在真实越界读。
+- 修正：`FarReadDiagMixin` 先复刻 vanilla 判定（同中心/界内即返回）再 dump，并打印 distance。
+- 复验（REV29，修正仪器，diag=ON）：**0 条** diag 行（与 vanilla=0 一致）。
+- 阳性对照（REV28 等效，修正仪器）：1 条真实越界读
+  `chunk=(134217727,-2) center=(1610612736,-1) distance=14763950` ⇒ 仪器仍能报警。
+- 结论：**在本实验条件下**，M1 判据"可及域无回绕读写（diag=0）"以修正后的仪器达成：实验
+  坐标集上 0 真实越界读、0 回绕写刷屏、全 `gen OK`、正常坐标逐位不变（§10/§11）。全可及域的
+  成批扫描列为收尾项。此结论仅适用于上述条件（R10）。
+- 证据：`logs/m1-bugC-20261012/`（`m1-nodiag` / `m1-diagfix` / `m1-diagpos`）。
