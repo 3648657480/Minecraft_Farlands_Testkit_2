@@ -33,13 +33,9 @@ headless 在 chunk 2^49（真实 block 2^53）生成并给出量化指纹（第�
 
 ## 步序（每步一轮、预期先行、对照正常指纹）
 
-0. **读侧家族（前置，2026-10-12 发现）**：特征在回绕位置 `getBlockState` → 越出区域缓存抛异常
-   （`SeaPickleFeature` 等，§14）。二选一：
-   - (A) 逐个宽化特征的坐标推导（wip 分支 territory，工作量大）；
-   - (B) 降级：`WorldGenRegion.getBlockState/getFluidState` 在 `cache` 不含该 section 时返回
-     空气/空流体（与 §10 生物群系回退、WgrPatch "past 2^31 no hard fail"、ensureCanWrite 丢弃
-     同政策；正常域恒在缓存内，零变化）。**倾向于 (B)** 作为一轮实验（预期：w4-1a 集稳定
-     `gen OK`、对照指纹不变）。
+0. **读侧家族（前置）— 已完成 2026-10-12（§15）**：采用**降级方案 (B)**——
+   `getBlockState/getFluidState` 缓存缺段返回空气/空流体（REV31）；w4-1a 集两轮稳定 `gen OK`。
+   残余：far-read 诊断线 1/轮（特征位置未宽化），M2 前可接受。
 1. **ChunkPos 键 128 位化（请求面）**：`packWide`/`unpackWide` + `ChunkMap` 队列/holder 映射、
    `ServerChunkCache` 请求路径的键替换；`isValid`/`MAX_CHUNK_COORDINATE_VALUE` 放宽（由 wide 驱动）。
 2. **请求入口 long/ChunkPos 化**：patcher 加 wide 请求入口；测试台 `farlands.testgen` 解析

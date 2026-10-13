@@ -450,3 +450,20 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   M1 §13 的"代表集通过"**不构成远域全集的保证**——远域特征掷骰不定，读侧家族可致 worker 死亡。
   M2（chunk 2^49）以此家族为前置。此结论仅适用于上述条件（R10）。
 - 证据：`logs/m2-w4-20261012/`（`w4-1a`、`w4-1a-r2`）；REV30 重放产物 javap。
+
+## 15. W4-0：读侧降级——特征回绕读不再杀 worker（2026-10-12）
+
+- 问题（§14）：特征以 int 截断坐标（如 `SeaPickleFeature.place` 的 `origin.getX() + x` +
+  `new BlockPos(...)`）在回绕位置 `getBlockState` → 段越出区域缓存 → `StaticCache2D` /
+  `Requested chunk unavailable` 抛异常 → worker 死亡（同一构建两次运行一崩溃一通过）。
+- 修复（降级，与 §10 生物群系回退 / WgrPatch "past 2^31 no hard fail" 同政策）：
+  `WorldGenRegion.getBlockState/getFluidState`（patch 内）先查 `cache.contains(cx, cz)`；不含则
+  返回 `Blocks.AIR.defaultBlockState()` / `Fluids.EMPTY.defaultFluidState()`，不再调用会抛的
+  `getChunk`。正常坐标恒在缓存内 → 零变化。`PATCH_REVISION` 30→31。
+- bytecode 复验（javap，REV31 重放）：两方法均含 `StaticCache2D.contains` → 空气/空流体分支。
+- 验证（集 `0,0;62,62;134217727,0;1610612736,0;2147482646,0`，Settle=120，diag=ON）：
+  两轮均 5/5 `gen OK`、0 崩溃、0 `gen FAILED`；对照指纹逐位一致
+  （`surf=b9216bad2029 floor=8936c275d063` / `floor=8682357e5167`）。
+- 结论：**在本实验条件下**，读侧回绕读不再杀死 worker（降级为空气/空流体）。残余：far-read
+  诊断线仍 1/轮（真实越界读诊断；对应特征位置未宽化，M2 前可接受，属后续项）。
+- 证据：`logs/m2-w4-20261012/`（`w4-0-r1`、`w4-0-r2`）。

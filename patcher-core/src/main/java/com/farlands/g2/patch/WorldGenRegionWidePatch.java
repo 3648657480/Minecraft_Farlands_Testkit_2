@@ -90,6 +90,10 @@ public final class WorldGenRegionWidePatch implements ClassPatch {
     private static final String CHUNKSTATUS =
         "net/minecraft/world/level/chunk/status/ChunkStatus";
     private static final String BIOME_DESC = "(III)Lnet/minecraft/core/Holder;";
+    private static final String BLOCKS = "net/minecraft/world/level/block/Blocks";
+    private static final String BLOCK = "net/minecraft/world/level/block/Block";
+    private static final String FLUIDS = "net/minecraft/world/level/material/Fluids";
+    private static final String FLUID = "net/minecraft/world/level/material/Fluid";
 
     @Override
     public boolean matches(String internalName) {
@@ -120,7 +124,19 @@ public final class WorldGenRegionWidePatch implements ClassPatch {
 
     /**
      * {@code int cx = (int)(pos.getLongX()>>4); int cz = (int)(pos.getLongZ()>>4);
-     *  warnIfReadOutsideWriteZone(cx, cz); return getChunk(cx, cz).read(pos);}
+     *  warnIfReadOutsideWriteZone(cx, cz);
+     *  if (!cache.contains(cx, cz)) return <air|empty>;   // W4-0 degrade
+     *  return getChunk(cx, cz).read(pos);}
+     *
+     * <p>The guard is the W4-0 read-side degrade: a feature that derived its
+     * position through the int accessors / (III) constructor hands over a
+     * wrapped block coordinate (e.g. SeaPickleFeature's
+     * {@code origin.getX()+x}), whose section is far outside the region cache;
+     * {@code getChunk} would throw (StaticCache2D out-of-range or "Requested
+     * chunk unavailable") and kill the worker. Out-of-cache reads now degrade
+     * to air / empty fluid - the same "no hard fail past 2^31" policy as
+     * {@link WgrPatch} and the §10 biome fallback. Normal coordinates are
+     * always inside the cache, so behaviour there is unchanged.</p>
      */
     private static InsnList readBody(String read) {
         String readDesc = read.equals("getBlockState")
@@ -132,6 +148,25 @@ public final class WorldGenRegionWidePatch implements ClassPatch {
         il.add(new VarInsnNode(Opcodes.ILOAD, 2));
         il.add(new VarInsnNode(Opcodes.ILOAD, 3));
         il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TARGET, "warnIfReadOutsideWriteZone", "(II)V", false));
+        LabelNode cont = new LabelNode();
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "cache",
+            "L" + STATICCACHE + ";"));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 2));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 3));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, STATICCACHE, "contains", "(II)Z", false));
+        il.add(new JumpInsnNode(Opcodes.IFNE, cont));
+        if (read.equals("getBlockState")) {
+            il.add(new FieldInsnNode(Opcodes.GETSTATIC, BLOCKS, "AIR", "L" + BLOCK + ";"));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, BLOCK, "defaultBlockState",
+                "()L" + BLOCKSTATE + ";", false));
+        } else {
+            il.add(new FieldInsnNode(Opcodes.GETSTATIC, FLUIDS, "EMPTY", "L" + FLUID + ";"));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, FLUID, "defaultFluidState",
+                "()L" + FLUIDSTATE + ";", false));
+        }
+        il.add(new InsnNode(Opcodes.ARETURN));
+        il.add(cont);
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new VarInsnNode(Opcodes.ILOAD, 2));
         il.add(new VarInsnNode(Opcodes.ILOAD, 3));
@@ -139,11 +174,7 @@ public final class WorldGenRegionWidePatch implements ClassPatch {
             "(II)L" + CHUNKACCESS + ";", false));
         il.add(new VarInsnNode(Opcodes.ALOAD, 1));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNKACCESS, read, readDesc, false));
-        if (read.equals("getBlockState")) {
-            il.add(new InsnNode(Opcodes.ARETURN));
-        } else {
-            il.add(new InsnNode(Opcodes.ARETURN));
-        }
+        il.add(new InsnNode(Opcodes.ARETURN));
         return il;
     }
 
