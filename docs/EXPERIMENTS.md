@@ -345,3 +345,31 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   `exp-bis1.log` + `crash-2026-09-29_16.06.04 / 16.33.19 / 16.46.15-server.txt`；`logs/` 未跟踪）。
 - 后续：修 bug A（surface 生物群系宽化）＋ bug C（特征回绕写）；bug B 记账给 W4。
   半成品存于分支 `wip/m1-surface-feature-wrap`（未验证，勿并入）。
+
+## 10. M1 修复：surface 生物群系查询越界回退（bug A，2026-10-12）
+
+- 假设（承 §9 定位）：`SurfaceSystem.buildSurface` 的列坐标与规则上下文在 2^31 后按 int 回绕，
+  `BiomeManager.getBiome` 的 quart 随之成为回绕镜像；`WorldGenRegion` 以自身为 `BiomeManager`
+  源、经 `LevelReader.getNoiseBiome` 默认实现 `getChunk(toSection(qx), toSection(qz), BIOMES, false)`
+  命中 `StaticCache2D.get` 的"越界即抛"，worker 死亡 → future 永挂 → 60 s Watchdog。
+- 参数：种子 12345；wide=true continuity=true epoch=false；`-Dmax.bg.threads=1`；fresh world；
+  Delay=300/Settle=400（协议 §2.2）；`-Dfarlands.diag.farread=true`。
+- 版本标记：对照 REV28（今日复现）：
+  `Requested out of range value (-1004,-1) from StaticCache2D[2147482635,-10,2147482656,11]`
+  （§9 记录为 `[..,-9,..,12]`，z 向缓存中心差 1；请求值/类/x 界逐字相同，同一机制）；
+  修复 REV29：`Scanned 10952 classes, patched 59`（patcher-cli 重放同）。
+- 预期（修复，先写）：远域 `(2147482646,0)`、负镜像 `(-2147482646,0)` 均 `gen OK`、无异常、无 STUCK；
+  对照 `(0,0)`/`(62,62)`/`(134217727,0)` 的 wgHash 与修前逐位一致。
+- 实测（修复）：两远域坐标 `gen OK`（topY=62 / topY=67）；0 异常 0 STUCK；对照三行 wgHash
+  与修前逐位一致（Compare-Object 空集）。
+- bytecode 复验（javap，patcher-cli 重放 REV29 产物）：`WorldGenRegion.getNoiseBiome(III)` =
+  `QuartPos.toSection`×2 → `StaticCache2D.contains` → 界内 `getChunk(..,BIOMES,false)` +
+  `ChunkAccess.getNoiseBiome`；界外 `getUncachedNoiseBiome`。
+- 实现：`WorldGenRegionWidePatch` 扩展（新增 `getNoiseBiome` 覆写：缓存界内走 vanilla 原路，
+  界外降级无 chunk 的纯源采样）；`PATCH_REVISION` 28→29。
+- 结论：**在本实验条件下**，可及域内 surface 生物群系查询的回绕越界不再杀死 worker；
+  越界查询以纯源采样降级（确定性、镜像容忍，与 §7.3 口径一致）；正常坐标行为逐位不变。
+  此结论仅适用于上述条件（R10）。
+- 遗留：bug C（特征回绕写，`Detected setBlock in a far chunk` 家族）未修；far-read 诊断线仍在
+  （属 bug C 记号，不判本轮回绕）。
+- 证据：`logs/m1-bugA-20261012/`（`b0-ctl` / `b0-bugA` / `f1-bugA` / `f1-ctl` 的 `exp.log` + 世界）。

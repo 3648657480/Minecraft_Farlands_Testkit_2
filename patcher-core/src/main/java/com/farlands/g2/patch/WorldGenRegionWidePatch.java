@@ -8,6 +8,8 @@ import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.IntInsnNode;
+import org.objectweb.asm.tree.JumpInsnNode;
+import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TypeInsnNode;
@@ -52,6 +54,25 @@ import org.objectweb.asm.tree.VarInsnNode;
  * brightness - so it is degraded (return the difficulty) rather than
  * redirected, matching {@link WgrPatch}'s "no hard fail past 2^31" policy.
  * At normal coordinates the guard never fired, so this is a no-op there.</p>
+ *
+ * <p>The same class is also the biome source of its own {@code BiomeManager}
+ * ({@code new BiomeManager(this, ...)}), which resolves the {@code NoiseBiomeSource}
+ * interface through the {@code LevelReader.getNoiseBiome(int,int,int)} default:
+ * {@code getChunk(toSection(qx), toSection(qz), ChunkStatus.BIOMES, false)}.
+ * {@code getChunk} resolves through the region's {@code StaticCache2D}, whose
+ * {@code get} throws {@code IllegalArgumentException} for a section outside the
+ * cache bounds. During surface generation the biome query travels through the
+ * int-wrapped block coordinates ({@code SurfaceSystem} minBlockX + rule context;
+ * {@code BiomeManager} quart), so past 2^31 the requested section is a wrapped
+ * mirror (e.g. {@code -1003}) while the cache holds the real far sections
+ * ({@code 2147482635..2147482656}): the worker dies, the generation future never
+ * completes and the 60 s watchdog shuts the server down. The new
+ * {@code getNoiseBiome} override checks the cache bounds first: in range the
+ * vanilla path runs verbatim; out of range the query degrades to the uncached
+ * biome source sample (deterministic, no chunk access) - mirror-tolerant by
+ * design, exactly like the biome-source paths documented in EXPERIMENTS §7.3.
+ * At normal coordinates the section is always in cache, so behaviour is
+ * bit-identical.</p>
  */
 public final class WorldGenRegionWidePatch implements ClassPatch {
 
@@ -64,6 +85,11 @@ public final class WorldGenRegionWidePatch implements ClassPatch {
     private static final String DIFFICULTY = "net/minecraft/world/DifficultyInstance";
     private static final String DIFFICULTY_DESC =
         "(Lnet/minecraft/world/Difficulty;JJF)V";
+    private static final String QUARTPOS = "net/minecraft/core/QuartPos";
+    private static final String STATICCACHE = "net/minecraft/util/StaticCache2D";
+    private static final String CHUNKSTATUS =
+        "net/minecraft/world/level/chunk/status/ChunkStatus";
+    private static final String BIOME_DESC = "(III)Lnet/minecraft/core/Holder;";
 
     @Override
     public boolean matches(String internalName) {
@@ -85,6 +111,7 @@ public final class WorldGenRegionWidePatch implements ClassPatch {
         rewrite(node, "getCurrentDifficultyAt",
             "(L" + BLOCKPOS + ";)L" + DIFFICULTY + ";", difficultyBody());
         node.methods.add(getChunkBlockPos());
+        node.methods.add(getNoiseBiomeFallback());
 
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
@@ -183,6 +210,68 @@ public final class WorldGenRegionWidePatch implements ClassPatch {
         il.add(new VarInsnNode(Opcodes.ILOAD, 3));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TARGET, "getChunk",
             "(II)L" + CHUNKACCESS + ";", false));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return mn;
+    }
+
+    /**
+     * New override of the {@code LevelReader.getNoiseBiome(int,int,int)} default,
+     * used by this region as its own {@code BiomeManager} source. Cache-bounds
+     * check first; out of range degrades to {@code getUncachedNoiseBiome}.
+     *
+     * <pre>{@code
+     * int sx = QuartPos.toSection(quartX);
+     * int sz = QuartPos.toSection(quartZ);
+     * if (this.cache.contains(sx, sz)) {
+     *     ChunkAccess chunk = this.getChunk(sx, sz, ChunkStatus.BIOMES, false);
+     *     if (chunk != null) return chunk.getNoiseBiome(quartX, quartY, quartZ);
+     * }
+     * return this.getUncachedNoiseBiome(quartX, quartY, quartZ);
+     * }</pre>
+     */
+    private static MethodNode getNoiseBiomeFallback() {
+        MethodNode mn = new MethodNode(Opcodes.ACC_PUBLIC, "getNoiseBiome",
+            BIOME_DESC, null, null);
+        InsnList il = mn.instructions;
+        LabelNode out = new LabelNode();
+        il.add(new VarInsnNode(Opcodes.ILOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, QUARTPOS, "toSection", "(I)I", false));
+        il.add(new VarInsnNode(Opcodes.ISTORE, 4));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 3));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, QUARTPOS, "toSection", "(I)I", false));
+        il.add(new VarInsnNode(Opcodes.ISTORE, 5));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "cache",
+            "L" + STATICCACHE + ";"));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 4));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 5));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, STATICCACHE, "contains", "(II)Z", false));
+        il.add(new JumpInsnNode(Opcodes.IFEQ, out));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 4));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 5));
+        il.add(new FieldInsnNode(Opcodes.GETSTATIC, CHUNKSTATUS, "BIOMES",
+            "L" + CHUNKSTATUS + ";"));
+        il.add(new InsnNode(Opcodes.ICONST_0));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TARGET, "getChunk",
+            "(IIL" + CHUNKSTATUS + ";Z)L" + CHUNKACCESS + ";", false));
+        il.add(new VarInsnNode(Opcodes.ASTORE, 6));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 6));
+        il.add(new JumpInsnNode(Opcodes.IFNULL, out));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 6));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 1));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 2));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 3));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNKACCESS, "getNoiseBiome",
+            BIOME_DESC, false));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        il.add(out);
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 1));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 2));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 3));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TARGET, "getUncachedNoiseBiome",
+            BIOME_DESC, false));
         il.add(new InsnNode(Opcodes.ARETURN));
         return mn;
     }
