@@ -47,3 +47,32 @@ headless 在 chunk 2^49（真实 block 2^53）生成并给出量化指纹（第�
 
 - 全部沿用 §2.2 协议与铁律；每步先写预期、保留正常坐标对照指纹；键替换范围外的行为不得变化。
 - 排除项：bug B（MAX−1/MAX 静默挂起）归本里程碑一并处理。
+
+## W4-1 设计明细（2026-10-12 侦察）
+
+### 键类型
+
+- 64 位 `LongLongFlatMap` 是 32+32 域（文档自注"不装 64 位以上的宽键"）——**不适用于 W4**。
+- 区块键 = `(xLong, zLong)`（≤2^49/轴 ⇒ 50+50=100 位）⇒ **128 位键**。
+  - 首选：`com.scalarwide.Wide128` + 新增 `Wide128FlatMap`（ScalarWide mc 线 1.0.1，
+    纯增量=允许的 patch 级）；尺寸合适、与冻结契约兼容。
+  - 备选：`Wide256` + 现成 `Wide256FlatMap`（mc-v1.0.0 即有，零 ScalarWide 改动；键偏大）。
+- 打包器：`ChunkPos` 增 `packWide()/unpackWide`（128 位）；原 `pack()`（64 位）保留给兼容路径。
+
+### `ChunkMap` 键面清单（替换目标）
+
+- 映射：`updatingChunkMap` / `visibleChunkMap` / `pendingUnloads`
+  （`Long2ObjectLinkedOpenHashMap<ChunkHolder>`，需保序语义）；`chunksToEagerlySave`
+  （`LongLinkedOpenHashSet`）；`nextChunkSaveTime`。
+- 方法：`getUpdatingChunkIfPresent(long)`、`getVisibleChunkIfPresent(long)`、
+  `getLatestStatus(long)`、`getChunkQueueLevel(long)`、`getChunkToSend(long)`；
+  生产者 `chunkPos.pack()` 若干处。
+- 签名策略：宽路径改 `(ChunkPos)`/`(long x, long z)`；64 位入口保留（内部转宽键），
+  保证正常域调用者零改动。
+- 界限：`ChunkPos.isValid` / `ChunkPyramid.MAX_CHUNK_COORDINATE_VALUE` 由宽路径放宽
+  （默认域行为不变）。
+
+### 回归证明（W4-1 完成后）
+
+- M1 代表集重跑：对照指纹逐位一致、14/14 `gen OK`、diag=0、刷屏=0（§13 口径）。
+- 未完成前不得开始 W4-2；每一步一轮、预期先行。
