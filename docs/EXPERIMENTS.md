@@ -373,3 +373,22 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 遗留：bug C（特征回绕写，`Detected setBlock in a far chunk` 家族）未修；far-read 诊断线仍在
   （属 bug C 记号，不判本轮回绕）。
 - 证据：`logs/m1-bugA-20261012/`（`b0-ctl` / `b0-bugA` / `f1-bugA` / `f1-ctl` 的 `exp.log` + 世界）。
+
+## 11. M1 续：bug C 回绕写刷屏——A/B 显示随 REV29 消失（2026-10-12）
+
+- 目标：复现并定位 §9 记录的 features 步刷屏（`Detected setBlock in a far chunk [1,0]…`，
+  主键 `freeze_top_layer`，写点落在回绕后的原点区）。
+- 方法：REV29 上先试单点 `(1610612736,0)`、邻块 `(1610612736,1)`、§9 扫描集批量——均 0 条刷屏；
+  随后做**单变量 A/B**：仅注释掉 REV29 新增的 `WorldGenRegion.getNoiseBiome` 覆写、并把
+  `PATCH_REVISION` 回退 28，重放同批量；验证后恢复 REV29 并复跑确认。
+- 实测（REV28 等效，batch `134217727,0;1610612736,0;2147482646,0`，Settle=120）：
+  刷屏 **1403 条**（`freeze_top_layer` 1393 条）——与侦察 `exp-bis1` 几乎逐字复刻（1460/1393）；
+  `(134217727,0)`、`(1610612736,0)` `gen OK`，第三个坐标触发 bug A 崩溃
+  （`Requested out of range value (-1002,-1)`）。
+- 实测（REV29，同批量与单点）：刷屏 **0 条**，全部 `gen OK`，无崩溃。
+- 结论：**在本实验条件下**，bug C 的"回绕写刷屏"随 REV29 的 `getNoiseBiome` 覆写一并消失
+  （单变量 A/B 证明归一于该方法：雪/盘特征的生物群系查询改走越界回退后，不再在回绕位置落写）。
+  此为实验事实归因（A/B），REV28 内部逐帧路径未追。此结论仅适用于上述条件（R10）。
+- 遗留（M1 判据"diag=0"未达）：far-read 诊断线每轮仍有 1 条（如 `chunk=(1610612737,2)
+  center=(1610612736,1)`，与 §7.2 trees 远读 / `GeodeFeature` 链同族）——下一步定位该读取源。
+- 证据：`logs/m1-bugC-20261012/`（`c1-bugC` / `c2-z1` / `c3-batch` / `c4-rev28` / `c5-restore`）。
