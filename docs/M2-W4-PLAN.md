@@ -14,6 +14,10 @@ headless 在 chunk 2^49（真实 block 2^53）生成并给出量化指纹（第�
 - 已知键消费者（W4 面）：`SectionPos.asLong`（光照 `DataLayerStorageMap`、section 缓存
   `BulkSectionAccess`、实体/POI section 键）、`ChunkPos.pack`（`ChunkMap` 队列/缓存、存档 region
   key）、`ChunkStorage`/`RegionFile`（region 坐标 32+32）、客户端渲染/区块缓存（M3）。
+- **请求面本身即键面（关键修正）**：`ChunkMap` 的 chunk 映射/队列以打包 `long` 为键
+  （`getChunkQueueLevel(long)`、`getChunkToSend(long)`、`ChunkHolder` map），`ServerChunkCache`
+  的请求也是 `int`——chunk 2^49 在服务器 chunk 映射里就会**键碰撞**。因此 128 位 key 是
+  "能请求到 2^49"的**前置**，不是后置；仅把测试台解析改 long 无法到达探针。
 
 ## 设计（待定稿）
 
@@ -29,11 +33,12 @@ headless 在 chunk 2^49（真实 block 2^53）生成并给出量化指纹（第�
 
 ## 步序（每步一轮、预期先行、对照正常指纹）
 
-1. **测试台 long 化**：`farlands.testgen` 解析 long chunk 坐标；请求走 wide `ChunkPos` 路径
-   （必要时给请求路径加 long/ChunkPos 入口）。
-2. **探针**：请求 chunk 2^49（`562949953421312,0`）→ 记录第一道墙（预期其一：键碰撞 / 界限拒绝 /
-   崩溃），立 W4 账。
-3. **ChunkPos/Region 键 128 位化**：`packWide` + `ChunkMap`/存储键替换；`isValid` 放宽。
+1. **ChunkPos 键 128 位化（请求面）**：`packWide`/`unpackWide` + `ChunkMap` 队列/holder 映射、
+   `ServerChunkCache` 请求路径的键替换；`isValid`/`MAX_CHUNK_COORDINATE_VALUE` 放宽（由 wide 驱动）。
+2. **请求入口 long/ChunkPos 化**：patcher 加 wide 请求入口；测试台 `farlands.testgen` 解析
+   long chunk 坐标并走该入口。
+3. **探针**：请求 chunk 2^49（`562949953421312,0`）→ 记录下一道墙（预期：存储/光照/界限之一），
+   立 W4 账。
 4. **SectionPos 键 128 位化**：光照/实体/POI section 键替换（ScalarWide 键 + 映射）。
 5. **存档**：region 文件坐标与 `.mca` 命名 wide 化；读写往返验证。
 6. **验收**：chunk 2^49 headless `gen OK` + 指纹量化；正常坐标逐位不变。客户端（M3）另立。
