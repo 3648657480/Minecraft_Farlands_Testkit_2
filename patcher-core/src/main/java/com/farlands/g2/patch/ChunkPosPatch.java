@@ -20,8 +20,10 @@ import org.objectweb.asm.tree.VarInsnNode;
  * <p>All existing int accessors ({@code x()/z()}, {@code asLong()},
  * equals/hashCode) preserve their wrapped semantics, so every consumer and
  * storage key behaves exactly as before. New {@code xLong()/zLong()} expose
- * the wide values for the far-domain generation pipeline, and a (JJ)
- * constructor carries wide positions.</p>
+ * the wide values for the far-domain generation pipeline, a (JJ)
+ * constructor carries wide positions, and {@code packWide()} produces the
+ * 128-bit key ({@code com.scalarwide.Wide128}: x high limb, z low limb) for
+ * wide consumers that outgrow the 32+32 {@code pack()}.</p>
  */
 public final class ChunkPosPatch implements ClassPatch {
 
@@ -112,6 +114,21 @@ public final class ChunkPosPatch implements ClassPatch {
             il.add(new FieldInsnNode(Opcodes.PUTFIELD, TARGET, "z", "J"));
             il.add(new InsnNode(Opcodes.RETURN));
             node.methods.add(ctor);
+
+            // 128-bit chunk key (W4): x in the high limb, z in the low limb
+            // (Wide128.of(l0 = low, l1 = high)). The 64-bit pack() stays for the
+            // int domain; wide consumers key on this instead.
+            MethodNode packWide = new MethodNode(Opcodes.ACC_PUBLIC, "packWide",
+                "()Lcom/scalarwide/Wide128;", null, null);
+            InsnList pw = packWide.instructions;
+            pw.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            pw.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TARGET, "zLong", "()J", false));
+            pw.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            pw.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TARGET, "xLong", "()J", false));
+            pw.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/Wide128", "of",
+                "(JJ)Lcom/scalarwide/Wide128;", false));
+            pw.add(new InsnNode(Opcodes.ARETURN));
+            node.methods.add(packWide);
         }
 
         addWideBlockAccessors(node);

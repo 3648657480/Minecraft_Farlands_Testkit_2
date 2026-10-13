@@ -428,3 +428,25 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 结论：**在本实验条件下（R10）**，M1 判据"可及域无回绕读写（diag=0）、`gen OK`、正常坐标逐位
   不变"在代表集上达成——M1 完成。
 - 证据：`logs/m1-final-20261012/`。
+
+## 14. W4-1a：宽键设施接入 + 读侧家族发现（2026-10-12）
+
+- 变更（本切片）：ScalarWide `mc-v1.0.1` 新增 `Wide128FlatMap`（纯增量）；G2 `mod/build.gradle`
+  以 mavenLocal + `implementation`/`include` 接入 `com.scalarwide:scalarwide:1.0.1`；
+  `ChunkPosPatch` 增 `packWide()`（x 高/z 低 128 位键）；`PATCH_REVISION` 29→30。
+- bytecode 复验（patcher-cli 重放 REV30）：`ChunkPos.packWide()Lcom/scalarwide/Wide128;` 存在，
+  体为 `zLong → xLong → Wide128.of(JJ)`；patched 59 不变。
+- 回归扫描（`0,0;62,62;134217727,0;1610612736,0;2147482646,0`，Settle=120，diag=ON）：
+  对照指纹逐位一致（`surf=b9216bad2029 floor=8936c275d063` / `floor=8682357e5167`）、
+  `NoClassDefFound`=0（ScalarWide 运行期解析成功）。
+- **发现（重要）**：该扫描集在**同一 REV30 构建**上两次运行结果不同——
+  第一次 5/5 `gen OK` + 34 条 far-chunk-setBlock + 1 diag；第二次 **4/5：`2147482646,0` 崩溃**。
+  崩溃栈：`StaticCache2D.get ← WorldGenRegion.getChunk(int,int) ← LevelReader.getChunk
+  ← WorldGenRegion.getBlockState ← SeaPickleFeature.place(:33)`——`SeaPickleFeature` 以
+  `origin.getX()+x`（int 截断）+ `new BlockPos(...)` 在回绕位置读 `getBlockState` → 越出区域缓存
+  即抛。属**读侧家族**（§10 的生物群系源回退覆盖不到；其写侧兄弟见侦察 `exp-road1` 的
+  `[134217727,-1] x=2147483647` 刷屏 144 条）。
+- 结论：**在本实验条件下**，packWide/依赖接入本身零行为变化（对照指纹逐位、无类缺失）；
+  M1 §13 的"代表集通过"**不构成远域全集的保证**——远域特征掷骰不定，读侧家族可致 worker 死亡。
+  M2（chunk 2^49）以此家族为前置。此结论仅适用于上述条件（R10）。
+- 证据：`logs/m2-w4-20261012/`（`w4-1a`、`w4-1a-r2`）；REV30 重放产物 javap。
