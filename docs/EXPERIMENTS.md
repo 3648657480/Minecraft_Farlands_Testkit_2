@@ -728,3 +728,31 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   忙轮询会饿死 worker 完成回调（需 managedBlock 语义）——设计上以 `getFullChunkFuture()` 的
   managedBlock 式等待解决（借用 ServerChunkCache 现有机制或轮询中让出）。
 - 证据：`logs/m2-w4-20261014/w4-2s3f2-smoke/`；`exp-w4-2s3f2-smoke.log`。
+
+## 26. W4-2 切片 3-F（第 3 步）：harness 宽分支 + 远域探针首跑（2026-10-14）
+
+- 变更：
+  - `ServerChunkCacheWidePatch` 增 `farlands$getChunkWide(ChunkPos)`：宽 holder 查 + `managedBlock`
+    等待 `getFullChunkFuture()`（`f::isDone` 的 indy 复用其自身现成调用点）+ `ChunkResult.orElse(null)`。
+  - `MinecraftServerTestGenMixin` 宽分支：坐标 `Long.parseLong`；越 int → `new ChunkPos(long,long)`
+    + `sc.farlands$addTicketWithRadiusW(FORCED,pos,max(0,n-1))` + 轮询
+    （`getDistanceManager().runAllUpdates` + `runGenerationTasks` + `farlands$getUpdatingChunkW`）
+    + `farlands$getChunkWide`；指纹 BlockPos 改 `cxL*16+8` long。
+  - `PATCH_REVISION` 43→46（内含三次内容变更的 bump）。
+- 途中修掉的真 bug（均为宽路径专属）：
+  1. **宽队列陈旧首层**：vanilla `removeFirstLong` 在桶空时返回 0（不崩），宽版 `removeFirst` 返回
+     null → `WideChunkKey.x(null)` NPE（栈：`isChunkToRemoveW ← getLevelW ← runUpdatesW`）。
+     修：`farlands$removeFirstLongW` 桶空时**重算首层并返回 null**，`runUpdatesW` 遇 null 回循环（自愈+容忍）。
+  2. `ChunkResult` 是**接口** → `orElse` 必须 `INVOKEINTERFACE`（原 `INVOKEVIRTUAL` 抛 ICCE）。
+  3. 两次"改内容未 bump 修订"复现（loom 复用旧 jar）——再次印证 §17 教训 2。
+- 实测（探针 chunk `562949953421312,0` = 2^49，REV46）：
+  - **宽链路全部走通**：`wide diag holder=true futureDone=true`（宽 ticket → 宽跟踪 → 宽调度/持有者创建
+    → FULL future 完成）；
+  - 但结果为 **`Fail[success=false err="Unloaded chunks found in range"]`** → `getChunkWide` 返回 null
+    → harness 报 `gen FAILED: wide chunk null`（已加空值容忍，不再 NPE 崩溃）。
+- 结论（本实验条件下）：**远域 chunk 的宽寻址/调度/持有者/生成管线已被激活并跑到 FULL 阶段**；
+  阻塞点 = 生成所需**邻块未加载**（"Unloaded chunks found in range"）——疑似宽层级的邻块传播
+  未把生成所需邻域推到位（或 FORCED 半径 0 不足以满足 FULL 的邻域要求）。此结论仅适用于上述条件（R10）。
+- 遗留（W4-3 收尾）：定位"邻块未加载"——候选：① 增大宽 ticket 半径（`n`/radius 参数）；
+  ② 检查宽加载跟踪器对邻键的层级传播是否覆盖 FULL 所需邻域；③ 对照 int 域同半径行为差异。
+- 证据：`logs/m2-w4-20261014/w4-3-probe{1..6}/`；`exp-w4-3-probe{1..6}.log`。

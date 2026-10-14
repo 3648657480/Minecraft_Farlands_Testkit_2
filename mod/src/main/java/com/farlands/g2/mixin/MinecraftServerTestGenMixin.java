@@ -169,14 +169,54 @@ public abstract class MinecraftServerTestGenMixin {
             for (String entry : spec.split(";")) {
                 if (entry.trim().isEmpty()) continue;
                 String[] parts = entry.trim().split(",");
-                int cx = Integer.parseInt(parts[0].trim());
-                int cz = Integer.parseInt(parts[1].trim());
+                long cxL = Long.parseLong(parts[0].trim());
+                long czL = Long.parseLong(parts[1].trim());
                 int n = parts.length > 2 ? Integer.parseInt(parts[2].trim()) : 1;
                 long t0 = System.currentTimeMillis();
                 ChunkAccess chunk = null;
-                for (int dx = 0; dx < n; dx++) {
-                    for (int dz = 0; dz < n; dz++) {
-                        chunk = level.getChunk(cx + dx, cz + dz);
+                boolean fitsInt = cxL >= Integer.MIN_VALUE && cxL <= Integer.MAX_VALUE
+                    && czL >= Integer.MIN_VALUE && czL <= Integer.MAX_VALUE;
+                if (fitsInt) {
+                    int cx = (int) cxL;
+                    int cz = (int) czL;
+                    for (int dx = 0; dx < n; dx++) {
+                        for (int dz = 0; dz < n; dz++) {
+                            chunk = level.getChunk(cx + dx, cz + dz);
+                        }
+                    }
+                } else {
+                    // Wide path (chunk 2^49 and beyond): wide ticket -> wide holder
+                    // tracking (DistanceManager/ChunkMap wide chain) -> managedBlock
+                    // wait for the full chunk.
+                    net.minecraft.server.level.ServerChunkCache sc =
+                        (net.minecraft.server.level.ServerChunkCache) level.getChunkSource();
+                    net.minecraft.world.level.ChunkPos widePos =
+                        new net.minecraft.world.level.ChunkPos(cxL, czL);
+                    sc.farlands$addTicketWithRadiusW(
+                        net.minecraft.server.level.TicketType.FORCED, widePos, Math.max(0, n - 1));
+                    net.minecraft.server.level.ChunkMap cm = sc.chunkMap;
+                    net.minecraft.server.level.ChunkHolder wideHolder = null;
+                    for (int spin = 0; spin < 200; spin++) {
+                        cm.getDistanceManager().runAllUpdates(cm);
+                        cm.runGenerationTasks();
+                        wideHolder = cm.farlands$getUpdatingChunkW(widePos.packWide());
+                        if (wideHolder != null) {
+                            break;
+                        }
+                        Thread.onSpinWait();
+                    }
+                    System.out.println("[FarLands-Test] wide diag holder=" + (wideHolder != null)
+                        + " futureDone=" + (wideHolder != null && wideHolder.getFullChunkFuture().isDone()));
+                    System.out.flush();
+                    chunk = sc.farlands$getChunkWide(widePos);
+                    if (chunk == null) {
+                        net.minecraft.server.level.ChunkResult<?> res = wideHolder == null ? null
+                            : (net.minecraft.server.level.ChunkResult<?>) wideHolder.getFullChunkFuture().getNow(null);
+                        System.out.println("[FarLands-Test] wide diag result=" + res
+                            + (res == null ? "" : (" success=" + res.isSuccess() + " err=" + res.getError())));
+                        System.out.println("[FarLands-Test] gen FAILED: wide chunk null (" + cxL + "," + czL + ")");
+                        System.out.flush();
+                        continue;
                     }
                 }
                 long genMs = System.currentTimeMillis() - t0;
@@ -191,12 +231,12 @@ public abstract class MinecraftServerTestGenMixin {
                     }
                 }
                 StringBuilder sb = new StringBuilder();
-                sb.append("[FarLands-Test] gen OK region (").append(cx).append(",").append(cz)
-                    .append(")+").append(n).append("x").append(n).append(" last=(").append(cx + n - 1)
-                    .append(",").append(cz + n - 1).append(") topY=").append(top).append(" timeMs=").append(genMs)
+                sb.append("[FarLands-Test] gen OK region (").append(cxL).append(",").append(czL)
+                    .append(")+").append(n).append("x").append(n).append(" last=(").append(cxL + n - 1)
+                    .append(",").append(czL + n - 1).append(") topY=").append(top).append(" timeMs=").append(genMs)
                     .append(" wgHash=").append(wgHash)
                     .append(" biome=").append(chunk.getNoiseBiome(8, 60, 8).unwrapKey().map(Object::toString).orElse("?"))
-                    .append(" b(8,60,8)=").append(chunk.getBlockState(new net.minecraft.core.BlockPos(cx * 16 + 8, 60, cz * 16 + 8)))
+                    .append(" b(8,60,8)=").append(chunk.getBlockState(new net.minecraft.core.BlockPos(cxL * 16 + 8, 60, czL * 16 + 8)))
                     .append(" topX8=").append(chunk.getHeight(Heightmap.Types.WORLD_SURFACE, 8, 8))
                     .append(" topX9=").append(chunk.getHeight(Heightmap.Types.WORLD_SURFACE, 9, 8))
                     .append(" topX12=").append(chunk.getHeight(Heightmap.Types.WORLD_SURFACE, 12, 8))
@@ -205,9 +245,9 @@ public abstract class MinecraftServerTestGenMixin {
                     .append(" surfWG=").append(chunk.getHeight(Heightmap.Types.WORLD_SURFACE_WG, 8, 8))
                     .append(" floorWG=").append(chunk.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, 8, 8))
                     .append(" b(8,64,8)=").append(chunk.getBlockState(
-                        new net.minecraft.core.BlockPos(cx * 16 + 8, 64, cz * 16 + 8)))
+                        new net.minecraft.core.BlockPos(cxL * 16 + 8, 64, czL * 16 + 8)))
                     .append(" b(8,100,8)=").append(chunk.getBlockState(
-                        new net.minecraft.core.BlockPos(cx * 16 + 8, 100, cz * 16 + 8)));
+                        new net.minecraft.core.BlockPos(cxL * 16 + 8, 100, czL * 16 + 8)));
                 System.out.println(sb);
                 System.out.flush();
             }

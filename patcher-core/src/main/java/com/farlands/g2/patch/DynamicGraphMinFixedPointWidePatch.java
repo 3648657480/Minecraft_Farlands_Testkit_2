@@ -293,6 +293,19 @@ public final class DynamicGraphMinFixedPointWidePatch implements ClassPatch {
         getf(il, TARGET, "farlands$firstQueuedLevelW", "I");
         il.add(new InsnNode(Opcodes.AALOAD));
         il.add(new VarInsnNode(Opcodes.ASTORE, 1));
+        // tolerant/self-healing head: vanilla's removeFirstLong returns 0 on a
+        // stale (empty) head bucket; the wide set would return null - so recompute
+        // the head level and yield null instead (runUpdatesW skips null nodes).
+        LabelNode nonEmpty = new LabelNode();
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, SET, "isEmpty", "()Z", false));
+        il.add(new JumpInsnNode(Opcodes.IFEQ, nonEmpty));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        getLevelCount(il);
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TARGET, "farlands$checkFirstQueuedLevelW", "(I)V", false));
+        il.add(new InsnNode(Opcodes.ACONST_NULL));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        il.add(nonEmpty);
         il.add(new VarInsnNode(Opcodes.ALOAD, 1));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, SET, "removeFirst", "()" + W512_D, false));
         il.add(new VarInsnNode(Opcodes.ASTORE, 2));
@@ -754,6 +767,9 @@ public final class DynamicGraphMinFixedPointWidePatch implements ClassPatch {
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TARGET, "farlands$removeFirstLongW", "()" + W512_D, false));
         il.add(new VarInsnNode(Opcodes.ASTORE, 2));
+        // skip stale/null heads (queue bookkeeping self-heals in removeFirstLongW)
+        il.add(new VarInsnNode(Opcodes.ALOAD, 2));
+        il.add(new JumpInsnNode(Opcodes.IFNULL, loop));
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new VarInsnNode(Opcodes.ALOAD, 2));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TARGET, "farlands$getLevelW", "(" + W512_D + ")I", false));
