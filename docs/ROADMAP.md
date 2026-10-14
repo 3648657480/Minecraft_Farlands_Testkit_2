@@ -5,7 +5,7 @@
 ## 项目定位
 
 G2 = 沿用 G1 的全部经验与工具链，但**放弃 epoch（local 域）路线**，改走**全链路宽化**：
-引擎自身以真实坐标运行（int → long/BigInteger 容器 + 128 位存储 key），从而让**真实的距离现象**
+引擎自身以真实坐标运行（int → long/宽整数容器 + 宽键账本），从而让**真实的距离现象**
 （地形采样、实体、渲染、碰撞、tick）都能发生，而不是被 local 域屏蔽。
 
 > 基线：G2 初始提交 = G1 代码基线（可构建、可用）。`epoch` 相关代码将随宽化推进逐步移除。
@@ -23,7 +23,8 @@ G2 = 沿用 G1 的全部经验与工具链，但**放弃 epoch（local 域）路
 1. **宽容器**：`Vec3i / BlockPos / ChunkPos / SectionPos` 等 int → long/BigInteger（当前里程碑）
 2. **含水层宽化**：2^31 沟的直接根因（`minGridX/Y/Z` → long，缓存填充循环坐标从宽 origin 推导）
 3. **噪声采样双域 → 单域**：宽 origin + `getBlockXDouble` 宽域
-4. **128 位存储 key**：光照（SectionPos）、区块存储（ChunkPos）的 64 位打包 long 换成长对/BigInteger
+4. **宽键账本**：光照（SectionPos）、区块存储（ChunkPos）的 64 位打包 long 换成宽键
+   （X=Wide256 / Y=Wide128 / Z=Wide256 共 640，triple；chunk 键=Wide512；见 `M2-W4-PLAN.md` 键位账本）
 5. **消费者**：光照、实体、tick、结构逐个打通（看门狗 / jstack 兜底）
 
 ## 交界点（可验证里程碑）
@@ -33,7 +34,7 @@ G2 = 沿用 G1 的全部经验与工具链，但**放弃 epoch（local 域）路
 | W1 | 宽容器（int → long/BigInteger） | 正常坐标逐位零变化；越界不再回绕 | ⏳ |
 | W2 | 含水层宽化 | 2^31 处无沟；与 D 线等价 | ⏳ |
 | W3 | 噪声单域 | 宽 origin 采样连续 | ⏳ |
-| W4 | 128 位存储 key | 2^63 区块 / 光照 key 不碰撞 | ⏳ |
+| W4 | 宽键账本（X256/Y128/Z256；chunk 键 Wide512） | 宽域 key 不碰撞（≥int 段域全段，1e50 内） | ⏳ |
 | W5 | 消费者全通 | 2^63 光照 / 实体 / tick / 结构 | ⏳ |
 
 ## 隔离机制

@@ -1,4 +1,4 @@
-# M2 / W4 计划：128 位 key 与 chunk 2^49 可达（2026-10-12 侦察）
+# M2 / W4 计划：宽键账本与 chunk 2^49 可达（2026-10-12 侦察 / 2026-10-13 定键）
 
 ## 目标（M2 验收）
 
@@ -8,41 +8,48 @@ headless 在 chunk 2^49（真实 block 2^53）生成并给出量化指纹（第�
 
 - `ChunkPos`：字段已宽化 `long`，`xLong()/zLong()` 可用、`(JJ)` 构造可用；但 **`pack()/unpack` 仍
   32+32 位**，`isValid` / `ChunkPyramid.MAX_CHUNK_COORDINATE_VALUE` 仍把 chunk 限制在约 ±1.875e6。
-- `SectionPos`：`asLong` 已重排为 **29+29+6**（覆盖 section ±2^28 = block ±4.29G）；M2 需要
-  section 2^49 ⇒ **50 位/轴 ⇒ 64 位不够 ⇒ 必须 128 位 key**。
+- `SectionPos`：`asLong` 已重排为 **29+29+6**（覆盖 section ±2^28 = block ±4.29G，即 int 块域）；
+  宽键路径不再受此限（见键位账本）。
 - 请求路径：`Level.getChunk(int,int)` 与测试台 `Integer.parseInt` 仍为 int——chunk 2^49 连请求都提不出。
 - 已知键消费者（W4 面）：`SectionPos.asLong`（光照 `DataLayerStorageMap`、section 缓存
   `BulkSectionAccess`、实体/POI section 键）、`ChunkPos.pack`（`ChunkMap` 队列/缓存、存档 region
   key）、`ChunkStorage`/`RegionFile`（region 坐标 32+32）、客户端渲染/区块缓存（M3）。
 - **请求面本身即键面（关键修正）**：`ChunkMap` 的 chunk 映射/队列以打包 `long` 为键
   （`getChunkQueueLevel(long)`、`getChunkToSend(long)`、`ChunkHolder` map），`ServerChunkCache`
-  的请求也是 `int`——chunk 2^49 在服务器 chunk 映射里就会**键碰撞**。因此 128 位 key 是
-  "能请求到 2^49"的**前置**，不是后置；仅把测试台解析改 long 无法到达探针。
+  的请求也是 `int`——chunk 2^49 在服务器 chunk 映射里就会**键碰撞**。因此宽键是"能请求到
+  2^49"的**前置**，不是后置；仅把测试台解析改 long 无法到达探针。
 
-## 设计（待定稿）
+## 键位账本（2026-10-13 定稿）
 
-- **key 类型**：引入 128 位键（`com.scalarwide.Wide128`，mc 线 v1.0.0——无符号序、
-  hashCode/equals 适合做 key，正是其设计用途）。64 位原键保留给兼容路径（wrap 语义）。
-- **映射**：mc 工具包 `LongLongFlatMap`（64 位打包键 25–27ns）/ `Wide256FlatMap`，或自建
-  Wide128 平表；替换键为 packed long 的热映射。
-- **打包**：`SectionPos`/`ChunkPos` 新增 128 位打包访问器（`asWideKey`/`packWide`），原 64 位
-  访问器保留（正常域零变化）。
-- **界限**：`isValid` / `MAX_CHUNK_COORDINATE_VALUE` 放宽由 wide 路径驱动；默认域行为不变。
-- **依赖**：G2 mod 引入 ScalarWide（JitPack `mc-v1.0.0`）；patcher 产物引用 `com/scalarwide/*`
-  （运行期由 mod classpath 提供）。
+- **三轴统一宽化**：**X = Wide256、Y = Wide128、Z = Wide256（总 640 位）**；结构 = 三轴分离的
+  triple（**不允许**把三轴塞进一个 640 位整数：算术进位会跨轴污染，寻址必错）。
+- **覆盖率**：X/Z 每轴 ±5.8e76——1e50 现象域之外余 26 个数量级；Y 128 位为"统一类型"税
+  （实际世界高度 ≤2^16，留 128 位只为三轴 API 一致，拍板=统一）。
+- **键型映射**：
+  - chunk 键 = `(x:Wide256, z:Wide256)` → 打包为单个 **`Wide512`**（x 高 256 / z 低 256，现成类型）；
+  - section / 块键 = triple（X/Wide256、Y/Wide128、Z/Wide256）；
+  - 64 位 packed long 保留给**兼容路径**（原版 API/格式、正常域 wrap 语义）——宽窄并存。
+- **映射**：新增 `Wide512FlatMap`（Object 值；ScalarWide mc 纯增量）；`Wide128FlatMap`（mc 1.0.1）
+  留作通用小键工具。
+- **依赖**：G2 mod 经 mavenLocal/JitPack 引 ScalarWide mc；patcher 产物引用 `com/scalarwide/*`。
+- **热路径纪律**：宽坐标只进"寻址边界"（键 / chunk / section / 存储）；块级与近域游戏走窄路；
+  全量宽化（BlockPos-wide 等）须先原型微基准再另行立项。
+- **Y 轴现象探针（顺带实验，另立）**：噪声函数是 3D——极端 Y 可直接采样（无需改造世界高度）
+  观察是否出现同族量化/塌缩签名；世界里"Y 边境之地"需垂直世界高度宽化，暂不做；触发条件 =
+  探针显示有可观察结构。
 
 ## 步序（每步一轮、预期先行、对照正常指纹）
 
 0. **读侧家族（前置）— 已完成 2026-10-12（§15）**：采用**降级方案 (B)**——
    `getBlockState/getFluidState` 缓存缺段返回空气/空流体（REV31）；w4-1a 集两轮稳定 `gen OK`。
    残余：far-read 诊断线 1/轮（特征位置未宽化），M2 前可接受。
-1. **ChunkPos 键 128 位化（请求面）**：`packWide`/`unpackWide` + `ChunkMap` 队列/holder 映射、
-   `ServerChunkCache` 请求路径的键替换；`isValid`/`MAX_CHUNK_COORDINATE_VALUE` 放宽（由 wide 驱动）。
+1. **ChunkPos 键宽键化（请求面）**：`packWide`（Wide512）/`unpackWide` + `ChunkMap` 队列/holder
+   映射、`ServerChunkCache` 请求路径的键替换；`isValid`/`MAX_CHUNK_COORDINATE_VALUE` 放宽（由 wide 驱动）。
 2. **请求入口 long/ChunkPos 化**：patcher 加 wide 请求入口；测试台 `farlands.testgen` 解析
    long chunk 坐标并走该入口。
 3. **探针**：请求 chunk 2^49（`562949953421312,0`）→ 记录下一道墙（预期：存储/光照/界限之一），
    立 W4 账。
-4. **SectionPos 键 128 位化**：光照/实体/POI section 键替换（ScalarWide 键 + 映射）。
+4. **SectionPos 键宽键化（按 triple）**：光照/实体/POI section 键替换（X/Y/Z = Wide256/Wide128/Wide256 + 映射）。
 5. **存档**：region 文件坐标与 `.mca` 命名 wide 化；读写往返验证。
 6. **验收**：chunk 2^49 headless `gen OK` + 指纹量化；正常坐标逐位不变。客户端（M3）另立。
 
@@ -53,14 +60,14 @@ headless 在 chunk 2^49（真实 block 2^53）生成并给出量化指纹（第�
 
 ## W4-1 设计明细（2026-10-12 侦察）
 
-### 键类型
+### 键类型（依键位账本）
 
 - 64 位 `LongLongFlatMap` 是 32+32 域（文档自注"不装 64 位以上的宽键"）——**不适用于 W4**。
-- 区块键 = `(xLong, zLong)`（≤2^49/轴 ⇒ 50+50=100 位）⇒ **128 位键**。
-  - 首选：`com.scalarwide.Wide128` + 新增 `Wide128FlatMap`（ScalarWide mc 线 1.0.1，
-    纯增量=允许的 patch 级）；尺寸合适、与冻结契约兼容。
-  - 备选：`Wide256` + 现成 `Wide256FlatMap`（mc-v1.0.0 即有，零 ScalarWide 改动；键偏大）。
-- 打包器：`ChunkPos` 增 `packWide()/unpackWide`（128 位）；原 `pack()`（64 位）保留给兼容路径。
+- 区块键 = `(xLong, zLong)` → **`Wide512`**（x 高 256 / z 低 256；Wide512 在 mc ≤512 线内 ✓）。
+- 映射：新增 `Wide512FlatMap`（Object 值；ScalarWide mc 纯增量）；`Wide128FlatMap`（mc 1.0.1）
+  留作通用小键工具。
+- 打包器：`ChunkPos.packWide()` 产出 `Wide512`（x/z 各按符号扩展进 256 位半区）；原 `pack()`
+  （64 位）保留给兼容路径。
 
 ### `ChunkMap` 键面清单（替换目标）
 
@@ -85,28 +92,28 @@ headless 在 chunk 2^49（真实 block 2^53）生成并给出量化指纹（第�
 目标类 `net/minecraft/server/level/ChunkMap`；把 3 个映射
 （`updatingChunkMap`/`visibleChunkMap`/`pendingUnloads`）从
 `Long2ObjectLinkedOpenHashMap<ChunkHolder>`（32+32 打包键）换成
-`com.scalarwide.mc.Wide128FlatMap`（128 位 `Wide128` 键）。
+`com.scalarwide.mc.Wide512FlatMap`（512 位 `Wide512` 键，x 高/z 低）。
 
 vanilla 字节码里需改写的**全部形态**（javap 实测）：
 
 | 形态 | owner.desc | 改为 |
 |---|---|---|
-| 字段声明/初始化 | `Lnet/.../Long2ObjectLinkedOpenHashMap;` ×3 | `Lcom/scalarwide/mc/Wide128FlatMap;` |
-| `new` | `Long2ObjectLinkedOpenHashMap.<init>()V` | `Wide128FlatMap.<init>()V` |
-| `clone()` | `...Long2ObjectLinkedOpenHashMap.clone()Long2ObjectLinkedOpenHashMap;` | `Wide128FlatMap.clone()LWide128FlatMap;` |
-| `get` | `...get(J)Ljava/lang/Object;` | 桥 `farlands$cmGet(LWide128FlatMap;J)LObject;` |
+| 字段声明/初始化 | `Lnet/.../Long2ObjectLinkedOpenHashMap;` ×3 | `Lcom/scalarwide/mc/Wide512FlatMap;` |
+| `new` | `Long2ObjectLinkedOpenHashMap.<init>()V` | `Wide512FlatMap.<init>()V` |
+| `clone()` | `...Long2ObjectLinkedOpenHashMap.clone()Long2ObjectLinkedOpenHashMap;` | `Wide512FlatMap.clone()LWide512FlatMap;` |
+| `get` | `...get(J)Ljava/lang/Object;` | 桥 `farlands$cmGet(LWide512FlatMap;J)LObject;` |
 | `put` | `...put(JLjava/lang/Object;)Ljava/lang/Object;` | 桥 `farlands$cmPut(...)` |
 | `remove(J)` | `...remove(J)Ljava/lang/Object;` | 桥 `farlands$cmRemove` |
 | `remove(JLjava/lang/Object;)` | `...remove(JLjava/lang/Object;)Z` | 桥 `farlands$cmRemove2` |
 | `containsKey` | `...containsKey(J)Z` | 桥 `farlands$cmContains`（如出现） |
-| `isEmpty/size` | `()Z / ()I` | 同 desc，owner 改 `Wide128FlatMap` |
-| `values()` | `...values()Lit/unimi/dsi/fastutil/objects/ObjectCollection;` | `Wide128FlatMap.values()Ljava/util/List;` |
+| `isEmpty/size` | `()Z / ()I` | 同 desc，owner 改 `Wide512FlatMap` |
+| `values()` | `...values()Lit/unimi/dsi/fastutil/objects/ObjectCollection;` | `Wide512FlatMap.values()Ljava/util/List;` |
 | `ObjectCollection.iterator()` | `...iterator()Lit/.../ObjectIterator;` | `java/util/List.iterator()Ljava/util/Iterator;`（下游 next/hasNext 已是 java/util/Iterator ✓） |
 | `long2ObjectEntrySet()` | `...()Lit/.../Long2ObjectSortedMap$FastSortedEntrySet;` | **定向重写该循环**：迭代 `values()`，`posKey` 由 `holder.getPos().pack()` 导出；`Entry.getLongKey()/getValue()` 替换为 holder 派生 |
 
-- 桥方法（注入 ChunkMap，static）：`keyOf(J)` = `Wide128.of((long)(int)packed, packed>>32)`
+- 桥方法（注入 ChunkMap，static）：`keyOf(J)` = `Wide512.of(符号扩展的 z 半区, 符号扩展的 x 半区)`
   （int 域精确；远超域由 W4-2 的宽入口直接构造宽键）；`cmGet/cmPut/cmRemove/cmRemove2/cmContains`
-  接受 `(Wide128FlatMap, J[, Object])`。
+  接受 `(Wide512FlatMap, J[, Object])`。
 - 注意事项：表的迭代顺序由插入序变表序（`pendingUnloads` 卸载次序可能变，仅时序、不判指纹）；
   `chunksToEagerlySave`/`nextChunkSaveTime` 暂留 64 位（记账，后续项）。
 - 验证门：CLI 重放后 javap 结构核对 + **真跑控制坐标**（ChunkMap 在服务器启动即加载，
