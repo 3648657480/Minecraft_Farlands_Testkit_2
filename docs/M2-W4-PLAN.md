@@ -113,6 +113,51 @@ M3 前仍须走切片 1-4；默认不选。
 **状态（2026-10-14）**：切片 1 ✓（mc-v1.0.3）；切片 2a/2b ✓（核+ChunkTracker 影子 API，
 patched 62，冒烟指纹逐位一致）；宽路径休眠，端到端激活在切片 3。
 
+### W4-2 切片 3 规格（2026-10-14 源码侦察补全）
+
+**A. ChunkMap 宽键原语（已落地）**：`farlands$cmGetW/cmPutW/cmRemoveW/cmRemove2W/cmContainsW`
+（`(Wide512FlatMap,Wide512[,Object])`，直用宽键）+ `farlands$cmKeyOf(ChunkHolder)→Wide512`
+（`holder.getPos().packWide()`）。原 `farlands$cm*(…,long)` 桥保留给 int 域调用点。
+
+**B. TicketStorage 宽双生**（`world/level/TicketStorage`）：
+- 宽字段：`farlands$ticketsW`/`farlands$deactivatedTicketsW`（`Wide512FlatMap`：Wide512→List<Ticket>）、
+  `farlands$forcedW`（`Wide512OrderedSet`，forced 键集合）。
+- **镜像写**策略：现有 long 方法在写入后追加一次宽镜像写（`key → packWide`）；宽方法
+  `farlands$addTicketW(ChunkPos,Ticket)` / `farlands$getTicketLevelAtW(Wide512,boolean)` /
+  `farlands$removeTicketW(Wide512,Ticket)` 只读宽表。int 域行为零变化（原路径不动）。
+- 宽监听器：`ChunkUpdatedW{ update(Wide512,int,boolean) }` + 两个宽监听字段；宽 add/remove 触发。
+- 存档：远域 ticket 不落盘（`CODEC`/`packTickets` 仍走 long 表，探针期注明）。
+
+**C. tracker 宽钩子真值**：
+- `SimulationChunkTracker`：宽 `farlands$chunksW`（`Wide512ByteMap`，默认 33）；
+  `farlands$getLevelW/setLevelW` 读写宽表；`farlands$getLevelFromSourceW` →
+  `ticketStorage.farlands$getTicketLevelAtW(key,true)`；`farlands$runAllUpdatesW()`。
+- `LoadingChunkTracker`：`farlands$getLevelW` → 宽 `farlands$isChunkToRemoveW/getChunkW`；
+  `farlands$setLevelW` → `farlands$updateChunkSchedulingW` + `chunksToUpdateFutures`；
+  `farlands$runDistanceUpdatesW(int)`。
+- `DistanceManager.FixedPlayerDistanceChunkTracker`：宽 `farlands$chunksW` + `farlands$getLevelW/setLevelW`
+  + `farlands$getLevelFromSourceW` → 宽 `playersPerChunk`；`PlayerTicketTracker` 宽 `onLevelChange`
+  （`farlands$toUpdateW` 宽集）——若探针不需要 player ticket，先记「远域 player ticket 不参与」。
+
+**D. DistanceManager 宽驱动**：
+- abstract 宽镜像：`farlands$isChunkToRemoveW(Wide512)`、`farlands$getChunkW(Wide512)`、
+  `farlands$updateChunkSchedulingW(Wide512,int,ChunkHolder,int)`。
+- `playersPerChunk` → `Wide512FlatMap`（`addPlayer/removePlayer/havePlayer` 宽路径；
+  `SectionPos.chunk()` 已具宽 ChunkPos ⇒ `packWide()`）。
+- `runAllUpdates(ChunkMap)` 改走宽（`farlands$runAllUpdatesW`）：驱动各 tracker 的宽 run。
+  **int 域必须逐位等价**——由 M1 14 坐标回归把关。
+
+**E. ChunkMap 实现宽 abstract**（`ChunkMap extends DistanceManager`）：用 A 原语 + `farlands$cmKeyOf`；
+holder 创建用宽 ChunkPos（`ChunkHolder(ChunkPos,…)` 收已宽化的 ChunkPos）。
+
+**F. 入口**：testgen 请求点（`MinecraftServerTestGenMixin`）→ 新增宽入口
+`farlands$getChunkFutureWide(long cx,long cz)`（`ServerChunkCache` 侧），走宽 ticket + 宽调度；
+测试台解析 long 坐标。
+
+**验收**：① M1 14 坐标回归（int 域逐位不变，含宽路径激活后的正常域）；② 远域探针（chunk 2^49 级）
+`gen OK` + 指纹。
+
+
 
 3. **探针**：请求 chunk 2^49（`562949953421312,0`）→ 记录下一道墙（预期：存储/光照/界限之一），
    立 W4 账。

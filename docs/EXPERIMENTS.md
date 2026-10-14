@@ -557,3 +557,25 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   本轮以冒烟+指纹代）。
 - 证据：`C:\Users\EASON\AppData\Local\Temp\opencode\exp-w4-2a-smoke{,2,3,4}.log`；
   `logs/m2-w4-20261014/`（smoke 世界；`logs/` 未跟踪）。
+
+## 19. W4-2 切片 3 前置：ChunkMap 宽键原语 + 切片 3 规格（2026-10-14）
+
+- 侦察补全（源码）：`SimulationChunkTracker`（宽 `chunks:Long2ByteMap`+ticketStorage 查级）、
+  `LoadingChunkTracker`（宽 `isChunkToRemove/getChunk/updateChunkScheduling` + `chunksToUpdateFutures`）、
+  `DistanceManager`（abstract `isChunkToRemove/getChunk/updateChunkScheduling`；`playersPerChunk`；
+  `FixedPlayerDistanceChunkTracker`/`PlayerTicketTracker` 内部类；监听器绑定
+  `ChunkUpdated.update(long,int,boolean)`）、`TicketStorage`（`tickets`/`deactivatedTickets`
+  两个 `Long2ObjectOpenHashMap<List<Ticket>>` + `chunksWithForcedTickets`；`ChunkUpdated` 三参签名）。
+- 落地（本轮）：`ChunkMapKeyPatch` 增宽键原语 `farlands$cmGetW/cmPutW/cmRemoveW/cmRemove2W/cmContainsW`
+  （直用 `Wide512` 键，不经打包 long）与 `farlands$cmKeyOf(ChunkHolder)→Wide512`
+  （`holder.getPos().packWide()`）；`PATCH_REVISION` 36→37。切片 3 规格（A 原语/B TicketStorage
+  宽双生镜像写/C tracker 宽钩子真值/D DistanceManager 宽驱动/E ChunkMap 宽 abstract/F 入口）
+  写入 `M2-W4-PLAN.md`。
+- 预期（先写）：int 域零变化；宽原语休眠不影响任何现有路径。
+- 实测（冒烟 `0,0;62,62`，REV37）：2/2 `gen OK`；指纹逐位一致
+  （`(0,0) surf=b9216bad2029 floor=8936c275d063 biome=4bf4e2ea5526`、`(62,62) floor=8682357e5167
+  biome=bb77ccfc9cac`）；0 VerifyError/0 类错误；`DONE saved`。
+- 结论：**在本实验条件下**，宽键原语落位且 int 域零差异。此结论仅适用于上述条件（R10）。
+- 下一步：按规格 B→F 实装（TicketStorage 宽双生 → tracker 宽钩子 → DistanceManager/ChunkMap 宽
+  abstract 与驱动 → testgen 宽入口），随后 M1 14 坐标回归 + 远域探针。
+- 证据：`logs/m2-w4-20261014/w4-2s3-prim/`；`exp-w4-2s3-prim.log`。

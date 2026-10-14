@@ -96,6 +96,12 @@ public final class ChunkMapKeyPatch implements ClassPatch {
         node.methods.add(cmRemove());
         node.methods.add(cmRemove2());
         node.methods.add(cmContains());
+        node.methods.add(cmGetW());
+        node.methods.add(cmPutW());
+        node.methods.add(cmRemoveW());
+        node.methods.add(cmRemove2W());
+        node.methods.add(cmContainsW());
+        node.methods.add(cmKeyOf());
 
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
@@ -322,5 +328,89 @@ public final class ChunkMapKeyPatch implements ClassPatch {
     private static MethodInsnNode keyCall() {
         return new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "farlands$cmKey",
             "(J)L" + WIDE + ";", false);
+    }
+
+    // ------------------------------------------------------------------
+    // W4-2 slice 3 primitives: same ops, but the caller already holds the
+    // Wide512 key (e.g. from holder.getPos().packWide()) - no packed-long
+    // round trip, so far-domain keys survive. Used by the wide
+    // DistanceManager / ChunkMap scheduling methods.
+    // ------------------------------------------------------------------
+
+    /** {@code map.get(key)} with a caller-supplied wide key. */
+    private static MethodNode cmGetW() {
+        MethodNode mn = new MethodNode(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, "farlands$cmGetW",
+            "(L" + WIDE_MAP + ";L" + WIDE + ";)Ljava/lang/Object;", null, null);
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, WIDE_MAP, "get",
+            "(L" + WIDE + ";)Ljava/lang/Object;", false));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return mn;
+    }
+
+    private static MethodNode cmPutW() {
+        MethodNode mn = new MethodNode(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, "farlands$cmPutW",
+            "(L" + WIDE_MAP + ";L" + WIDE + ";Ljava/lang/Object;)Ljava/lang/Object;", null, null);
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 2));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, WIDE_MAP, "put",
+            "(L" + WIDE + ";Ljava/lang/Object;)Ljava/lang/Object;", false));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return mn;
+    }
+
+    private static MethodNode cmRemoveW() {
+        MethodNode mn = new MethodNode(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, "farlands$cmRemoveW",
+            "(L" + WIDE_MAP + ";L" + WIDE + ";)Ljava/lang/Object;", null, null);
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, WIDE_MAP, "remove",
+            "(L" + WIDE + ";)Ljava/lang/Object;", false));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return mn;
+    }
+
+    private static MethodNode cmRemove2W() {
+        MethodNode mn = new MethodNode(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, "farlands$cmRemove2W",
+            "(L" + WIDE_MAP + ";L" + WIDE + ";Ljava/lang/Object;)Z", null, null);
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 2));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, WIDE_MAP, "remove",
+            "(L" + WIDE + ";Ljava/lang/Object;)Z", false));
+        il.add(new InsnNode(Opcodes.IRETURN));
+        return mn;
+    }
+
+    private static MethodNode cmContainsW() {
+        MethodNode mn = new MethodNode(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, "farlands$cmContainsW",
+            "(L" + WIDE_MAP + ";L" + WIDE + ";)Z", null, null);
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, WIDE_MAP, "containsKey",
+            "(L" + WIDE + ";)Z", false));
+        il.add(new InsnNode(Opcodes.IRETURN));
+        return mn;
+    }
+
+    /** The wide registry key of a holder: {@code holder.getPos().packWide()}. */
+    private static MethodNode cmKeyOf() {
+        MethodNode mn = new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "farlands$cmKeyOf",
+            "(L" + HOLDER + ";)L" + WIDE + ";", null, null);
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, HOLDER, "getPos",
+            "()L" + CHUNKPOS + ";", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNKPOS, "packWide",
+            "()L" + WIDE + ";", false));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return mn;
     }
 }
