@@ -193,7 +193,7 @@ public abstract class MinecraftServerTestGenMixin {
                     net.minecraft.world.level.ChunkPos widePos =
                         new net.minecraft.world.level.ChunkPos(cxL, czL);
                     sc.farlands$addTicketWithRadiusW(
-                        net.minecraft.server.level.TicketType.FORCED, widePos, Math.max(0, n - 1));
+                        net.minecraft.server.level.TicketType.FORCED, widePos, 2 + Math.max(0, n - 1));
                     net.minecraft.server.level.ChunkMap cm = sc.chunkMap;
                     net.minecraft.server.level.ChunkHolder wideHolder = null;
                     for (int spin = 0; spin < 200; spin++) {
@@ -207,6 +207,19 @@ public abstract class MinecraftServerTestGenMixin {
                     }
                     System.out.println("[FarLands-Test] wide diag holder=" + (wideHolder != null)
                         + " futureDone=" + (wideHolder != null && wideHolder.getFullChunkFuture().isDone()));
+                    StringBuilder nb = new StringBuilder();
+                    for (int dx = -1; dx <= 1; dx++) {
+                        for (int dz = -1; dz <= 1; dz++) {
+                            if (dx == 0 && dz == 0) {
+                                continue;
+                            }
+                            net.minecraft.server.level.ChunkHolder nh = cm.farlands$getUpdatingChunkW(
+                                new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).packWide());
+                            nb.append(dx).append(',').append(dz).append('=')
+                                .append(nh == null ? "null" : String.valueOf(nh.getTicketLevel())).append(' ');
+                        }
+                    }
+                    System.out.println("[FarLands-Test] wide nb " + nb);
                     System.out.flush();
                     chunk = sc.farlands$getChunkWide(widePos);
                     if (chunk == null) {

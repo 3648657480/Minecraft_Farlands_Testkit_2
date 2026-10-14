@@ -756,3 +756,26 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 遗留（W4-3 收尾）：定位"邻块未加载"——候选：① 增大宽 ticket 半径（`n`/radius 参数）；
   ② 检查宽加载跟踪器对邻键的层级传播是否覆盖 FULL 所需邻域；③ 对照 int 域同半径行为差异。
 - 证据：`logs/m2-w4-20261014/w4-3-probe{1..6}/`；`exp-w4-3-probe{1..6}.log`。
+
+## 27. W4-3 定位：远域 FULL 失败的根因 = ChunkMap 邻域依赖循环的 int/64 位键（2026-10-14）
+
+- 排除项（诊断实测，探针 `562949953421312,0`）：
+  - 宽票半径 0→2 无变化（仍 `Unloaded chunks found in range`）；
+  - 邻块**全部存在且 level=32**（8 邻诊断：`-1,-1=32 … 1,1=32`）——宽层级传播**完全正确**。
+- **根因（源码定位）**：`ChunkMap.getChunkRangeFuture` 的邻域依赖循环：
+  ```java
+  ChunkPos centerPos = centerChunk.getPos();
+  for (z,x in -range..range) {
+      long chunkNode = ChunkPos.pack(centerPos.x() + x, centerPos.z() + z);   // int 截断 + 64 位键
+      ChunkHolder chunk = this.getUpdatingChunkIfPresent(chunkNode);          // 远域键丢失
+      if (chunk == null) return UNLOADED_CHUNK_LIST_FUTURE;                   // "Unloaded chunks found in range"
+  }
+  ```
+  → 远域中心的邻域键被截断为 int 域 → 查不到 holder → 返回 `ChunkResult.error("Unloaded chunks found in range")`
+  → FULL 生成失败。**这是宽化链上最后一个已知 long 面**（计划中"ChunkMap 剩余 long 面"）。
+- 结论：远域 chunk 的宽寻址/票/跟踪/层级传播/持有者创建/调度**全部已验证可用**；剩下的是这处
+  邻域依赖查询的宽化（一处循环）。此结论仅适用于上述条件（R10）。
+- 下一步（收尾）：`ChunkMapWidePatch`（或扩展 ChunkMapSchedulingWidePatch）重写该循环的键与查询——
+  `WideChunkKey.neighbor(centerPos.packWide(), x, z)` + `farlands$cmGetW(this.updatingChunkMap, key)`；
+  预期：远域 `gen OK` + 指纹（再背靠背跑一次验可复现）。
+- 证据：`logs/m2-w4-20261014/w4-3-probe{7,8}/`；`exp-w4-3-probe{7,8}.log`（邻块 level=32 诊断）。
