@@ -635,3 +635,25 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   2. `ChunkMap.toDrop` 仍为 64 位 LongSet（远域截断点，记账）；
   3. 驱动开关（`runAllUpdates` 走宽）+ testgen 宽入口 = F，与远域探针同轮启用。
 - 证据：`logs/m2-w4-20261014/w4-2s3c-smoke/`；`exp-w4-2s3c-smoke.log`。
+
+## 22. W4-2 切片 3-E（上半）：ChunkMap$DistanceManager 真宽覆写（2026-10-14）
+
+- 侦察：DistanceManager 的三个 long 抽象实现位于**具名嵌套类** `ChunkMap$DistanceManager`
+  （`private class DistanceManager extends net.minecraft.server.level.DistanceManager`；
+  合成字段 `this$0`、`toDrop` 为 `LongSet`）。
+- 变更：新增 `ChunkMapWidePatch`（目标 `net/minecraft/server/level/ChunkMap$DistanceManager`）：
+  - `farlands$getChunkW(Wide512)` **精确**：`this$0.updatingChunkMap`（Wide512FlatMap）经
+    `ChunkMap.farlands$cmGetW` 直读宽键（nestmate 私有访问）；
+  - `farlands$isChunkToRemoveW(Wide512)`：`toDrop.contains(pack(node))`——toDrop 仍 64 位
+    `LongSet`（远域截断点，记账）。
+  - **未做（3-E 下半）**：`farlands$updateChunkSchedulingW` 的远域 holder 创建路径——
+    holder 创建点带 `this::onLevelChange` 回调句柄，无法直接表达；候选方案 = 克隆外层
+    `updateChunkScheduling` 指令序列并改写键/映射访问（含其 invokedynamic 站点）。
+  - `PATCH_REVISION` 39→40。
+- 预期（先写）：正常坐标零差异；类加载无异常。
+- bytecode 复验：`patched 67`（+1）；javap：两个覆写描述符正确。
+- 实测（冒烟 `0,0;62,62`，REV40）：2/2 `gen OK`；指纹逐位一致；0 VerifyError/NoSuchField/
+  NoClassDefError。
+- 结论：**在本实验条件下**，宽读路径的 holder 访问已逐位精确；宽调度写路径待 3-E 下半 +
+  3-F 驱动/入口。此结论仅适用于上述条件（R10）。
+- 证据：`logs/m2-w4-20261014/w4-2s3e-smoke/`；`exp-w4-2s3e-smoke.log`。
