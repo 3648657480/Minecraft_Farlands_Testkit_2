@@ -863,3 +863,30 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 下一步：① `farlands$acquireWide` 打印/携带任务中心；② 按判定增大宽票半径（如 FORCED 用
   `ChunkMap.FORCED_TICKET_LEVEL` 语义）或修缓存半径来源；③ 复跑 → 远域 `gen OK` + 指纹。
 - 证据：`logs/m2-w4-20261014/w4-3-probe{12..18}/`、`w4-3-s3g-smoke*/`。
+
+## 32. W4-3 续：生成任务缓存半径 = 12（金字塔累积推导）+ 带边缘不变式（2026-10-15）
+
+- 仪器升级（REV56）：`GeneratingChunkMap` 加 `farlands$hasGenerationW`；`farlands$acquireWide`
+  预检 miss 并抛出**含任务中心与格坐标**的 ISE（由此拿到精确数据）。
+- 半径扫描实验（探针 2^49，同代码仅改宽票半径）：
+  | 票半径 | 失败任务中心（相对本块） | 缺格（相对任务中心） |
+  |---|---|---|
+  | 2 | —（世界初始化即挂，int 域修复后见下） | — |
+  | 8 | (-8, +3) | (-11, -11) |
+  | 30 | (-30, +5) | (-11, -11) |
+  → **不变式**：失败任务总是**带边缘 holder**，缺格总在它 **+11~12**——与票半径无关（失败点随半径外移）。
+- **推导（源码）**：`ChunkGenerationTask.create` 的 `worstCaseRadius =
+  GENERATION_PYRAMID.getStepTo(target).getAccumulatedRadiusOf(EMPTY)`；按 `ChunkPyramid` 的
+  `addRequirement` 累加（步骤继承前步累积）：SR@8 →(BIOMES@1) NOISE/SURFACE 9 →(CARVERS@1)
+  FEATURES 10 →(INITIALIZE_LIGHT@1) LIGHT 11 →(BIOMES@1) SPAWN 12 ⇒ **FULL 目标累积半径 = 12**。
+  故任何 FULL 级生成任务需要其中心 ±12 的 holder 全部在册。
+- 结论（本实验条件下）：远域带边缘 holder 被安排了需要 ±12 邻域的生成任务，而带边缘之外的 holder
+  不存在 → miss。**这不是"票半径不够"可以修的**（失败点随半径外移）——指向宽路径的
+  **level↔status 不变式**：边带 holder 不应获得需要大半径的任务（vanilla 靠 level 语义保证；
+  我们的宽 `setLevelW`/调度链需与该语义逐位对齐），或需复刻 vanilla 的邻块按需加载机制。
+  此结论仅适用于上述条件（R10）。
+- 下一步（定位不变式偏差）：对比同半径下 **int 域**（spawn 区可用）与远域的
+  holder→level→已安排任务 状态；重点核对 `LoadingChunkTracker.farlands$getLevelW/setLevelW`
+  的返回值是否与 vanilla 对同一 ticket 的结账一致（可加一次性 dump：任务创建时打印
+  `centre + 各格 level`）。
+- 证据：`logs/m2-w4-20261014/w4-3-probe{19..21}/`。

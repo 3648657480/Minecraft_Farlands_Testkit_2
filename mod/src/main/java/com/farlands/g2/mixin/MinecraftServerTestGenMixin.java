@@ -193,7 +193,7 @@ public abstract class MinecraftServerTestGenMixin {
                     net.minecraft.world.level.ChunkPos widePos =
                         new net.minecraft.world.level.ChunkPos(cxL, czL);
                     sc.farlands$addTicketWithRadiusW(
-                        net.minecraft.server.level.TicketType.FORCED, widePos, 2 + Math.max(0, n - 1));
+                        net.minecraft.server.level.TicketType.FORCED, widePos, 30 + Math.max(0, n - 1));
                     net.minecraft.server.level.ChunkMap cm = sc.chunkMap;
                     try {
                         cm.getDistanceManager().runAllUpdates(cm);

@@ -97,6 +97,7 @@ public final class ChunkMapSchedulingWidePatch implements ClassPatch {
         node.methods.add(packTruncW());
         node.methods.add(getUpdatingChunkW(updatingMap));
         node.methods.add(acquireGenerationW(updatingMap));
+        node.methods.add(hasGenerationW(updatingMap));
         InvokeDynamicInsnNode callbackCopy = new InvokeDynamicInsnNode(callback.name, callback.desc,
             callback.bsm, callback.bsmArgs);
         node.methods.add(updateW(callbackCopy, holderCtor.desc, updatingMap, pendingUnloads, toDrop,
@@ -237,6 +238,19 @@ public final class ChunkMapSchedulingWidePatch implements ClassPatch {
             "(" + WMAP_D + W512_D + ")Ljava/lang/Object;", false));
         il.add(new TypeInsnNode(Opcodes.CHECKCAST, HOLDER));
         il.add(new InsnNode(Opcodes.ARETURN));
+        return mn;
+    }
+
+    /** Wide counterpart of {@code acquireGeneration(long)}. */
+    private static MethodNode hasGenerationW(String updatingMap) {
+        MethodNode mn = m(Opcodes.ACC_PUBLIC, "farlands$hasGenerationW", "(" + W512_D + ")Z");
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "updatingChunkMap", updatingMap));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "farlands$cmContainsW",
+            "(" + WMAP_D + W512_D + ")Z", false));
+        il.add(new InsnNode(Opcodes.IRETURN));
         return mn;
     }
 

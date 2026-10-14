@@ -12,6 +12,7 @@ import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.JumpInsnNode;
 import org.objectweb.asm.tree.LabelNode;
+import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TypeInsnNode;
@@ -115,8 +116,6 @@ public final class ChunkGenerationTaskWidePatch implements ClassPatch {
         InsnList il = mn.instructions;
         LabelNode wide = new LabelNode();
         LabelNode have = new LabelNode();
-        // receiver first: both key branches push the key on top of [map]
-        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         // cx, cz (exact long coords of the centre)
         il.add(new VarInsnNode(Opcodes.ALOAD, 1));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNK_POS, "xLong", "()J", false));
@@ -170,6 +169,53 @@ public final class ChunkGenerationTaskWidePatch implements ClassPatch {
         il.add(new VarInsnNode(Opcodes.LLOAD, 12));
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, WK, "pack", "(JJ)" + W512_D, false));
         il.add(have);
+        il.add(new VarInsnNode(Opcodes.ASTORE, 14));
+        // pre-check: on miss throw with centre + cell coordinates (debug aid)
+        LabelNode ok = new LabelNode();
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 14));
+        il.add(new MethodInsnNode(Opcodes.INVOKEINTERFACE, GEN_MAP, "farlands$hasGenerationW",
+            "(" + W512_D + ")Z", true));
+        il.add(new JumpInsnNode(Opcodes.IFNE, ok));
+        il.add(new TypeInsnNode(Opcodes.NEW, "java/lang/IllegalStateException"));
+        il.add(new InsnNode(Opcodes.DUP));
+        il.add(new TypeInsnNode(Opcodes.NEW, "java/lang/StringBuilder"));
+        il.add(new InsnNode(Opcodes.DUP));
+        il.add(new LdcInsnNode("acquireWide miss centre=("));
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, "java/lang/StringBuilder", "<init>",
+            "(Ljava/lang/String;)V", false));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 4));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(J)Ljava/lang/StringBuilder;", false));
+        il.add(new LdcInsnNode(","));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 6));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(J)Ljava/lang/StringBuilder;", false));
+        il.add(new LdcInsnNode(") cell=("));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 10));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(J)Ljava/lang/StringBuilder;", false));
+        il.add(new LdcInsnNode(","));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 12));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(J)Ljava/lang/StringBuilder;", false));
+        il.add(new LdcInsnNode(")"));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString",
+            "()Ljava/lang/String;", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, "java/lang/IllegalStateException", "<init>",
+            "(Ljava/lang/String;)V", false));
+        il.add(new InsnNode(Opcodes.ATHROW));
+        il.add(ok);
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 14));
         il.add(new MethodInsnNode(Opcodes.INVOKEINTERFACE, GEN_MAP, "farlands$acquireGenerationW",
             "(" + W512_D + ")" + GEN_HOLDER_D, true));
         il.add(new InsnNode(Opcodes.ARETURN));

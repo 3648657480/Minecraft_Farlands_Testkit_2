@@ -32,6 +32,8 @@ public final class GeneratingChunkMapWidePatch implements ClassPatch {
         }
         node.methods.add(new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT,
             "farlands$acquireGenerationW", "(Lcom/scalarwide/Wide512;)" + GEN_HOLDER_D, null, null));
+        node.methods.add(new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT,
+            "farlands$hasGenerationW", "(Lcom/scalarwide/Wide512;)Z", null, null));
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
         return cw.toByteArray();
