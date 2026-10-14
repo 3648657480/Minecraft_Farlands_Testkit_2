@@ -94,6 +94,7 @@ public final class ChunkMapSchedulingWidePatch implements ClassPatch {
 
         node.methods.add(chunkPosOfW());
         node.methods.add(packTruncW());
+        node.methods.add(getUpdatingChunkW(updatingMap));
         InvokeDynamicInsnNode callbackCopy = new InvokeDynamicInsnNode(callback.name, callback.desc,
             callback.bsm, callback.bsmArgs);
         node.methods.add(updateW(callbackCopy, holderCtor.desc, updatingMap, pendingUnloads, toDrop,
@@ -115,6 +116,20 @@ public final class ChunkMapSchedulingWidePatch implements ClassPatch {
 
     private static MethodNode m(int access, String name, String desc) {
         return new MethodNode(access, name, desc, null, null);
+    }
+
+    /** Wide holder lookup for the testgen harness: {@code (ChunkHolder) cmGetW(updatingChunkMap, key)}. */
+    private static MethodNode getUpdatingChunkW(String updatingMap) {
+        MethodNode mn = m(Opcodes.ACC_PUBLIC, "farlands$getUpdatingChunkW", "(" + W512_D + ")" + HOLDER_D);
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "updatingChunkMap", updatingMap));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "farlands$cmGetW",
+            "(" + WMAP_D + W512_D + ")Ljava/lang/Object;", false));
+        il.add(new TypeInsnNode(Opcodes.CHECKCAST, HOLDER));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return mn;
     }
 
     /** {@code new ChunkPos(xLong(node), zLong(node))}. */

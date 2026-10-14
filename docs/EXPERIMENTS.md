@@ -704,3 +704,27 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 遗留（3-F 第 2 步 / W4-3）：testgen 宽入口（`farlands$getChunkFutureWide`/宽 ticket 注入）+
   远域 chunk 2^49 级探针。
 - 证据：`logs/m2-w4-20261014/w4-2s3f-m1/`；`exp-w4-2s3f-m1.log`。
+
+## 25. W4-2 切片 3-F（第 2 步）：宽入口 API 落位（2026-10-14）
+
+- 侦察（harness）：`MinecraftServerTestGenMixin` 的坐标解析为 `Integer.parseInt`、请求为
+  `level.getChunk(int,int)`（int API，2^49 不可达）；可见性核查：`ServerChunkCache.chunkMap`
+  为 public、`ChunkMap.getDistanceManager()/runGenerationTasks()/getUpdatingChunkIfPresent(long)`
+  与 `ChunkHolder.getFullChunkFuture()/getChunkToSend()/getTickingChunk()` 均 public，
+  但 `ServerChunkCache.ticketStorage` 为 private（harness 在 MC 包外）。
+- 变更（patcher 侧入口）：
+  - `TicketStorageWidePatch` 增 `farlands$addTicketWithRadiusW(TicketType,ChunkPos,int)`；
+  - 新增 `ServerChunkCacheWidePatch`：`farlands$addTicketWithRadiusW` 委托（暴露 private ticketStorage）；
+  - `ChunkMapSchedulingWidePatch` 增 `public farlands$getUpdatingChunkW(Wide512)`（查宽 holder 表）；
+  - `PATCH_REVISION` 42→43。
+- 预期（先写）：代码路径休眠、int 域零差异；重放/冒烟正常。
+- bytecode 复验：`patched 68`（+1 = ServerChunkCache）；javap：三处入口描述符全对。
+- 实测（冒烟 `0,0;62,62`，REV43）：2/2 `gen OK`；指纹逐位一致；0 类错误。
+- 结论：**在本实验条件下**，宽入口 API 就位且 int 域零差异。此结论仅适用于上述条件（R10）。
+- 遗留（3-F 第 3 步 / W4-3）：harness 宽分支——坐标改 `Long.parseLong`；远域分支
+  `new ChunkPos(long,long)` + `sc.farlands$addTicketWithRadiusW(FORCED,pos,0)` + 手动驱动
+  （`getDistanceManager().runAllUpdates(cm)` + `cm.runGenerationTasks()`）与 holder 轮询
+  （`farlands$getUpdatingChunkW` + `getFullChunkFuture`/`getChunkToSend`）；**关键点**：主线程
+  忙轮询会饿死 worker 完成回调（需 managedBlock 语义）——设计上以 `getFullChunkFuture()` 的
+  managedBlock 式等待解决（借用 ServerChunkCache 现有机制或轮询中让出）。
+- 证据：`logs/m2-w4-20261014/w4-2s3f2-smoke/`；`exp-w4-2s3f2-smoke.log`。

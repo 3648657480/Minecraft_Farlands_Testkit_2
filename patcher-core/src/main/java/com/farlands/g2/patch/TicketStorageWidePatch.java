@@ -83,6 +83,7 @@ public final class TicketStorageWidePatch implements ClassPatch {
         node.methods.add(getTicketLevelAtW());
         node.methods.add(addTicketW());
         node.methods.add(removeTicketW());
+        node.methods.add(addTicketWithRadiusW());
         node.methods.add(setListenerW("farlands$setLoadingChunkUpdatedListenerW", "farlands$loadingListenerW"));
         node.methods.add(setListenerW("farlands$setSimulationChunkUpdatedListenerW", "farlands$simulationListenerW"));
 
@@ -440,6 +441,30 @@ public final class TicketStorageWidePatch implements ClassPatch {
         il.add(missing);
         il.add(new InsnNode(Opcodes.ICONST_0));
         il.add(new InsnNode(Opcodes.IRETURN));
+        return mn;
+    }
+
+    /** {@code farlands$addTicketWithRadiusW(TicketType, ChunkPos, int)} - wide radius ticket. */
+    private static MethodNode addTicketWithRadiusW() {
+        MethodNode mn = m(Opcodes.ACC_PUBLIC, "farlands$addTicketWithRadiusW",
+            "(L" + TICKET_TYPE + ";L" + CHUNK_POS + ";I)V");
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 2));
+        il.add(new org.objectweb.asm.tree.TypeInsnNode(Opcodes.NEW, TICKET));
+        il.add(new InsnNode(Opcodes.DUP));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new FieldInsnNode(Opcodes.GETSTATIC, "net/minecraft/server/level/FullChunkStatus", "FULL",
+            "Lnet/minecraft/server/level/FullChunkStatus;"));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "net/minecraft/server/level/ChunkLevel", "byStatus",
+            "(Lnet/minecraft/server/level/FullChunkStatus;)I", false));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 3));
+        il.add(new InsnNode(Opcodes.ISUB));
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TICKET, "<init>", "(" + TICKET_TYPE_D + "I)V", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TARGET, "farlands$addTicketW",
+            "(L" + CHUNK_POS + ";" + TICKET_D + ")Z", false));
+        il.add(new InsnNode(Opcodes.POP));
+        il.add(new InsnNode(Opcodes.RETURN));
         return mn;
     }
 
