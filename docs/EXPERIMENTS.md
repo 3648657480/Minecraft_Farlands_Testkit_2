@@ -796,3 +796,22 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   再删除区间；或改为"原地改写不相邻的三处"（`x()/z()`→`xLong()/zLong()` 与 `IADD`→`LADD`、
   `pack(II)`→宽键构造、`getUpdatingChunkIfPresent`→`cmGetW`），避免大跨度删除。
 - 证据：`logs/m2-w4-20261014/w4-3-probe9/`；`exp-w4-3-probe9.log`、`crash-2026-10-14_21.17.11-server.txt`。
+
+## 29. W4-3 续：邻域查询改写成功（VerifyError 修复）+ 暴露下一处 long 面（2026-10-14）
+
+- 修复（REV49→50）：`rewriteRangeLookups` 的 VerifyError 根因定位到精确位置
+  （`Location: ChunkMap.getChunkRangeFuture @111: getfield; Reason: Type 'Wide512' (stack[1]) is not
+  assignable to 'ChunkMap'`）——**GETFIELD 必须紧跟 `aload_0`**（替换接收者），而我原先插在
+  **键加载之后**，把 Wide512 当成了接收者。修正插入点后 **改写通过验证**。
+  （另：最初的 48 版还有个次因——"全方法扫 slot 10"把别处复用的 long local 一并改坏了；
+  现只改紧邻 pack 的 LSTORE 与喂 lookup 的 LLOAD。）
+- 实测（探针 2^49，REV50）：**无 VerifyError**，错误前移到
+  `NullPointerException: ChunkHolder.increaseGenerationRefCount() because "chunkHolder" is null`
+  ——出处 `ChunkMap.acquireGeneration(long chunkNode)`：`this.updatingChunkMap.get(chunkNode)` 对远域
+  返回 null。**这是状态任务层的又一处 long 面**（调用方不在已抽取源码内，属 `chunk.status` 生成管线）。
+- 结论（本实验条件下）：邻域依赖查询已宽化且字节码合法；远域 FULL 生成的剩余阻塞 = **状态任务层的
+  邻块获取（`acquireGeneration(long)` 及其调用链）仍以 int 截断的 long 为节点**。此结论仅适用于上述条件（R10）。
+- 下一步：① 用 jar 全扫（或 `javap` 遍历 `net.minecraft.world.level.chunk.status.*`）定位
+  `acquireGeneration` 调用方；② 宽化该层节点（`GeneratingChunkMap` 接口 + `ChunkMap` 实现 + 调用点，
+  或调用点改传宽键）；③ 复跑探针 → 远域 `gen OK` + 指纹 + 背靠背复现。
+- 证据：`logs/m2-w4-20261014/w4-3-probe10/`、`w4-3-probe11/`；`exp-w4-3-probe{10,11}.log`。

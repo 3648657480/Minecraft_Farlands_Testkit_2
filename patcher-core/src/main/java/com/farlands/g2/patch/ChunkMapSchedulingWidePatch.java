@@ -99,11 +99,11 @@ public final class ChunkMapSchedulingWidePatch implements ClassPatch {
             callback.bsm, callback.bsmArgs);
         node.methods.add(updateW(callbackCopy, holderCtor.desc, updatingMap, pendingUnloads, toDrop,
             levelField, lightEngine, modified));
-        // 3-F/3-E tail: wide range-lookup rewrite is DISABLED (REV48) - the span
-        // deletion left a jump target dangling (VerifyError in ServerChunkCache.<init>);
-        // needs the label-preservation variant (move in-span labels before the
-        // inserted sequence) before re-enabling.
-        // rewriteRangeLookups(node, updatingMap);
+        // 3-F/3-E tail: wide range-lookup rewrite (REV49). Only the two nodes
+        // adjacent to this pack/lookup pair are converted (a whole-method slot
+        // scan also hit unrelated long locals reused at the same slot and broke
+        // verification).
+        rewriteRangeLookups(node, updatingMap);
 
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
@@ -162,7 +162,9 @@ public final class ChunkMapSchedulingWidePatch implements ClassPatch {
         while (after != null && after.getOpcode() < 0) {
             after = after.getNext();
         }
-        int nodeSlot = ((VarInsnNode) after).var;
+        if (after instanceof VarInsnNode store && store.getOpcode() == Opcodes.LSTORE) {
+            store.setOpcode(Opcodes.ASTORE);
+        }
         AbstractInsnNode start = pack;
         int seen = 0;
         int xSlot = -1;
@@ -202,20 +204,20 @@ public final class ChunkMapSchedulingWidePatch implements ClassPatch {
             }
             it = next;
         }
-        for (AbstractInsnNode insn = target.instructions.getFirst(); insn != null; insn = insn.getNext()) {
-            if (insn instanceof VarInsnNode vi && vi.var == nodeSlot) {
-                if (vi.getOpcode() == Opcodes.LSTORE) {
-                    vi.setOpcode(Opcodes.ASTORE);
-                } else if (vi.getOpcode() == Opcodes.LLOAD) {
-                    vi.setOpcode(Opcodes.ALOAD);
-                }
-            }
+        AbstractInsnNode keyLoad = lookup.getPrevious();
+        while (keyLoad != null && keyLoad.getOpcode() < 0) {
+            keyLoad = keyLoad.getPrevious();
         }
-        AbstractInsnNode recv = lookup.getPrevious();
-        while (recv != null && recv.getOpcode() < 0) {
-            recv = recv.getPrevious();
+        if (keyLoad instanceof VarInsnNode load && load.getOpcode() == Opcodes.LLOAD) {
+            load.setOpcode(Opcodes.ALOAD);
         }
-        target.instructions.insert(recv, new FieldInsnNode(Opcodes.GETFIELD, TARGET, "updatingChunkMap", updatingMap));
+        // receiver must be THIS (aload_0) whose getfield replaces it with the map;
+        // the key load follows, so the GETFIELD goes right after aload_0.
+        AbstractInsnNode receiver = keyLoad.getPrevious();
+        while (receiver != null && receiver.getOpcode() < 0) {
+            receiver = receiver.getPrevious();
+        }
+        target.instructions.insert(receiver, new FieldInsnNode(Opcodes.GETFIELD, TARGET, "updatingChunkMap", updatingMap));
         MethodInsnNode call = new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "farlands$cmGetW",
             "(" + WMAP_D + W512_D + ")Ljava/lang/Object;", false);
         target.instructions.set(lookup, call);
