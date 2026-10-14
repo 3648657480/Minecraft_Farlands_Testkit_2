@@ -579,3 +579,29 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 下一步：按规格 B→F 实装（TicketStorage 宽双生 → tracker 宽钩子 → DistanceManager/ChunkMap 宽
   abstract 与驱动 → testgen 宽入口），随后 M1 14 坐标回归 + 远域探针。
 - 证据：`logs/m2-w4-20261014/w4-2s3-prim/`；`exp-w4-2s3-prim.log`。
+
+## 20. W4-2 切片 3-B：TicketStorage 宽双生（2026-10-14）
+
+- 设计（与切片 3 规格的偏差，更省且 int 域严格等价）：**宽读带回退、宽写只入宽表、无镜像写**。
+  - 宽读 `farlands$getTicketLevelAtW(Wide512,boolean)`：宽表命中 → 用宽表；未命中 →
+    回退 vanilla long 表（`ChunkPos.pack((int)x,(int)z)` 截断）。int 域该桥逐位精确（宽键
+    就是 long 键的宽编码）；远域键在 long 表本不存在 → 回退返回"无 ticket"级（正确）。
+  - 宽写 `farlands$addTicketW(ChunkPos,Ticket)` / `farlands$removeTicketW` 只动宽表——
+    远域 ticket 无 long 表示；int 域仍走 vanilla 原路（热路径零改动，M1 回归门禁不受影响）。
+  - 宽监听：字段类型直接取 `net.minecraft.server.level.ChunkTracker`，回调注入的
+    `farlands$updateW(Wide512,int,boolean)`（无需新增类/接口）。
+- 变更：新增 `TicketStorageWidePatch`（字段 `farlands$ticketsW`/`farlands$forcedW`/
+  `farlands$loadingListenerW`/`farlands$simulationListenerW`；方法 `farlands$keyW`/`packTrunc`/
+  `wide`/`forcedSet`/`getTicketLevelAtW`/`addTicketW`/`removeTicketW` + 两个宽监听 setter）；
+  `PATCH_REVISION` 37→38。
+- 预期（先写）：正常坐标零差异；宽路径休眠不影响既有路径。
+- bytecode 复验（patcher-cli 重放）：`Scanned 10952 classes, patched 63`（+1，正是 TicketStorage）；
+  javap：13 个 `farlands$*` 成员，描述符全对。
+- 实测（冒烟 `0,0;62,62`，REV38）：2/2 `gen OK`；指纹逐位一致
+  （`(0,0) surf=b9216bad2029 floor=8936c275d063 biome=4bf4e2ea5526`、`(62,62) floor=8682357e5167
+  biome=bb77ccfc9cac`）；0 VerifyError/0 类错误；`DONE saved`。
+- 结论：**在本实验条件下**，TicketStorage 宽双生落位且 int 域零差异；宽路径端到端待 C/D/E/F 接线。
+  此结论仅适用于上述条件（R10）。
+- 遗留：子类 tracker 宽钩子真值（挂宽监听器 + 宽 chunks 表）、DistanceManager/ChunkMap 宽
+  abstract 与驱动、testgen 宽入口 = 切片 3-C/D/E/F。
+- 证据：`logs/m2-w4-20261014/w4-2s3b-smoke/`；`exp-w4-2s3b-smoke.log`。
