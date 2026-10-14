@@ -605,3 +605,33 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 遗留：子类 tracker 宽钩子真值（挂宽监听器 + 宽 chunks 表）、DistanceManager/ChunkMap 宽
   abstract 与驱动、testgen 宽入口 = 切片 3-C/D/E/F。
 - 证据：`logs/m2-w4-20261014/w4-2s3b-smoke/`；`exp-w4-2s3b-smoke.log`。
+
+## 21. W4-2 切片 3-C/D：tracker 宽钩子真值 + DistanceManager 宽访问器（2026-10-14）
+
+- 变更：
+  - `SimulationChunkTrackerWidePatch`：宽级表 `farlands$chunksW`（`Wide512ByteMap`，默认 33）+
+    `farlands$getLevelW/setLevelW`（**宽表命中优先、未命中回退 vanilla long 表**——int 域逐位精确）、
+    `farlands$getLevelFromSourceW` → `TicketStorage.farlands$getTicketLevelAtW(…,true)`、
+    `farlands$runAllUpdatesW`；构造器尾挂宽模拟监听
+    （`ticketStorage.farlands$setSimulationChunkUpdatedListenerW(this)`）。
+  - `LoadingChunkTrackerWidePatch`：`farlands$getLevelW/setLevelW`（经 DistanceManager 宽访问器）、
+    `farlands$getLevelFromSourceW`（…,false）、`farlands$runDistanceUpdatesW`；构造器尾挂宽加载监听。
+  - `DistanceManagerWidePatch`：**具体默认**宽访问器 `farlands$isChunkToRemoveW/getChunkW/
+    updateChunkSchedulingW`（截断委托 vanilla long 抽象实现；int 域精确）。
+    **设计修正（重要）**：三个 long 抽象实现其实位于 `ChunkMap` 的**内部 DistanceManager 子类**，
+    若在 DistanceManager 加**抽象**宽方法，未补的内部类会类加载失败 → 改用**具体默认**；
+    真宽实现留 3-E 在内部类覆写。
+  - `PATCH_REVISION` 38→39。
+- 预期（先写）：正常坐标零差异；宽路径仍休眠（无调用方）；类加载无 AbstractMethodError。
+- bytecode 复验：`patched 66`（+3）；javap：DistanceManager 4 成员、SimulationChunkTracker 7 成员、
+  LoadingChunkTracker 4 成员，描述符全对。
+- 实测（冒烟 `0,0;62,62`，REV39）：2/2 `gen OK`；指纹逐位一致；0 VerifyError/NoClassDef/
+  NoSuchMethod/AbstractMethodError；`DONE saved`。
+- 结论：**在本实验条件下**，tracker 宽钩子与 DistanceManager 宽访问器落位且 int 域零差异。
+  此结论仅适用于上述条件（R10）。
+- 遗留（切片 3-E/F）：
+  1. `ChunkMap` 内部类的**真宽覆写**（`farlands$getChunkW` 走 `farlands$cmGetW(updatingChunkMap,key)`
+     逐位精确；`farlands$updateChunkSchedulingW` 的远域 holder 创建路径）；
+  2. `ChunkMap.toDrop` 仍为 64 位 LongSet（远域截断点，记账）；
+  3. 驱动开关（`runAllUpdates` 走宽）+ testgen 宽入口 = F，与远域探针同轮启用。
+- 证据：`logs/m2-w4-20261014/w4-2s3c-smoke/`；`exp-w4-2s3c-smoke.log`。
