@@ -240,3 +240,19 @@ vanilla 字节码里需改写的**全部形态**（javap 实测）：
 ew ChunkPos(long,long) + sc.farlands\(FORCED,pos,max(0,n-1)) + 轮询 arlands\（每轮 getDistanceManager().runAllUpdates(cm) + cm.runGenerationTasks()）后 arlands\(pos)；fingerprint 的 BlockPos 改 
 ew BlockPos(long,long,long)（(JJJ) 补丁 ctor），cx*16+8 用 long。
 3. **验收**：远域 chunk 2^49 级 gen OK + 指纹（先写预期：gen OK、非 none 哈希、无崩溃；可复现性需背靠背两跑）。
+
+### 切片 3-G（新增，2026-10-15）：生成任务层宽化（ChunkGenerationTask + 宽邻域缓存）
+
+背景：探针 2^49 逐层剥落后，最后阻塞在 ChunkMap.acquireGeneration(long) NPE（§29/§30）。
+
+- **现状（int 索引）**：ChunkGenerationTask 以 int pos.x()/z() 为心建 StaticCache2D（半径 worstCaseRadius），
+  键 ChunkPos.pack(x,z)；全类按 int 坐标遍历/距离；GeneratingChunkMap 只有 long 版
+  cquireGeneration/releaseGeneration。
+- **方案**：
+  1. ScalarWide mc 增量：宽邻域缓存（Wide512 键 + 宽中心；语义对齐 StaticCache2D：中心/半径/for 遍历/象棋距离）。
+  2. GeneratingChunkMap 增 cquireGenerationW(Wide512)/eleaseGenerationW(GenerationChunkHolder)；
+     ChunkMap 实现走 arlands/cmPutW（+ 引用计数与 long 版一致）。
+  3. ChunkGenerationTask 增宽路径：中心宽键 = pos.packWide()；半径遍历与距离改 long；缓存换宽版。
+  4. 驱动点：ChunkHolder.scheduleChunkGenerationTask 按 holder 位置是否越 int 选择宽/窄任务。
+- **验收**：探针 2^49 gen OK + 指纹；背靠背两跑（可复现）；M1 14 坐标回归逐位不变。
+- 风险：生成任务层与 ChunkStatus 任务树耦合最紧；一处坐标语义漏改即静默错误——每步都跑 M1 + 探针。

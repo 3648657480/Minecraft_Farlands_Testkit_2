@@ -815,3 +815,28 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   `acquireGeneration` 调用方；② 宽化该层节点（`GeneratingChunkMap` 接口 + `ChunkMap` 实现 + 调用点，
   或调用点改传宽键）；③ 复跑探针 → 远域 `gen OK` + 指纹 + 背靠背复现。
 - 证据：`logs/m2-w4-20261014/w4-3-probe10/`、`w4-3-probe11/`；`exp-w4-3-probe{10,11}.log`。
+
+## 30. W4-3 续：下一层根因 = ChunkGenerationTask 的 int 索引 StaticCache2D（2026-10-15 侦察）
+
+- 侦察（sources jar 抽取 `net/minecraft/server/level/ChunkGenerationTask.java` + `GeneratingChunkMap.java`）：
+  - `ChunkGenerationTask.create(...)`：
+    ```java
+    int worstCaseRadius = ...;
+    StaticCache2D<GenerationChunkHolder> cache = StaticCache2D.create(
+        pos.x(), pos.z(), worstCaseRadius, (x, z) -> chunkMap.acquireGeneration(ChunkPos.pack(x, z)));
+    ```
+    → 缓存以 **int** 中心 `pos.x()/pos.z()` 建、键为 `ChunkPos.pack(x,z)`（截断）；
+  - 该类其余全部按 int 坐标工作：`this.pos.x()/z()`、`cache.get(x, z)`、`pos.getChessboardDistance(x,z)`；
+  - `releaseClaim()` → `cache.forEach(chunkMap::releaseGeneration)`；`GeneratingChunkMap` 接口只有
+    `acquireGeneration(long)`/`releaseGeneration(...)`（long 面）。
+- 结论：远域 FULL 生成的最后阻塞 = **生成任务层完全建立在 int 索引结构上**（int 中心的
+  `StaticCache2D<GenerationChunkHolder>` + 64 位 node）。宽化需要：
+  (a) **宽版邻域 holder 缓存**（以 Wide512 为中心/键，等价 `StaticCache2D` 语义）；
+  (b) `GeneratingChunkMap` 加宽重载（`acquireGenerationW(Wide512)` / `releaseGenerationW`）+
+      `ChunkMap` 实现（走 `farlands$cmGetW/…`）；
+  (c) `ChunkGenerationTask` 的 int 坐标运算改 long/宽（中心、半径遍历、chessboard 距离）。
+  此结论仅适用于上述条件（R10）。
+- 结论（阶段）：从 M2 出发的整条请求/调度链（ticket→tracker→DistanceManager→ChunkMap 调度/持有者→
+  邻域依赖查询）**已全部宽化并逐层验证**；剩余为**生成任务层（3-G）**。
+- 证据：`C:\Users\EASON\AppData\Local\Temp\opencode\g2-src\net\minecraft\server\level\ChunkGenerationTask.java`
+  + `GeneratingChunkMap.java`（sources jar 抽取，REV50 探针栈）。
