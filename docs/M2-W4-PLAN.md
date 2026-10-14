@@ -230,3 +230,13 @@ vanilla 字节码里需改写的**全部形态**（javap 实测）：
   `chunksToEagerlySave`/`nextChunkSaveTime` 暂留 64 位（记账，后续项）。
 - 验证门：CLI 重放后 javap 结构核对 + **真跑控制坐标**（ChunkMap 在服务器启动即加载，
   VerifyError/NoSuchMethodError 会立即暴露）；再跑 M1 代表集对照指纹。
+
+### 3-F 第 3 步方案（harness 宽分支 + 远域探针，2026-10-14 起草）
+
+1. **ServerChunkCache 宽阻塞取块**（ASM 注入）：public LevelChunk farlands\(ChunkPos pos) = chunkMap.farlands\(pos.packWide()) → 若 null 返回 null；否则
+   CompletableFuture<ChunkResult<LevelChunk>> f = holder.getFullChunkFuture(); this.mainThreadProcessor.managedBlock(<f::isDone>); return f.join().orElse(null);
+   —— <f::isDone> 的 indy 直接**复制 ServerChunkCache 自身 line 166 现成调用点**（	his.mainThreadProcessor.managedBlock(serverFuture::isDone) 的 InvokeDynamicInsnNode 副本）；managedBlock 语义保证等待期间排空主线程任务队列（worker 完成回调不饿死）。
+2. **harness 宽分支**（MinecraftServerTestGenMixin）：坐标改 Long.parseLong；越 int 时 
+ew ChunkPos(long,long) + sc.farlands\(FORCED,pos,max(0,n-1)) + 轮询 arlands\（每轮 getDistanceManager().runAllUpdates(cm) + cm.runGenerationTasks()）后 arlands\(pos)；fingerprint 的 BlockPos 改 
+ew BlockPos(long,long,long)（(JJJ) 补丁 ctor），cx*16+8 用 long。
+3. **验收**：远域 chunk 2^49 级 gen OK + 指纹（先写预期：gen OK、非 none 哈希、无崩溃；可复现性需背靠背两跑）。
