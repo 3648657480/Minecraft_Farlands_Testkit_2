@@ -116,6 +116,8 @@ public final class WorldGenRegionWidePatch implements ClassPatch {
             "(L" + BLOCKPOS + ";)L" + DIFFICULTY + ";", difficultyBody());
         node.methods.add(getChunkBlockPos());
         node.methods.add(getNoiseBiomeFallback());
+        node.methods.add(canWriteWide());
+        prependWriteGuard(node);
 
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
@@ -227,6 +229,57 @@ public final class WorldGenRegionWidePatch implements ClassPatch {
             DIFFICULTY_DESC, false));
         il.add(new InsnNode(Opcodes.ARETURN));
         return il;
+    }
+
+    /**
+     * {@code return this.cache.contains((int)(pos.getLongX()>>4), (int)(pos.getLongZ()>>4));}
+     * - the write-side degrade predicate (W4-0b). */
+    private static MethodNode canWriteWide() {
+        MethodNode mn = new MethodNode(Opcodes.ACC_PRIVATE, "farlands$canWriteWide",
+            "(L" + BLOCKPOS + ";)Z", null, null);
+        InsnList il = mn.instructions;
+        sectionCoord(il, 1, 2, "X");
+        sectionCoord(il, 1, 3, "Z");
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "cache", "L" + STATICCACHE + ";"));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 2));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 3));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, STATICCACHE, "contains", "(II)Z", false));
+        il.add(new InsnNode(Opcodes.IRETURN));
+        return mn;
+    }
+
+    /**
+     * Prepends the write-side degrade to
+     * {@code setBlock(BlockPos, BlockState, int, int)}:
+     * {@code if (!this.farlands$canWriteWide(pos)) return false;}
+     *
+     * <p>A tree/feature that derived its write position through int-wrapped
+     * coordinates can pass {@code ensureCanWrite} yet resolve to a wrapped
+     * section outside the region cache; the vanilla {@code getChunk(pos)} then
+     * throws and kills the worker (observed flaky at {@code -2147482646,0}:
+     * 3/5 runs). Out-of-cache writes are dropped - the same "no hard fail past
+     * 2^31" degradation as the read side (getBlockState/getFluidState) and
+     * §10's biome fallback. Normal coordinates are always inside the cache, so
+     * behaviour there is unchanged.</p>
+     */
+    private static void prependWriteGuard(ClassNode node) {
+        MethodNode m = find(node, "setBlock",
+            "(L" + BLOCKPOS + ";L" + BLOCKSTATE + ";II)Z");
+        if (m == null) {
+            throw new IllegalStateException(TARGET + "#setBlock(BlockPos,BlockState,II)Z not found");
+        }
+        LabelNode cont = new LabelNode();
+        InsnList il = new InsnList();
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TARGET, "farlands$canWriteWide",
+            "(L" + BLOCKPOS + ";)Z", false));
+        il.add(new JumpInsnNode(Opcodes.IFNE, cont));
+        il.add(new InsnNode(Opcodes.ICONST_0));
+        il.add(new InsnNode(Opcodes.IRETURN));
+        il.add(cont);
+        m.instructions.insertBefore(m.instructions.getFirst(), il);
     }
 
     /** New override of the {@code LevelReader.getChunk(BlockPos)} default. */

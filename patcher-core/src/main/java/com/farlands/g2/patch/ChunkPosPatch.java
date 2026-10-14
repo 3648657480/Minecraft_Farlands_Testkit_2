@@ -9,6 +9,7 @@ import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -115,18 +116,29 @@ public final class ChunkPosPatch implements ClassPatch {
             il.add(new InsnNode(Opcodes.RETURN));
             node.methods.add(ctor);
 
-            // 128-bit chunk key (W4): x in the high limb, z in the low limb
-            // (Wide128.of(l0 = low, l1 = high)). The 64-bit pack() stays for the
+            // Wide chunk key (W4 key ledger): (x:Wide256, z:Wide256) packed as one
+            // Wide512 - x in the high 256 bits, z in the low 256 bits, both
+            // sign-extended from the long fields. The 64-bit pack() stays for the
             // int domain; wide consumers key on this instead.
             MethodNode packWide = new MethodNode(Opcodes.ACC_PUBLIC, "packWide",
-                "()Lcom/scalarwide/Wide128;", null, null);
+                "()Lcom/scalarwide/Wide512;", null, null);
             InsnList pw = packWide.instructions;
             pw.add(new VarInsnNode(Opcodes.ALOAD, 0));
             pw.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TARGET, "zLong", "()J", false));
+            pw.add(new InsnNode(Opcodes.DUP2));
+            pw.add(new IntInsnNode(Opcodes.BIPUSH, 63));
+            pw.add(new InsnNode(Opcodes.LSHR));
+            pw.add(new InsnNode(Opcodes.DUP2));
+            pw.add(new InsnNode(Opcodes.DUP2));
             pw.add(new VarInsnNode(Opcodes.ALOAD, 0));
             pw.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TARGET, "xLong", "()J", false));
-            pw.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/Wide128", "of",
-                "(JJ)Lcom/scalarwide/Wide128;", false));
+            pw.add(new InsnNode(Opcodes.DUP2));
+            pw.add(new IntInsnNode(Opcodes.BIPUSH, 63));
+            pw.add(new InsnNode(Opcodes.LSHR));
+            pw.add(new InsnNode(Opcodes.DUP2));
+            pw.add(new InsnNode(Opcodes.DUP2));
+            pw.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/Wide512", "of",
+                "(JJJJJJJJ)Lcom/scalarwide/Wide512;", false));
             pw.add(new InsnNode(Opcodes.ARETURN));
             node.methods.add(packWide);
         }

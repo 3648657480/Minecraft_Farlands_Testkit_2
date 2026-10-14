@@ -23,8 +23,8 @@ dependencies {
     // com.scalarwide.* - the library must be on the game classpath at runtime,
     // and bundled into the mod jar for production. Additive/drop-in per
     // ScalarWide docs/COMPATIBILITY.md §6.
-    implementation "com.scalarwide:scalarwide:1.0.1"
-    include "com.scalarwide:scalarwide:1.0.1"
+    implementation "com.scalarwide:scalarwide:1.0.2"
+    include "com.scalarwide:scalarwide:1.0.2"
 }
 
 loom {

@@ -490,3 +490,30 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
      坐标；预期（先写）：若噪声内部 int 格点未动，穹顶应保留且 onset 平移量=容器宽化引入的
      转换点差异（若有）。
 - 本条目为外部结论转记；本仓引用为本项目结论前须按 §2.2 协议独立测量（R10）。
+
+## 17. W4-1b + W4-0b：ChunkMap 键面换 Wide512 + 写侧降级（2026-10-13）
+
+- 变更：
+  - `ChunkMap` 三个 holder 映射（`updatingChunkMap`/`visibleChunkMap`/`pendingUnloads`）从
+    `Long2ObjectLinkedOpenHashMap`（32+32 打包键）换为 `com.scalarwide.mc.Wide512FlatMap`
+    （`Wide512` 键：x 高 256 / z 低 256，依 `M2-W4-PLAN.md` 键位账本）；原 `long` 调用点经注入
+    静态桥（`farlands$cmGet/cmPut/cmRemove/cmRemove2/cmContains` + `farlands$cmKey`）转宽键；
+    `long2ObjectEntrySet` 循环（`dumpChunks`）重写为迭代 `values()` + `holder.getPos().pack()` 取键。
+  - `ChunkPos.packWide()` 产出 `Wide512`（逐轴符号扩展）；`ChunkMapKeyPatch` 新增。
+  - **W4-0b 写侧降级**：`WorldGenRegion.setBlock(BlockPos,BlockState,II)` 头插守护
+    `if (!cache.contains((int)(getLongX>>4),(int)(getLongZ>>4))) return false;`——修
+    `FancyTrunkPlacer.placeLog → setBlock → getChunk` 在回绕段的崩溃（同构建掷骰 3/5 崩）。
+  - `PATCH_REVISION` 32→34。
+- 依赖：ScalarWide mc-v1.0.2（`Wide512FlatMap` 纯增量），mavenLocal；1.0.1/1.0.2 未推，待推时一并 tag。
+- 验证：
+  - 冒烟（`0,0;62,62;-2147482646,0`）：3/3 `gen OK`、对照指纹逐位一致、0 类错误。
+  - 稳定性（`-2147482646,0` ×5）：**5/5 通过**（守护前同构建 3/5 崩）。
+  - M1 代表集（14 坐标）：**14/14 `gen OK`**、0 崩溃、0 类错误、diag=1（已知残余）、刷屏=0、
+    对照指纹逐位一致。
+- 教训（入档）：
+  1. **ASM 中 long 必须 `DUP2`**——`packWide`/`cmKey` 初版在 long 上用了 `DUP` → `VerifyError`
+     （当轮 4 次运行起不来，日志为 VerifyError @ ChunkPos.packWide）。
+  2. **改补丁内容必须 bump `PATCH_REVISION`**——Wide128→Wide512 时未 bump，loom 复用旧 dev jar
+     致"控制轮假绿"（实际跑的是旧键型）；bump 后真实暴露。修订常量契约再次被验证。
+- 证据：`logs/m2-w4-20261013/`（`w4-0b-smoke`、`w4-0b-s1..5`、`w4-1b-m1f`；失败轮
+  `w4-0b-r1..4`、`w4-1b-neg-r1..5` 亦留档）。
