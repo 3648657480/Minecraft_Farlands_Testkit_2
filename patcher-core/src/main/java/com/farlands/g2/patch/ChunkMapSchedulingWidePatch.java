@@ -13,6 +13,7 @@ import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.JumpInsnNode;
 import org.objectweb.asm.tree.LabelNode;
+import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TypeInsnNode;
@@ -95,6 +96,7 @@ public final class ChunkMapSchedulingWidePatch implements ClassPatch {
         node.methods.add(chunkPosOfW());
         node.methods.add(packTruncW());
         node.methods.add(getUpdatingChunkW(updatingMap));
+        node.methods.add(acquireGenerationW(updatingMap));
         InvokeDynamicInsnNode callbackCopy = new InvokeDynamicInsnNode(callback.name, callback.desc,
             callback.bsm, callback.bsmArgs);
         node.methods.add(updateW(callbackCopy, holderCtor.desc, updatingMap, pendingUnloads, toDrop,
@@ -234,6 +236,55 @@ public final class ChunkMapSchedulingWidePatch implements ClassPatch {
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "farlands$cmGetW",
             "(" + WMAP_D + W512_D + ")Ljava/lang/Object;", false));
         il.add(new TypeInsnNode(Opcodes.CHECKCAST, HOLDER));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return mn;
+    }
+
+    /** Wide counterpart of {@code acquireGeneration(long)}. */
+    private static MethodNode acquireGenerationW(String updatingMap) {
+        MethodNode mn = m(Opcodes.ACC_PUBLIC, "farlands$acquireGenerationW",
+            "(" + W512_D + ")Lnet/minecraft/server/level/GenerationChunkHolder;");
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "updatingChunkMap", updatingMap));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "farlands$cmGetW",
+            "(" + WMAP_D + W512_D + ")Ljava/lang/Object;", false));
+        il.add(new TypeInsnNode(Opcodes.CHECKCAST, HOLDER));
+        il.add(new VarInsnNode(Opcodes.ASTORE, 2));
+        // diagnostic: a miss throws with the exact chunk coords (debug aid)
+        LabelNode have = new LabelNode();
+        il.add(new VarInsnNode(Opcodes.ALOAD, 2));
+        il.add(new JumpInsnNode(Opcodes.IFNONNULL, have));
+        il.add(new TypeInsnNode(Opcodes.NEW, "java/lang/IllegalStateException"));
+        il.add(new InsnNode(Opcodes.DUP));
+        il.add(new TypeInsnNode(Opcodes.NEW, "java/lang/StringBuilder"));
+        il.add(new InsnNode(Opcodes.DUP));
+        il.add(new LdcInsnNode("farlands wide acquire miss x="));
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, "java/lang/StringBuilder", "<init>",
+            "(Ljava/lang/String;)V", false));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/mc/WideChunkKey", "x",
+            "(" + W512_D + ")J", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(J)Ljava/lang/StringBuilder;", false));
+        il.add(new LdcInsnNode(" z="));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/mc/WideChunkKey", "z",
+            "(" + W512_D + ")J", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(J)Ljava/lang/StringBuilder;", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString",
+            "()Ljava/lang/String;", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, "java/lang/IllegalStateException", "<init>",
+            "(Ljava/lang/String;)V", false));
+        il.add(new InsnNode(Opcodes.ATHROW));
+        il.add(have);
+        il.add(new VarInsnNode(Opcodes.ALOAD, 2));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, HOLDER, "increaseGenerationRefCount", "()V", false));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 2));
         il.add(new InsnNode(Opcodes.ARETURN));
         return mn;
     }

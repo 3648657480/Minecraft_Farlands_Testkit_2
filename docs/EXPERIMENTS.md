@@ -840,3 +840,26 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   邻域依赖查询）**已全部宽化并逐层验证**；剩余为**生成任务层（3-G）**。
 - 证据：`C:\Users\EASON\AppData\Local\Temp\opencode\g2-src\net\minecraft\server\level\ChunkGenerationTask.java`
   + `GeneratingChunkMap.java`（sources jar 抽取，REV50 探针栈）。
+
+## 31. 切片 3-G：生成任务层宽化首落 + 双编码重大问题 + 精确缺失格（2026-10-15）
+
+- 实现（REV51→55）：
+  - `GeneratingChunkMapWidePatch`：接口加 `farlands$acquireGenerationW(Wide512)`；
+  - `ChunkMapSchedulingWidePatch`：实现之（`cmGetW` + `increaseGenerationRefCount`；miss 时抛**带坐标**的 ISE 作为调试仪器）；
+  - `ChunkGenerationTaskWidePatch`：注入 `farlands$acquireWide(map,pos,x,z)` + **改写缓存初始化 indy**
+    （只换 implMethod，保留 samMethodType/instantiatedMethodType——首版把 instantiated 也换掉导致
+    `BootstrapMethodError`；另一坑：GETFIELD/ALOAD 顺序、栈欠载等 3 个 VerifyError 逐一修掉）。
+- **重大账本发现（双编码并存）**：vanilla `ChunkPos.pack(x,z)` 是 **x 低 32位 / z 高 32位**，而 W4-1b 的
+  `ChunkMap.farlands$cmKey` 把 low 读作 x 再放进 **低半区** → int 域 long 路径键 = `pack(z,x)`（互换布局），
+  与宽路径 `packWide`（真布局 x 高/z 低）**编码不同**。此前两域 holder 集合不相交所以从未爆出；
+  生成任务缓存同时经过两域 → 必须按格判定编码。`farlands$acquireWide` 已按此分叉
+  （int 格 → `pack(z,x)`；远格 → `pack(x,z)`）。**待办：两编码统一（记账，独立小切片）**。
+- 实测：
+  - int 域冒烟 `0,0;62,62`（REV54）：**通过**、指纹逐位一致——回归修复；
+  - 远域探针 2^49：`farlands wide acquire miss x=562949953421299 z=-12`——缺失格在**中心偏移
+    (-13,-12)**，远超 ±3 加载带（±3 扫描全在）→ 触发的生成任务缓存半径远大于票半径 2
+    （或该任务中心并非本块——下一轮打印任务中心即可判定）。
+- 教训：indy 替换只动 implMethod 与其捕获；`instantiatedMethodType` **不含捕获**（javac 惯例）。
+- 下一步：① `farlands$acquireWide` 打印/携带任务中心；② 按判定增大宽票半径（如 FORCED 用
+  `ChunkMap.FORCED_TICKET_LEVEL` 语义）或修缓存半径来源；③ 复跑 → 远域 `gen OK` + 指纹。
+- 证据：`logs/m2-w4-20261014/w4-3-probe{12..18}/`、`w4-3-s3g-smoke*/`。

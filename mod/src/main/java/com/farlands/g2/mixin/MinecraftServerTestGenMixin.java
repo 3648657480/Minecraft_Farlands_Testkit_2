@@ -195,6 +195,22 @@ public abstract class MinecraftServerTestGenMixin {
                     sc.farlands$addTicketWithRadiusW(
                         net.minecraft.server.level.TicketType.FORCED, widePos, 2 + Math.max(0, n - 1));
                     net.minecraft.server.level.ChunkMap cm = sc.chunkMap;
+                    try {
+                        cm.getDistanceManager().runAllUpdates(cm);
+                    } catch (Throwable t) {
+                        System.out.println("[FarLands-Test] first runAllUpdates threw: " + t);
+                    }
+                    StringBuilder miss0 = new StringBuilder();
+                    for (int dx = -3; dx <= 3; dx++) {
+                        for (int dz = -3; dz <= 3; dz++) {
+                            if (cm.farlands$getUpdatingChunkW(
+                                new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).packWide()) == null) {
+                                miss0.append(dx).append(',').append(dz).append(' ');
+                            }
+                        }
+                    }
+                    System.out.println("[FarLands-Test] wide miss-after-run(7x7): " + miss0);
+                    System.out.flush();
                     net.minecraft.server.level.ChunkHolder wideHolder = null;
                     for (int spin = 0; spin < 200; spin++) {
                         cm.getDistanceManager().runAllUpdates(cm);
@@ -220,6 +236,16 @@ public abstract class MinecraftServerTestGenMixin {
                         }
                     }
                     System.out.println("[FarLands-Test] wide nb " + nb);
+                    StringBuilder miss = new StringBuilder();
+                    for (int dx = -3; dx <= 3; dx++) {
+                        for (int dz = -3; dz <= 3; dz++) {
+                            if (cm.farlands$getUpdatingChunkW(
+                                new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).packWide()) == null) {
+                                miss.append(dx).append(',').append(dz).append(' ');
+                            }
+                        }
+                    }
+                    System.out.println("[FarLands-Test] wide miss(7x7): " + miss);
                     System.out.flush();
                     chunk = sc.farlands$getChunkWide(widePos);
                     if (chunk == null) {
