@@ -102,10 +102,17 @@ M3 前仍须走切片 1-4；默认不选。
 
 **切片修订（每片一轮 + M1 对照；图核先行，ticket 与 POI/光照共享收益）**：
 1. ScalarWide mc 增量（上列 3 类 + 差分测试 + `mc-v1.0.3`）；
-2. **图核宽化**：`DynamicGraphMinFixedPoint` + `LeveledPriorityQueue` + 6 个子类 + `DistanceManager`
-   的驱动点（桥接法：近域 packed long → 宽键逐位精确）；
-3. `TicketStorage` + `DistanceManager.playersPerChunk` + `ServerChunkCache` 入口；
+2. **图核宽化**：~~`DynamicGraphMinFixedPoint` + `LeveledPriorityQueue` + 6 个子类 + `DistanceManager`
+   的驱动点~~ → **定为影子宽 API**（注入 Wide512 克隆算法/宽状态；队列逻辑内联，
+   `LeveledPriorityQueue` 保持不动 → 光照零影响；见 EXPERIMENTS §18）——**已落地（REV36）**；
+   子类宽钩子真值（源映射宽化）与 `DistanceManager` 驱动点随切片 3；
+3. `TicketStorage` + `DistanceManager`（`playersPerChunk` + 驱动点）+ `ServerChunkCache` 入口 +
+   子类源映射宽化；
 4. 测试台 long/宽解析 + wide 入口 → 探针（W4-3）。
+
+**状态（2026-10-14）**：切片 1 ✓（mc-v1.0.3）；切片 2a/2b ✓（核+ChunkTracker 影子 API，
+patched 62，冒烟指纹逐位一致）；宽路径休眠，端到端激活在切片 3。
+
 
 3. **探针**：请求 chunk 2^49（`562949953421312,0`）→ 记录下一道墙（预期：存储/光照/界限之一），
    立 W4 账。

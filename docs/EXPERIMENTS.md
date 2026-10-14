@@ -517,3 +517,43 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
      致"控制轮假绿"（实际跑的是旧键型）；bump 后真实暴露。修订常量契约再次被验证。
 - 证据：`logs/m2-w4-20261013/`（`w4-0b-smoke`、`w4-0b-s1..5`、`w4-1b-m1f`；失败轮
   `w4-0b-r1..4`、`w4-1b-neg-r1..5` 亦留档）。
+
+## 18. W4-2 切片 2：图核 + ChunkTracker 影子宽 API（2026-10-14）
+
+- 设计（三选一定稿）：**影子宽 API 注入既有类**。理由：`DynamicGraphMinFixedPoint` 同时服务
+  ticket 跟踪器与光照引擎（后者节点=64 位打包块位），改长键签名会把光照全链拖进宽化（超界）。
+  故在核内注入一套 Wide512 克隆算法与宽状态字段；队列逻辑（原 `LeveledPriorityQueue` 68 行）
+  **内联**在核的宽方法里，`LeveledPriorityQueue` 保持不动 → 光照零影响。宽路径在切片 3 接线前
+  休眠；int 域上所有宽值与原 long 值逐位一致。
+- 变更：
+  - 新增 `DynamicGraphMinFixedPointWidePatch`：注入字段 `farlands$queueW`（`Wide512OrderedSet[]`）、
+    `farlands$computedLevelsW`（`Wide512ByteMap`）、`farlands$firstQueuedLevelW`、
+    `farlands$hasWorkW`、`farlands$sourceW`；注入 22 个方法：队列 6 + 算法镜像 9 +
+    钩子默认体 6 + `farlands$getQueueSizeW`；构造器尾部接 `farlands$initWide(minMapSize)`。
+  - 新增 `ChunkTrackerWidePatch`：注入 6 宽钩子 + `farlands$updateW`；邻居展开用
+    `WideChunkKey.neighbor`（field-wise，防低半区符号扩展进位）；sentinel =
+    `unpack(INVALID_CHUNK_POS)` 的宽键（惰性静态）；`farlands$getLevelW/setLevelW/
+    getLevelFromSourceW` 暂经 `ChunkPos.pack((int)x,(int)z)` 截断桥（int 域逐位精确）。
+  - ScalarWide mc-v1.0.3（`WideChunkKey`/`Wide512ByteMap`/`Wide512OrderedSet`）发布 mavenLocal；
+    mod 依赖 1.0.2→1.0.3。`PATCH_REVISION` 34→36（35=首版；36=initWide 修复）。
+- 预期（先写）：正常坐标零差异（world 加载、`(0,0)` 指纹逐位一致）、无 VerifyError/类缺失；
+  宽路径休眠不产生新行为。
+- bytecode 复验（patcher-cli 重放）：`Scanned 10952 classes, patched 62`（+2，正是两新补丁）；
+  javap：核 22 个 `farlands$*` 成员、tracker 10 个，描述符全对。
+- 实测（4 轮，全部留档）：
+  1. 冒烟 REV35：`VerifyError farlands$initWide @55 invokespecial`——`Wide512ByteMap` 构造漏
+     `NEW+DUP`（已初始化对象传给 `<init>`）。
+  2. 冒烟同 REV35：**同错复现**（内容改了没 bump → loom 复用旧 jar；§17 教训 2 反向重演）。
+  3. 冒烟 REV36：VerifyError 消失 → `NoClassDefFoundError: com/scalarwide/mc/Wide512OrderedSet`
+     （mod 依赖仍钉 1.0.2，无新类）→ 依赖升 1.0.3（注意 PS5.1 `Set-Content -Encoding UTF8`
+     会加 BOM，已去）。
+  4. 冒烟 REV36 + 1.0.3：world 加载 OK；`gen OK (0,0)`；`surf=b9216bad2029 floor=8936c275d063
+     biome=4bf4e2ea5526` 与基线**逐位一致**；`DONE saved`；0 VerifyError/0 类错误。
+- 结论：**在本实验条件下**，影子宽 API 落位且对正常域零差异；宽路径正确性待切片 3 接线后
+  端到端验证。此结论仅适用于上述条件（R10）。
+- 遗留：子类宽钩子的远域真值（`SimulationChunkTracker`/`LoadingChunkTracker`/
+  `FixedPlayerDistanceChunkTracker` 的源映射宽化）与 `DistanceManager` 驱动点、`TicketStorage`/
+  `ServerChunkCache` 入口 = 切片 3；M1 14 坐标回归随切片 3 一并跑（宽路径未激活前无信息增量，
+  本轮以冒烟+指纹代）。
+- 证据：`C:\Users\EASON\AppData\Local\Temp\opencode\exp-w4-2a-smoke{,2,3,4}.log`；
+  `logs/m2-w4-20261014/`（smoke 世界；`logs/` 未跟踪）。
