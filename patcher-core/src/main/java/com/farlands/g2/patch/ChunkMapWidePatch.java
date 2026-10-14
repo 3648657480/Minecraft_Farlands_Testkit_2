@@ -62,10 +62,28 @@ public final class ChunkMapWidePatch implements ClassPatch {
 
         node.methods.add(getChunkW());
         node.methods.add(isChunkToRemoveW());
+        node.methods.add(updateChunkSchedulingW());
 
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
         return cw.toByteArray();
+    }
+
+    /** Delegates to the wide scheduling method injected into the outer {@code ChunkMap}. */
+    private static MethodNode updateChunkSchedulingW() {
+        MethodNode mn = new MethodNode(Opcodes.ACC_PROTECTED, "farlands$updateChunkSchedulingW",
+            "(" + W512_D + "I" + HOLDER_D + "I)" + HOLDER_D, null, null);
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "this$0", CHUNK_MAP_D));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 2));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 3));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 4));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNK_MAP, "farlands$updateChunkSchedulingW",
+            "(" + W512_D + "I" + HOLDER_D + "I)" + HOLDER_D, false));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return mn;
     }
 
     private static MethodNode getChunkW() {

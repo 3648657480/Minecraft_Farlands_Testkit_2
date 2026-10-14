@@ -657,3 +657,30 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 结论：**在本实验条件下**，宽读路径的 holder 访问已逐位精确；宽调度写路径待 3-E 下半 +
   3-F 驱动/入口。此结论仅适用于上述条件（R10）。
 - 证据：`logs/m2-w4-20261014/w4-2s3e-smoke/`；`exp-w4-2s3e-smoke.log`。
+
+## 23. W4-2 切片 3-E（下半）：ChunkMap 宽调度 + 远域 holder 创建（2026-10-14）
+
+- 侦察：外层 `ChunkMap.updateChunkScheduling(long,…)` 全文（4 步：双 isLoaded 早退 → setTicketLevel →
+  toDrop add/remove → 需要时 `pendingUnloads.remove` / `new ChunkHolder(ChunkPos.unpack(node),
+  level, this.level, this.lightEngine, this::onLevelChange, this)` + `updatingChunkMap.put` +
+  modified）；字节码：回调为 `invokedynamic #12 onLevelChange:(ChunkMap)ChunkHolder$LevelChangeListener`，
+  ChunkHolder ctor 为 6 参 `(ChunkPos,I,LevelHeightAccessor,LevelLightEngine,LevelChangeListener,PlayerProvider)`。
+- 变更：
+  - 新增 `ChunkMapSchedulingWidePatch`（目标 `ChunkMap`，注册在 `ChunkMapKeyPatch` 之后以保证
+    `farlands$cmRemoveW/cmPutW` 已存在）：注入 `farlands$chunkPosOfW`（`new ChunkPos(xLong,zLong)`，
+    用补丁后的 (JJ) ctor）、`farlands$packTruncW`、以及**手写宽版**
+    `farlands$updateChunkSchedulingW`——键面全宽（`cmRemoveW/cmPutW`），holder 创建用**复制原方法的
+    invokedynamic 节点**（构造副本）复用 `this::onLevelChange`；`toDrop` 仍 64 位（截断，记账）。
+  - `ChunkMapWidePatch` 增内部类覆写 `farlands$updateChunkSchedulingW` → 委托外层宽方法。
+  - `PATCH_REVISION` 40→41。
+- 教训（入档）：把**仍挂载在原指令链上的节点实例**直接 add 进另一 MethodNode 会破坏两条链
+  （表现为 ASM 帧计算 `NPE: inputLocals because dstFrame is null`）；必须构造节点副本
+  （`new InvokeDynamicInsnNode(name, desc, bsm, bsmArgs)`）。
+- 预期（先写）：正常坐标零差异；帧合法（补丁管线不 NPE）。
+- 实测（冒烟 `0,0;62,62`，REV41）：2/2 `gen OK`；指纹逐位一致；0 VerifyError/NoSuchField/
+  NoClassDef/异常。
+- 结论：**在本实验条件下**，宽调度路径（含远域 holder 创建）落位且 int 域零差异；
+  端到端激活待 3-F。此结论仅适用于上述条件（R10）。
+- 遗留：3-F（`runAllUpdates` 走宽驱动 + testgen 宽入口 + M1 14 坐标回归 + 远域探针）；
+  `toDrop` 宽化（记账）。
+- 证据：`logs/m2-w4-20261014/w4-2s3e2-smoke/`；`exp-w4-2s3e2-smoke.log`。
