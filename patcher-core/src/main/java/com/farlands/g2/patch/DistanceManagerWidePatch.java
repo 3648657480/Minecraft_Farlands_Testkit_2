@@ -4,8 +4,10 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.VarInsnNode;
@@ -49,6 +51,7 @@ public final class DistanceManagerWidePatch implements ClassPatch {
         node.methods.add(isChunkToRemoveW());
         node.methods.add(getChunkW());
         node.methods.add(updateChunkSchedulingW());
+        injectRunAllUpdates(node);
 
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
@@ -109,5 +112,39 @@ public final class DistanceManagerWidePatch implements ClassPatch {
             "(JI" + HOLDER_D + "I)" + HOLDER_D, false));
         il.add(new InsnNode(Opcodes.ARETURN));
         return mn;
+    }
+
+    /**
+     * Appends the wide tracker runs at the head of {@code runAllUpdates}: the long
+     * driver keeps serving the int domain; the wide runs drain only the wide
+     * queues, which receive far-domain events exclusively (wide adds fire the
+     * wide listeners), so int-domain behaviour is unchanged and the wide queue
+     * cannot leak.
+     */
+    private static void injectRunAllUpdates(ClassNode node) {
+        MethodNode run = null;
+        for (MethodNode mn : node.methods) {
+            if ("runAllUpdates".equals(mn.name) && "(Lnet/minecraft/server/level/ChunkMap;)Z".equals(mn.desc)) {
+                run = mn;
+                break;
+            }
+        }
+        if (run == null) {
+            throw new IllegalStateException(TARGET + "#runAllUpdates not found");
+        }
+        InsnList il = new InsnList();
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "simulationChunkTracker",
+            "Lnet/minecraft/server/level/SimulationChunkTracker;"));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/server/level/SimulationChunkTracker",
+            "farlands$runAllUpdatesW", "()V", false));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "loadingChunkTracker",
+            "Lnet/minecraft/server/level/LoadingChunkTracker;"));
+        il.add(new LdcInsnNode(Integer.MAX_VALUE));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/server/level/LoadingChunkTracker",
+            "farlands$runDistanceUpdatesW", "(I)I", false));
+        il.add(new InsnNode(Opcodes.POP));
+        run.instructions.insert(il);
     }
 }

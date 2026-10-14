@@ -684,3 +684,23 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 遗留：3-F（`runAllUpdates` 走宽驱动 + testgen 宽入口 + M1 14 坐标回归 + 远域探针）；
   `toDrop` 宽化（记账）。
 - 证据：`logs/m2-w4-20261014/w4-2s3e2-smoke/`；`exp-w4-2s3e2-smoke.log`。
+
+## 24. W4-2 切片 3-F（第 1 步）：宽驱动接线 + M1 14 坐标回归（2026-10-14）
+
+- 设计决策（**append 而非 replace**）：`DistanceManager.runAllUpdates` 头部**追加**两条宽 run
+  （`simulationChunkTracker.farlands$runAllUpdatesW()`、`loadingChunkTracker.farlands$runDistanceUpdatesW(MAX)`），
+  long 驱动原样保留。理由：宽队列只被宽写路径的宽监听事件喂入（=远域键专属），int 域宽队列恒空
+  ⇒ 宽 run 在 int 域为 no-op（零差异），且**宽队列不会泄漏**（每轮都被 drain）；避免"镜像喂食 +
+  替换驱动"的复杂性与双写风险。`DistanceManagerWidePatch` 增 `injectRunAllUpdates`。
+  `PATCH_REVISION` 41→42。
+- 预期（先写）：与 W4-1b 的 M1 基线逐位一致（14/14 gen OK、diag=1 已知残余、刷屏 0、STUCK 0、
+  对照指纹逐位一致）。
+- 实测（M1 14 坐标代表集，`-Dfarlands.diag.farread=true`，Settle=120，REV42）：
+  **14/14 `gen OK`**、`gen FAILED`=0、diag=1（`chunk=(134217727,-1) center=(268435455,-1)
+  distance=134217728`——与 §17 W4-1b 同族已知残余）、far-chunk-setBlock=0、STUCK=0、
+  `(0,0)`/`(62,62)` 指纹逐位一致。
+- 结论：**在本实验条件下**，宽驱动接线后 int 域行为与基线逐位一致——宽路径"喂-排"闭环成立
+  （此时宽入口尚未接线，远域事件源为 0）。此结论仅适用于上述条件（R10）。
+- 遗留（3-F 第 2 步 / W4-3）：testgen 宽入口（`farlands$getChunkFutureWide`/宽 ticket 注入）+
+  远域 chunk 2^49 级探针。
+- 证据：`logs/m2-w4-20261014/w4-2s3f-m1/`；`exp-w4-2s3f-m1.log`。
