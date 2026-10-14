@@ -47,6 +47,31 @@ headless 在 chunk 2^49（真实 block 2^53）生成并给出量化指纹（第�
    映射、`ServerChunkCache` 请求路径的键替换；`isValid`/`MAX_CHUNK_COORDINATE_VALUE` 放宽（由 wide 驱动）。
 2. **请求入口 long/ChunkPos 化**：patcher 加 wide 请求入口；测试台 `farlands.testgen` 解析
    long chunk 坐标并走该入口。
+
+### W4-2 侦察结论（2026-10-13）：请求链 = 8 类 ticket 链，须整链宽化
+
+`ServerChunkCache.getChunk(int,int)` → `getChunkFutureMainThread`（`:234 long key = pos.pack()`）
+→ `getVisibleChunkIfPresent(key)` → `addTicket(Ticket, ChunkPos)` → `TicketStorage` →
+`DistanceManager` → `ChunkTracker` 家族 —— **任一环仍用打包 long，远域请求即截断**。清单：
+
+| 类 | 键面 | 备注 |
+|---|---|---|
+| `ServerChunkCache` | `getChunkFuture(int,int)` 等 int API；`:234/:262/:269` `pos.pack()`；`addTicketAndLoadWithRadius(:500)` | 入口签名 int |
+| `TicketStorage` | `Long2ObjectOpenHashMap<List<Ticket>>` ×2（`tickets`/`deactivatedTickets`）；存档 `ChunkPos.CODEC`（INT_STREAM → 远域序列化截断） | `Ticket` 本身无位置字段（好） |
+| `DistanceManager` | `Long2ObjectMap<ObjectSet<ServerPlayer>> playersPerChunk`；抽象 `getChunk(long)`/`updateChunkScheduling(long,…)`/`isChunkToRemove(long)` | tracker 家族经 long node 贯穿 |
+| `ChunkTracker` 家族 | `Long2ByteMap`/`Long2IntMap` 距离图（node 键） | `ChunkTicketTracker`/`FixedPlayerDistanceChunkTracker` 等 |
+| `ChunkMap`（剩余） | `updateChunkScheduling` 的 `long node` + `ChunkPos.unpack(node)`（:386）；`chunkTypeCache` `Long2ByteMap`；`nextChunkSaveTime` `Long2LongMap`；`chunksToEagerlySave` `LongSet`；`distanceManager.*(pack())`（:954/:1193） | 映射已 Wide512（W4-1b）；其余 long 面待换 |
+
+**切片建议（每片一轮 + M1 对照）**：
+1. `TicketStorage` + `DistanceManager` + `ChunkTracker` 家族键面宽化（ticket 存储/跟踪链）；
+2. `ServerChunkCache` 入口：int API 加 long 版（`getChunkFutureMainThread` 键 wide）+ `addTicket` 链；
+3. `ChunkMap` 剩余 long 面（`updateChunkScheduling`/`chunkTypeCache` 等）；
+4. 测试台 long 解析 + wide 入口 → 探针。
+**存档口径**：远域 ticket 的持久化需要 wide 版 `ChunkPos` codec（或探针期注明"远域 ticket 不落盘"）；
+`TicketStorage.CODEC` 的 INT_STREAM 是截断点，单独记账。
+**替代路线（仅探针）**：绕 ticket 直连 `ChunkMap` 宽键 + `scheduleGenerationTask`——小但不同 ticket 体系，
+M3 前仍须走切片 1-4；默认不选。
+
 3. **探针**：请求 chunk 2^49（`562949953421312,0`）→ 记录下一道墙（预期：存储/光照/界限之一），
    立 W4 账。
 4. **SectionPos 键宽键化（按 triple）**：光照/实体/POI section 键替换（X/Y/Z = Wide256/Wide128/Wide256 + 映射）。
