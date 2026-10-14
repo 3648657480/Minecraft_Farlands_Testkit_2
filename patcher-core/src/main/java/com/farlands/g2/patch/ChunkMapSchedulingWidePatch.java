@@ -99,6 +99,11 @@ public final class ChunkMapSchedulingWidePatch implements ClassPatch {
             callback.bsm, callback.bsmArgs);
         node.methods.add(updateW(callbackCopy, holderCtor.desc, updatingMap, pendingUnloads, toDrop,
             levelField, lightEngine, modified));
+        // 3-F/3-E tail: wide range-lookup rewrite is DISABLED (REV48) - the span
+        // deletion left a jump target dangling (VerifyError in ServerChunkCache.<init>);
+        // needs the label-preservation variant (move in-span labels before the
+        // inserted sequence) before re-enabling.
+        // rewriteRangeLookups(node, updatingMap);
 
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
@@ -116,6 +121,105 @@ public final class ChunkMapSchedulingWidePatch implements ClassPatch {
 
     private static MethodNode m(int access, String name, String desc) {
         return new MethodNode(access, name, desc, null, null);
+    }
+
+    /**
+     * {@code getChunkRangeFuture}'s neighbour-dependency loop keys holders by
+     * {@code ChunkPos.pack(centerPos.x()+x, centerPos.z()+z)} (int-truncating) and
+     * looks them up by a 64-bit key - for a far centre every neighbour key is
+     * lost and the future resolves to {@code UNLOADED_CHUNK_LIST_FUTURE}
+     * ("Unloaded chunks found in range"). Rewrite the span to a wide neighbour key
+     * ({@code WideChunkKey.neighbor(centerPos.packWide(), x, z)}) plus
+     * {@code farlands$cmGetW(this.updatingChunkMap, key)}.
+     */
+    private static void rewriteRangeLookups(ClassNode node, String updatingMap) {
+        MethodNode target = null;
+        for (MethodNode mn : node.methods) {
+            if ("getChunkRangeFuture".equals(mn.name)) {
+                target = mn;
+                break;
+            }
+        }
+        if (target == null) {
+            throw new IllegalStateException(TARGET + "#getChunkRangeFuture not found");
+        }
+        MethodInsnNode pack = null;
+        MethodInsnNode lookup = null;
+        for (AbstractInsnNode insn = target.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (insn instanceof MethodInsnNode mi && CHUNK_POS.equals(mi.owner) && "pack".equals(mi.name)
+                && "(II)J".equals(mi.desc)) {
+                pack = mi;
+            } else if (insn instanceof MethodInsnNode mi2 && "getUpdatingChunkIfPresent".equals(mi2.name)
+                && ("(J)" + HOLDER_D).equals(mi2.desc)) {
+                lookup = mi2;
+                break;
+            }
+        }
+        if (pack == null || lookup == null) {
+            return;
+        }
+        AbstractInsnNode after = pack.getNext();
+        while (after != null && after.getOpcode() < 0) {
+            after = after.getNext();
+        }
+        int nodeSlot = ((VarInsnNode) after).var;
+        AbstractInsnNode start = pack;
+        int seen = 0;
+        int xSlot = -1;
+        int zSlot = -1;
+        while (start != null && seen < 8) {
+            start = start.getPrevious();
+            if (start == null) {
+                break;
+            }
+            if (start.getOpcode() < 0) {
+                continue;
+            }
+            seen++;
+            if (start instanceof VarInsnNode vi && vi.getOpcode() == Opcodes.ILOAD) {
+                if (xSlot < 0) {
+                    xSlot = vi.var;
+                } else if (zSlot < 0) {
+                    zSlot = vi.var;
+                }
+            }
+        }
+        int centerSlot = ((VarInsnNode) start).var;
+        InsnList wide = new InsnList();
+        wide.add(new VarInsnNode(Opcodes.ALOAD, centerSlot));
+        wide.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNK_POS, "packWide", "()" + W512_D, false));
+        wide.add(new VarInsnNode(Opcodes.ILOAD, xSlot));
+        wide.add(new VarInsnNode(Opcodes.ILOAD, zSlot));
+        wide.add(new MethodInsnNode(Opcodes.INVOKESTATIC, WK, "neighbor", "(" + W512_D + "II)" + W512_D, false));
+        target.instructions.insertBefore(start, wide);
+        AbstractInsnNode it = start;
+        while (it != null) {
+            AbstractInsnNode next = it.getNext();
+            boolean stop = it == pack;
+            target.instructions.remove(it);
+            if (stop) {
+                break;
+            }
+            it = next;
+        }
+        for (AbstractInsnNode insn = target.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (insn instanceof VarInsnNode vi && vi.var == nodeSlot) {
+                if (vi.getOpcode() == Opcodes.LSTORE) {
+                    vi.setOpcode(Opcodes.ASTORE);
+                } else if (vi.getOpcode() == Opcodes.LLOAD) {
+                    vi.setOpcode(Opcodes.ALOAD);
+                }
+            }
+        }
+        AbstractInsnNode recv = lookup.getPrevious();
+        while (recv != null && recv.getOpcode() < 0) {
+            recv = recv.getPrevious();
+        }
+        target.instructions.insert(recv, new FieldInsnNode(Opcodes.GETFIELD, TARGET, "updatingChunkMap", updatingMap));
+        MethodInsnNode call = new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "farlands$cmGetW",
+            "(" + WMAP_D + W512_D + ")Ljava/lang/Object;", false);
+        target.instructions.set(lookup, call);
+        target.instructions.insert(call, new TypeInsnNode(Opcodes.CHECKCAST, HOLDER));
     }
 
     /** Wide holder lookup for the testgen harness: {@code (ChunkHolder) cmGetW(updatingChunkMap, key)}. */

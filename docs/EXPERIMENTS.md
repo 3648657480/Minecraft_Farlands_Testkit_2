@@ -779,3 +779,20 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   `WideChunkKey.neighbor(centerPos.packWide(), x, z)` + `farlands$cmGetW(this.updatingChunkMap, key)`；
   预期：远域 `gen OK` + 指纹（再背靠背跑一次验可复现）。
 - 证据：`logs/m2-w4-20261014/w4-3-probe{7,8}/`；`exp-w4-3-probe{7,8}.log`（邻块 level=32 诊断）。
+
+## 28. W4-3 续：邻域依赖改写首次尝试失败（VerifyError）+ 回退（2026-10-14）
+
+- 尝试：`ChunkMapSchedulingWidePatch.rewriteRangeLookups`——把 `getChunkRangeFuture` 邻域循环的
+  键/查询替换为 `WideChunkKey.neighbor(centerPos.packWide(), x, z)` + `farlands$cmGetW`。
+  字节码形态已核实（`aload centerPos; x(); iload x; iadd; aload centerPos; z(); iload z; iadd;
+  invokestatic ChunkPos.pack(II)J; lstore 10; aload_0; lload 10; invokevirtual getUpdatingChunkIfPresent`）。
+- 实测（REV47，探针 2^49）：**`VerifyError: Bad type on operand stack` 于 `ServerChunkCache.<init>`**
+  （= 类加载即挂，世界未起）。
+- 归因：**跨度删除切断了跳转目标**——循环体里的 label（`goto`/`continue` 目标）落在被删除的指令
+  区间内，删除后 label 悬空 → 栈型不一致。
+- 处置：**回退该改写**（调用点注释保留，`PATCH_REVISION` 47→48），树回到 probe8 的已知良好状态
+  （宽链路全通、仅剩邻域查询这一处 long 面）。
+- 下一步（正确姿势）：改写时**先收集区间内的 label/line-number 节点并迁移到新序列之前**，
+  再删除区间；或改为"原地改写不相邻的三处"（`x()/z()`→`xLong()/zLong()` 与 `IADD`→`LADD`、
+  `pack(II)`→宽键构造、`getUpdatingChunkIfPresent`→`cmGetW`），避免大跨度删除。
+- 证据：`logs/m2-w4-20261014/w4-3-probe9/`；`exp-w4-3-probe9.log`、`crash-2026-10-14_21.17.11-server.txt`。
