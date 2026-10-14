@@ -72,6 +72,41 @@ headless 在 chunk 2^49（真实 block 2^53）生成并给出量化指纹（第�
 **替代路线（仅探针）**：绕 ticket 直连 `ChunkMap` 宽键 + `scheduleGenerationTask`——小但不同 ticket 体系，
 M3 前仍须走切片 1-4；默认不选。
 
+### W4-2/4 合流侦察（2026-10-13 补）：图核与节点编码
+
+**关键结构**：`ChunkTracker` 与 `SectionTracker` 共同继承 **`DynamicGraphMinFixedPoint`**（170 行）：
+- `computedLevels: Long2ByteMap`（匿名子类，rehash 阈值微调）；
+- `priorityQueue: LeveledPriorityQueue`（**68 行：`LongLinkedOpenHashSet[] queues`，按 level 分桶、FIFO
+  `removeFirstLong`**）；
+- 全部方法以 `long node` 贯穿（`checkEdge/checkNeighbor/runUpdates/…`）；`SOURCE=Long.MAX_VALUE`。
+- 子类树（全扫 jar）：
+  - `ChunkTracker` → `SimulationChunkTracker`、`LoadingChunkTracker`、
+    `DistanceManager.FixedPlayerDistanceChunkTracker`（内含 `Long2ByteMap chunks`）
+  - `SectionTracker` → `PoiManager.DistanceTracker`（**POI 也挂同一核心 → W4-4 同源**）
+  - `ChunkTracker.checkNeighborsAfterUpdate` 的邻居生成 = `ChunkPos.unpack(node)`（int x/z）+ `pack(x±1,z±1)`
+    —— 远域截断点。
+- `DistanceManager`：`playersPerChunk: Long2ObjectMap`；`update(pack())` 驱动 trackers。
+- `TicketStorage`：`Long2ObjectOpenHashMap<List<Ticket>>` ×2 + `LongSet chunksWithForcedTickets` +
+  codec `ChunkPos.CODEC`（INT_STREAM 截断点）。
+
+**节点编码（定稿建议）**：**沿用 `ChunkPos.packWide()` 的同一 `Wide512`**（x 高 256 / z 低 256，符号扩展）
+——因为 tracker 的 node 与 ChunkMap holder 键是**同一身份**（`DistanceManager` 用同一 node 调
+`updateChunkScheduling`），编码必须一致；**邻居运算不能对打包值加 ±1**（低半区符号扩展会进位污染 x），
+需 `unpackWide → 半区 ±1 → packWide`（field-wise）。
+
+**ScalarWide mc 纯增量清单（实施前置，patch 级）**：
+1. `WideChunkKey`（静态工具）：`pack(long x, long z)/x(Wide512)/z(Wide512)/neighbor(Wide512,int dx,int dz)`
+   ——把 field-wise 邻居运算关进库里，patcher 侧只发一次调用（避免字节码里写进位逻辑）；
+2. `Wide512ByteMap`（图核 `computedLevels` 载体，byte 值开放寻址）；
+3. `Wide512OrderedSet`（`LeveledPriorityQueue` 分桶载体：任意删除 O(1) + FIFO `removeFirst`）。
+
+**切片修订（每片一轮 + M1 对照；图核先行，ticket 与 POI/光照共享收益）**：
+1. ScalarWide mc 增量（上列 3 类 + 差分测试 + `mc-v1.0.3`）；
+2. **图核宽化**：`DynamicGraphMinFixedPoint` + `LeveledPriorityQueue` + 6 个子类 + `DistanceManager`
+   的驱动点（桥接法：近域 packed long → 宽键逐位精确）；
+3. `TicketStorage` + `DistanceManager.playersPerChunk` + `ServerChunkCache` 入口；
+4. 测试台 long/宽解析 + wide 入口 → 探针（W4-3）。
+
 3. **探针**：请求 chunk 2^49（`562949953421312,0`）→ 记录下一道墙（预期：存储/光照/界限之一），
    立 W4 账。
 4. **SectionPos 键宽键化（按 triple）**：光照/实体/POI section 键替换（X/Y/Z = Wide256/Wide128/Wide256 + 映射）。
