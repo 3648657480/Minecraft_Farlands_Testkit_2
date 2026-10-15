@@ -909,3 +909,28 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 下一步（下一轮即做）：对照**同半径 int 域**做同样的环扫描（spawn 区带），确定 vanilla 带是否
   到 42 环；再核对宽传播在 level 44/45 的创建条件（逐点 dump `farlands$getUpdatingChunkW`）。
 - 证据：`logs/m2-w4-20261014/w4-3-probe22/`（环扫描）；`w4-3-probe{19..21}`（半径扫描）。
+
+## 34. M3-client 首测：真客户端首次运行——客户端栈（W4 早期 + epoch 遗留）与 G2 设计不一致（2026-10-15 夜）
+
+- 首次真实客户端（dev client，REV56 wide，epoch=false，真实坐标）。固定观察：
+  1. 首次建世界：16% 卡在 `PrepareSpawnTask.spawnPlayer → ServerLevel.waitForEntities`（等 7×7
+     `entityManager.areEntitiesLoaded==LOADED`）**数分钟**；重进同世界 7.5s 通过 → **flaky，未归因**（记账）。
+  2. 进世界后：**(0,0) 只渲染少量区块；tp 到 2^31-1 块（chunk 2^27-1）后一个区块都不渲染**；
+     **F3+A 重载区块无效；F3+G 区块线正常渲染**；**固定 3 个区块在渲染且不随玩家移动变化**。
+- 归因方向（源码复核）：
+  - 客户端栈是 **W4 早期 + epoch 时代遗留**：`ClientChunkCachePatch.norm` 用 **2^28 环形坐标**，
+    `ClientChunkCacheStoragePatch.inRange` 按 2^28 周期算距离；epoch 渲染 mixins
+    （`FrustumMixin` 3e7 绕过、`ViewAreaMixin` 2.097e6 阈值、`OctreeMixin` depth 护栏）与
+    G2 的**浮原点/相机相对**渲染（`RenderSectionFloatingOriginMixin` 等）**互不匹配**：
+    传进剔除的 AABB 是相机相对小坐标 → "远处绕过"是死代码。
+  - "固定 3 块、不随移动变化" = 区块**存在但落在错误坐标/视图不更新** → 客户端区块存储键映射错误。
+- 结论（本实验条件下）：**M3-client 首个正式工作项 = 客户端栈与 G2 设计对齐/重写**（区块存储用
+  Wide512 键取代 2^28 norm；渲染 mixins 在浮原点语义下重新审查）。headless 永远覆盖不到这条线——
+  今夜是它第一次上机就暴露。此结论仅适用于上述条件（R10）。
+- 下一步（A/B 顺序）：① `-Dfarlands.patch=false` 跑客户端（分离补丁 jar vs mod mixins）；
+  ② 单独禁用 `ClientChunkCachePatch/StoragePatch` 复测判定存储层；③ 修 norm 设计 → 宽键客户端存储；
+  ④ 渲染 mixins 审查（浮原点一致性）。
+- 附带记账：watchdog 对 Render 线程在 `FramerateLimiter` 的 park 报假 `STUCK`（状态 RUNNABLE）；
+  客户端与 headless 共用 `mod\run`（日志/目录会串）——下轮给 client runConfig 单独 runDir。
+- 证据：客户端日志快照（会话被自身冒烟覆盖前捕获）；线程栈（`PrepareSpawnTask` 卡点、
+  Render RUNNABLE 渲染实体）；用户目视三条（F3+A/F3+G/固定 3 块）。
