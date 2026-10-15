@@ -200,16 +200,28 @@ public abstract class MinecraftServerTestGenMixin {
                     } catch (Throwable t) {
                         System.out.println("[FarLands-Test] first runAllUpdates threw: " + t);
                     }
-                    StringBuilder miss0 = new StringBuilder();
-                    for (int dx = -3; dx <= 3; dx++) {
-                        for (int dz = -3; dz <= 3; dz++) {
-                            if (cm.farlands$getUpdatingChunkW(
-                                new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).packWide()) == null) {
-                                miss0.append(dx).append(',').append(dz).append(' ');
+                    StringBuilder missRings = new StringBuilder();
+                    for (int r = 0; r <= 45; r++) {
+                        boolean anyMissing = false;
+                        boolean anyPresent = false;
+                        for (int dx = -r; dx <= r; dx++) {
+                            for (int dz = -r; dz <= r; dz++) {
+                                if (Math.max(Math.abs(dx), Math.abs(dz)) != r) {
+                                    continue;
+                                }
+                                if (cm.farlands$getUpdatingChunkW(
+                                    new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).packWide()) != null) {
+                                    anyPresent = true;
+                                } else {
+                                    anyMissing = true;
+                                }
                             }
                         }
+                        if (anyMissing) {
+                            missRings.append(r).append(anyPresent ? "*" : "").append(' ');
+                        }
                     }
-                    System.out.println("[FarLands-Test] wide miss-after-run(7x7): " + miss0);
+                    System.out.println("[FarLands-Test] wide miss rings(<=45): " + missRings);
                     System.out.flush();
                     net.minecraft.server.level.ChunkHolder wideHolder = null;
                     for (int spin = 0; spin < 200; spin++) {

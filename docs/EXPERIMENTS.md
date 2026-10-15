@@ -890,3 +890,22 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   的返回值是否与 vanilla 对同一 ticket 的结账一致（可加一次性 dump：任务创建时打印
   `centre + 各格 level`）。
 - 证据：`logs/m2-w4-20261014/w4-3-probe{19..21}/`。
+
+## 33. W4-3 收尾轮：环扫描定量（band 40/缺 41~45）+ 任务半径差额收窄到 ~1-2 环（2026-10-15 夜）
+
+- 映射定死（`ChunkLevel` 源码）：`RADIUS_AROUND_FULL_CHUNK = 12`、
+  `MAX_LEVEL = 33 + 12 = 45`、`byStatus(S) = 33 + accRadius(S)`、`generationStatus(level) =
+  deps.get(level - 33)` —— **加载带 = level ≤ 45**（票半径 R → 带 = 45 - (33-R) = 12 + R 环）。
+- 环扫描（票半径 30，探针 2^49）：`wide miss rings(<=45): 41* 42 43 44 45`
+  —— 环 0..40 全在册、41 部分、42+ 缺失。**实际带 ≈ 40 环，比 level 语义承诺的 42 环少 ~2**。
+- 失败任务：中心 = 本块 +(+30,+19)（带边缘，level = 3+30 = 33）
+  → `generationStatus(33-33=0) = FULL` → 该任务缓存半径 **12** → 需要中心 ±12 的 holder
+  （= 本块环 18..42）→ 环 41*/42 缺 → miss。**差额已收窄到 ~1-2 环**：若宽传播把环 0..42
+  全部建齐（level ≤ 45），该任务即可满足。
+- 结论（本实验条件下）：远域生成任务的失败与"带少 1~2 环"直接挂钩；宽跟踪器对
+  **level 45 边缘环**的持有者创建/传播存在**边界偏差**（候选：`checkNeighborsAfterUpdateW`
+  的 `level < levelCount - 2` 守卫、`LoadingChunkTracker.levelCount`（= MAX_LEVEL+1 的二级推导）、
+  或宽队列在 level 45 的入队/结账）。此结论仅适用于上述条件（R10）。
+- 下一步（下一轮即做）：对照**同半径 int 域**做同样的环扫描（spawn 区带），确定 vanilla 带是否
+  到 42 环；再核对宽传播在 level 44/45 的创建条件（逐点 dump `farlands$getUpdatingChunkW`）。
+- 证据：`logs/m2-w4-20261014/w4-3-probe22/`（环扫描）；`w4-3-probe{19..21}`（半径扫描）。
