@@ -1063,3 +1063,33 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
     环路症状，非独立渲染缺陷（细化任务 b 的范围）。
 - 结论：在本实验条件下，P1 的 policy 闭环（含游戏内可见性）成立；F3 抖动极可能与入世界卡点同根。
 - 证据：`mod/run/logs/latest.log`（21:00:29 / 21:00:51 / 21:00:52 行）。
+
+## 41. 键编码统一：出生卡点/区块流/F3 抖动三症共根（2026-10-16 续）
+
+- 症状链（客户端，int 域，同一世界多次进入）：
+  1. `waitForEntities` 屡次 15s 超时（兜底放行）；转储实测 49 格中 `loaded=15
+     (statuses=15, visibility=15)` 与 `loaded=0 (statuses=0, visibility=0)` - 实体
+     管理器整片收不到 FULL 状态回调；
+  2. 进世界只渲染 ~4 个区块（此后不再增长）；
+  3. 卡着放行的会话 F3 坐标与 F3+G 线框持续抖动（未超时的会话不抖）。
+- 根因（一行编码）：`ChunkMap.farlands$cmKey(long)` 把 vanilla `pack` 的**低 32 位
+  (=x)** 放进宽键**低半轴（=z 槽）**，产出 `packWide(z, x)`；而 REV49 的
+  `getChunkRangeFuture` 改写用真布局 `packWide(x, z)` 查邻居 holder。两套编码**只
+  在对角线 x==z 时重合** - 出生区 7x7 恰有 4 格对角线，故"只渲染 4 格"；promotion
+  依赖 (prepareAccessible/Ticking/EntityTickingChunk -> getChunkRangeFuture) 对其他格
+  全部漏查 -> FULL 状态永不变更 -> `updateChunkStatus` 永不来 -> 实体等待卡死；
+  卡后放行 = 位置回环 -> F3 抖动。
+- 证据：`mod/run/logs/latest.log`（21:13:12 / 21:14:40 的 `spawn status dump`）；
+  代码对照：`cmKey` 低半=`(int)packed`、高半=`packed>>32`；`packWide` 低=z、高=x；
+  全局审计：其余建键点（`ChunkMapSchedulingWidePatch` 的 `packWide+neighbor`、
+  `ServerChunkCacheWidePatch`、trackers 的语义访问器、`acquireWide` 宽分支）均为真布局，
+  仅 `cmKey` 与 `acquireWide` 的 int 分支是交换编码。
+- 修复（提交 a412c97，PATCH_REVISION 62 -> 63）：`cmKey` 改为低半=z(>>32)、高半=x，
+  使 `cmKey(pack(x,z)) == packWide(x, z)`；`acquireWide` 的 int 分支付交换补偿删除
+  （恒用真布局）。双编码待办一并消除。
+- 预期（先写，待客户端复测核对）：同一世界重复进入 >=3 次 -> 无
+  `spawn entity wait timed out` / `spawn status dump`；渲染覆盖视距（远多于 4 格）；
+  F3 坐标稳定不抖。
+- 后续：键编码变更影响面复核 - M1 14 点复跑 + 一次 int 域/远域 probe（客户端关闭后
+  再用 headless，run 目录共用不可并行）。
+- 结论：待复测（本节按 R8 先写预期）。
