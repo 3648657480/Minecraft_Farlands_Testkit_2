@@ -1022,3 +1022,20 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   索求，按 vanilla 语义修（候选：该索求的 distance→status 映射、或索求发起的 task 中心选择）。
 - 过程：`exp-run.ps1` 早停检测已生效（构建失败/异常即断，不再空等）；构建失败自动跳过实验。
 - 证据：`logs/m2-w4-20261014/w4-3-probe33-drain2/`、`w4-3-probe34-setl/`。
+
+## 39. P1：双模配置验收（strict/lenient，2026-10-16）
+
+- 预期（先写）：
+  - strict（默认）：`-Dfarlands.debug=9` → `POLICY VIOLATION` + 立即中止（无世界产出）；
+  - lenient：`-Dfarlands.config_mode=lenient -Dfarlands.debug=9` → 警告 + 回默认 + `gen OK`。
+- 实测：
+  - strict：`POLICY VIOLATION: debug must be 0-3, got 9` + `aborting JVM (fail-fast)`，无世界
+    （exp-run 新早停检测同时捕获 `FAILURE: Build failed`，秒级返回）；
+  - lenient：`CONFIG WARNING (lenient): debug must be 0-3, got 9` +
+    `lenient mode: 1 invalid value(s); affected options reverted to defaults` + `gen OK`（DONE saved）。
+- 实现：`FarConfig` 增 `config_mode` 自举（`-D` > 配置 > 默认 strict）、`WARNINGS` 收集、
+  `applyScalarDefaults` 整段回退、`warnings()/lenientMode()` 暴露（供 UI 显示，非静默）；
+  严格行为逐字不变（G2 现状 halt 保留，G1 版为 ConfigException，下放时对齐）。
+- 结论：**在本实验条件下**，双模落地且两端行为符合预期；宽松模式无静默回退（有警告与计数）。
+  此结论仅适用于上述条件（R10）。
+- 证据：`logs/m2-w4-20261014/p1-dualmode-strict/`、`p1-dualmode-lenient/`；对应 exp-*.log。
