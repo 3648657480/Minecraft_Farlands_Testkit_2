@@ -1114,3 +1114,17 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 结论：在本实验条件下，键编码统一（cmKey 真布局）对 int 域生成**零影响**（指纹逐位一致），
   可继续 W4-3。此结论仅适用于上述条件（R10）。
 - 证据：`logs/m2-w4-20261014/w4-2s3f-m1-rev63/`；`exp-w4-2s3f-m1-rev63.log`。
+
+## 43. 键编码统一后 W4-3 缺陷复测（widepath int 域，2026-10-16 续）
+
+- 实验：REV63 下复跑 §36 同族探针（`-Dfarlands.testgen.widepath=true`，int 域）。
+  注：区域规格取 `0,0,5`（§36 记录的 R=2 实际几何对应 n=3 的 centre=(2,1)；本次 n=5
+  走宽票半径 3+4=7 → 边缘 holder 位置随之后移）。
+- 实测：`gen FAILED: IllegalStateException: acquireWide miss centre=(7,2) cell=(18,-9)`
+  —— **同一缺陷机制**：宽票路径为 level-33 边缘 holder 安排 FULL 生成任务（r=11 缓存环），
+  依赖格 (18,-9) 落在 band 之外（band=R+10）→ 无解；与 §35/§36 的"恒差 1 环"同族。
+  几何不同（n=5）故 centre/cell 坐标与 §36 不同，机制一致。
+- 结论：键编码统一对 W4-3 缺陷**无扰动**（同机制复现）；M1 14 点亦逐位一致（§42）→ 回归清白，
+  按 §36 的下一步推进：`ChunkGenerationTask.create` 加**调用来源**诊断（栈帧 2..3），判定边缘
+  FULL 任务来自级联子任务还是直接调度。此结论仅适用于上述条件（R10）。
+- 证据：`logs/m2-w4-20261014/w4-3-probe35-encfix/`；`exp-w4-3-probe35-encfix.log`。
