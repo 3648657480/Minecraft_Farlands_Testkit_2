@@ -133,18 +133,22 @@ public final class DistanceManagerWidePatch implements ClassPatch {
             throw new IllegalStateException(TARGET + "#runAllUpdates not found");
         }
         InsnList il = new InsnList();
-        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
-        il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "simulationChunkTracker",
-            "Lnet/minecraft/server/level/SimulationChunkTracker;"));
-        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/server/level/SimulationChunkTracker",
-            "farlands$runAllUpdatesW", "()V", false));
-        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
-        il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "loadingChunkTracker",
-            "Lnet/minecraft/server/level/LoadingChunkTracker;"));
-        il.add(new LdcInsnNode(Integer.MAX_VALUE));
-        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/server/level/LoadingChunkTracker",
-            "farlands$runDistanceUpdatesW", "(I)I", false));
-        il.add(new InsnNode(Opcodes.POP));
+        // two passes: the second drains anything enqueued while the first pass
+        // was finishing (single-variable experiment for the ragged outer ring)
+        for (int pass = 0; pass < 2; pass++) {
+            il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "simulationChunkTracker",
+                "Lnet/minecraft/server/level/SimulationChunkTracker;"));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/server/level/SimulationChunkTracker",
+                "farlands$runAllUpdatesW", "()V", false));
+            il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "loadingChunkTracker",
+                "Lnet/minecraft/server/level/LoadingChunkTracker;"));
+            il.add(new LdcInsnNode(Integer.MAX_VALUE));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/server/level/LoadingChunkTracker",
+                "farlands$runDistanceUpdatesW", "(I)I", false));
+            il.add(new InsnNode(Opcodes.POP));
+        }
         run.instructions.insert(il);
     }
 }

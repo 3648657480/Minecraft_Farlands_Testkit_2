@@ -998,3 +998,27 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   VerifyError / NoClassDefFoundError / BootstrapMethodError` 立即中止，不再空等超时）；构建失败
   时不再启动实验（命令链加 `if ($LASTEXITCODE -eq 0)`）。
 - 证据：`logs/m2-w4-20261014/w4-3-probe30-src/`、`w4-3-probe31-src/`、`w4-3-probe32-r3/`。
+
+## 38. W4-3：定位收敛到"级联索求与 band 的无解组合"（2026-10-16 续）
+
+- 排除项（本轮）：
+  1. **双次排空**（宽驱动 drain ×2，REV61）：无效——漏洞不变（且级联更深一环）。
+  2. **REV50 的 `getChunkRangeFuture` 改写**：javap 对比确认**语义等价**——原版键装的是
+     (slot8=x偏移, slot7=z偏移)，我们的 neighbor(key, iload7, iload8) 是偏移互换，但方形对称
+     循环下**访问集合/距离(max)不变**（镜像双射）；索求映射未变。**教训记账**：偏移槽位互换
+     虽等价，仍应清理成正确命名以防未来维护陷阱。
+  3. **chunkTypeCache**：新世界下 `isExistingChunkFull` 恒 false（无存档），两路径同 → 非本轮
+     判别量。
+- 定量结论（setL 诊断 REV62，R=3）：
+  - 外环赋值实测到 **level 43**（band 外沿 = ring 13）；band = MAX_LEVEL(43) − ticketLevel(30) = 13 环。
+  - 失败任务形态 = **某个 r=10/11 的任务，中心环 ≥ band − r + 1（即环 ≥ 3~4）**——
+    其 ±10/11 缓存必然越过 band → 无解。仅当任务中心出现在"深处"时发生。
+  - vanilla 同几何（spawn 半径 3）**不出现**此类任务中心（探针日志中 vanilla 阶段只有环 0 的
+    FULL 任务）→ 差异在**级联索求（getChunkRangeFuture 的 centre/距离/目标状态）**，而非 band、
+    键、域、drain。
+- 下一步（决定性对照实验）：给 `ChunkMap.getChunkRangeFuture` 的索求点（`deps.get(distance)` →
+  `scheduleChunkGenerationTask`）加日志（centre、distance、targetStatus），**同一次运行内**
+  分别标出 vanilla 阶段（spawn 票）与我们宽路径阶段的索求序列 → 找出我们多出来/更深的那一条
+  索求，按 vanilla 语义修（候选：该索求的 distance→status 映射、或索求发起的 task 中心选择）。
+- 过程：`exp-run.ps1` 早停检测已生效（构建失败/异常即断，不再空等）；构建失败自动跳过实验。
+- 证据：`logs/m2-w4-20261014/w4-3-probe33-drain2/`、`w4-3-probe34-setl/`。

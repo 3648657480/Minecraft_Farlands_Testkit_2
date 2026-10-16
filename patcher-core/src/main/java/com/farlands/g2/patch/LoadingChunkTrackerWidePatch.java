@@ -92,6 +92,39 @@ public final class LoadingChunkTrackerWidePatch implements ClassPatch {
     private static MethodNode setLevelW() {
         MethodNode mn = m(Opcodes.ACC_PUBLIC, "farlands$setLevelW", "(" + W512_D + "I)V");
         InsnList il = mn.instructions;
+        // debug: log every outer-level assignment (level >= 42) with coords
+        LabelNode skipLog = new LabelNode();
+        il.add(new VarInsnNode(Opcodes.ILOAD, 2));
+        il.add(new org.objectweb.asm.tree.IntInsnNode(Opcodes.BIPUSH, 42));
+        il.add(new JumpInsnNode(Opcodes.IF_ICMPLT, skipLog));
+        il.add(new FieldInsnNode(Opcodes.GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;"));
+        il.add(new org.objectweb.asm.tree.TypeInsnNode(Opcodes.NEW, "java/lang/StringBuilder"));
+        il.add(new InsnNode(Opcodes.DUP));
+        il.add(new org.objectweb.asm.tree.LdcInsnNode("setL "));
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, "java/lang/StringBuilder", "<init>",
+            "(Ljava/lang/String;)V", false));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/mc/WideChunkKey", "x", "(" + W512_D + ")J", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(J)Ljava/lang/StringBuilder;", false));
+        il.add(new org.objectweb.asm.tree.LdcInsnNode(","));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/mc/WideChunkKey", "z", "(" + W512_D + ")J", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(J)Ljava/lang/StringBuilder;", false));
+        il.add(new org.objectweb.asm.tree.LdcInsnNode(" lvl="));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 2));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(I)Ljava/lang/StringBuilder;", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString",
+            "()Ljava/lang/String;", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/io/PrintStream", "println",
+            "(Ljava/lang/String;)V", false));
+        il.add(skipLog);
         LabelNode haveHolder = new LabelNode();
         LabelNode end = new LabelNode();
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
