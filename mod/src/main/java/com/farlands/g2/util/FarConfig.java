@@ -80,8 +80,13 @@ public final class FarConfig {
     private static Properties readGlobalJson() {
         Properties out = new Properties();
         try {
-            Path json = net.fabricmc.loader.api.FabricLoader.getInstance()
-                .getConfigDir().resolve("farlands_config.json");
+            // The settings screen writes next to options.txt (game dir);
+            // config/ is accepted as a fallback location.
+            var loader = net.fabricmc.loader.api.FabricLoader.getInstance();
+            Path json = loader.getGameDir().resolve("farlands_config.json");
+            if (!Files.isRegularFile(json)) {
+                json = loader.getConfigDir().resolve("farlands_config.json");
+            }
             if (!Files.isRegularFile(json)) {
                 return out;
             }
