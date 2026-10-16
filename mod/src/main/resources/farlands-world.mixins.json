@@ -8,6 +8,7 @@
         "LevelSetBlockMixin",
         "ServerLevelSendMixin",
         "ServerTickMixin",
+        "SpawnEntityWaitFailSafeMixin",
         "LayerLightSectionStorageMixin",
         "AquiferIndexMixin",
         "NoiseChunkMixin",
