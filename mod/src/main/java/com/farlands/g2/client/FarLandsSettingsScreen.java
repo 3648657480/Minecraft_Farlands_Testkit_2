@@ -2,6 +2,7 @@ package com.farlands.g2.client;
 
 import com.farlands.g2.client.config.FarLandsGlobalConfig;
 import com.farlands.g2.client.config.FarLandsOption;
+import com.farlands.g2.client.config.FarLandsPresets;
 import com.farlands.g2.util.FarConfig;
 import java.util.HashMap;
 import java.util.Map;
@@ -163,12 +164,20 @@ public class FarLandsSettingsScreen extends Screen {
         presetCycle = CycleButton.builder(s -> Component.literal(s), config.preset)
             .withValues(java.util.List.of(PRESETS))
             .create(118, 22, 96, 20, FarLandsI18n.t("预设", "Preset"));
+        presetCycle.setTooltip(Tooltip.create(Component.literal(
+            FarLandsPresets.describe(config.preset))));
         addRenderableWidget(presetCycle);
+        addRenderableWidget(Button.builder(FarLandsI18n.t("应用", "Apply"), b -> {
+            int applied = FarLandsPresets.apply(presetCycle.getValue(), config);
+            this.rebuildWidgets();
+            System.out.println("[FarLands-G2] preset " + presetCycle.getValue()
+                + " applied (" + applied + " value(s); press Save to persist)");
+        }).bounds(218, 22, 56, 20).build());
 
         StringWidget source = new StringWidget(FarLandsI18n.t(
             "来源：全局 JSON（-D/世界覆盖见角标与文档）",
             "Source: global JSON (see badges & docs for -D/world)"), font);
-        source.setX(224);
+        source.setX(284);
         source.setY(26);
         addRenderableWidget(source);
 
