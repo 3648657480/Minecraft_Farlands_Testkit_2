@@ -12,6 +12,10 @@ import java.util.Properties;
  */
 public final class FarConfig {
 
+    /** Dual-mode: strict (default) aborts on invalid values; lenient warns and reverts. */
+    private static boolean lenient;
+    private static final java.util.List<String> WARNINGS = new java.util.ArrayList<>();
+
     // ---- epoch ----
     private static volatile java.math.BigInteger epochBigX = null;
     private static volatile java.math.BigInteger epochBigZ = null;
@@ -146,6 +150,15 @@ public final class FarConfig {
         override(p, "farlands.testgen.settle", "testgen_settle");
         override(p, "farlands.testspawn", "testspawn");
 
+        // dual-mode bootstrap: config_mode must resolve before other keys are
+        // judged (a broken config cannot decide its own strictness)
+        String mode = System.getProperty("farlands.config_mode");
+        if (mode == null || mode.isEmpty()) {
+            mode = p.getProperty("config_mode", "strict");
+        }
+        lenient = "lenient".equalsIgnoreCase(mode);
+        WARNINGS.clear();
+
         try {
             if (p.containsKey("epoch_x")) {
                 epochBigX = new java.math.BigDecimal(p.getProperty("epoch_x").trim()).toBigInteger();
@@ -211,6 +224,12 @@ public final class FarConfig {
             }
         } catch (NumberFormatException e) {
             policyViolation("config parse failed: " + e.getMessage());
+        }
+        if (lenient && !WARNINGS.isEmpty()) {
+            applyScalarDefaults();
+            System.out.println("[FarLands-G2] lenient mode: " + WARNINGS.size()
+                + " invalid value(s); affected options reverted to defaults");
+            System.out.flush();
         }
         if (epochBigX == null) {
             // auto-create: a fresh world gets an epoch at the origin so the
@@ -368,15 +387,53 @@ public final class FarConfig {
     }
 
     /**
-     * Policy violation: the configuration is invalid. Reject it and abort
-     * the JVM immediately (fail-fast) instead of silently running with
-     * defaults - a wrong epoch or a wrong margin can corrupt a world.
+     * Policy violation: the configuration is invalid.
+     *
+     * <p>Strict mode (default): reject and abort immediately (fail-fast) -
+     * a wrong epoch or margin can corrupt a world. Lenient mode
+     * ({@code config_mode=lenient}): record a warning and let the loader
+     * revert the affected scalars to defaults (never silent).</p>
      */
     private static void policyViolation(String message) {
+        if (lenient) {
+            warn(message);
+            return;
+        }
         System.out.println("[FarLands-G2] POLICY VIOLATION: " + message);
         System.out.println("[FarLands-G2] configuration rejected; aborting JVM (fail-fast).");
         System.out.flush();
         Runtime.getRuntime().halt(1);
+    }
+
+    private static void warn(String message) {
+        WARNINGS.add(message);
+        System.out.println("[FarLands-G2] CONFIG WARNING (lenient): " + message);
+        System.out.flush();
+    }
+
+    /** Warnings collected during the last config load (lenient mode). */
+    public static java.util.List<String> warnings() {
+        return java.util.Collections.unmodifiableList(WARNINGS);
+    }
+
+    public static boolean lenientMode() {
+        return lenient;
+    }
+
+    /** Lenient fallback: revert the affected scalar options to their defaults. */
+    private static void applyScalarDefaults() {
+        autoRelocate = true;
+        relocateMargin = 100000;
+        fluidTickLimit = 2000;
+        archiveDir = "farlands_epochs";
+        worldgenSampleMode = "raw";
+        worldgenSampleClamp = 1e300;
+        worldgenFarThreshold = 9007199254740992L;
+        debug = 0;
+        proSampleOffsetX = 0;
+        proSampleOffsetZ = 0;
+        proSampleScale = 1;
+        testgenSettle = 200;
     }
 
     /** Leveled logging: prints when {@code level <= debug} (debug: 0-3). */
