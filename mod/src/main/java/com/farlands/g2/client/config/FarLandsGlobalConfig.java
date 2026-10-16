@@ -9,11 +9,13 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Global FarLands config (UI/UX master plan P0).
+ * Global FarLands config (UI/UX master plan P0/P1).
  *
  * <p>Stored as pretty-printed {@code farlands_config.json} next to options.txt
- * (borrowed from MFSCelebrate's design). Values are kept as strings; the typed
- * getters parse on read so unknown keys survive round-trips.</p>
+ * (borrowed from MFSCelebrate's design). The JSON shape is a dedicated DTO with
+ * a no-arg constructor and no {@code File}/final fields - serializing this
+ * holder class directly made Gson fall back to Unsafe allocation and produced a
+ * zero-byte file (caught and swallowed). Read/write failures are now reported.</p>
  */
 public final class FarLandsGlobalConfig {
 
@@ -26,6 +28,13 @@ public final class FarLandsGlobalConfig {
     public String schema = "g2-p0";
     public String preset = "P1";
     public Map<String, String> values = new LinkedHashMap<>();
+
+    /** Gson-friendly DTO (public no-arg constructor, plain fields only). */
+    public static final class Data {
+        public String schema = "g2-p0";
+        public String preset = "P1";
+        public Map<String, String> values = new LinkedHashMap<>();
+    }
 
     private FarLandsGlobalConfig(File file) {
         this.file = file;
@@ -43,29 +52,34 @@ public final class FarLandsGlobalConfig {
         FarLandsGlobalConfig cfg = new FarLandsGlobalConfig(f);
         if (f.exists()) {
             try (FileReader reader = new FileReader(f)) {
-                FarLandsGlobalConfig loaded = GSON.fromJson(reader, FarLandsGlobalConfig.class);
-                if (loaded != null) {
-                    if (loaded.schema != null) {
-                        cfg.schema = loaded.schema;
+                Data data = GSON.fromJson(reader, Data.class);
+                if (data != null) {
+                    if (data.schema != null) {
+                        cfg.schema = data.schema;
                     }
-                    if (loaded.preset != null) {
-                        cfg.preset = loaded.preset;
+                    if (data.preset != null) {
+                        cfg.preset = data.preset;
                     }
-                    if (loaded.values != null) {
-                        cfg.values.putAll(loaded.values);
+                    if (data.values != null) {
+                        cfg.values.putAll(data.values);
                     }
                 }
-            } catch (Throwable ignored) {
-                // lenient read: broken file falls back to defaults (ui layer may warn)
+            } catch (Throwable e) {
+                System.out.println("[FarLands-G2] global config read failed: " + e);
             }
         }
         return cfg;
     }
 
     public void save() {
+        Data data = new Data();
+        data.schema = schema;
+        data.preset = preset;
+        data.values = new LinkedHashMap<>(values);
         try (FileWriter writer = new FileWriter(file)) {
-            GSON.toJson(this, writer);
-        } catch (Throwable ignored) {
+            GSON.toJson(data, writer);
+        } catch (Throwable e) {
+            System.out.println("[FarLands-G2] global config write failed: " + e);
         }
     }
 
