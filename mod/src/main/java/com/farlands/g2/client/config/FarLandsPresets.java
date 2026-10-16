@@ -15,10 +15,9 @@ public final class FarLandsPresets {
     static {
         // P1 标准（默认）：开箱即用，不改任何值
         PRESETS.put("P1", Map.of());
-        // P2 安全锁：稳定探索——限制流体、防生成失败、无调试
+        // P2 安全锁：稳定探索——限制流体、无调试
         PRESETS.put("P2", Map.of(
             "fluid_tick_limit", "1000",
-            "prevent_generation_fails", "true",
             "debug", "0"));
         // P3 高性能：大迁移/低内存
         PRESETS.put("P3", Map.of(
@@ -38,6 +37,7 @@ public final class FarLandsPresets {
             "debug", "2"));
         // P7 原版对照：只跑边界对比，无任何自动化
         PRESETS.put("P7", Map.of(
+            "auto_relocate", "false",
             "worldgen_sample_mode", "raw",
             "debug", "0"));
     }
