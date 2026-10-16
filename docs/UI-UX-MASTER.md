@@ -134,9 +134,7 @@
 2. `precisionMode` 的精确定义与边界；
 3. 双方配置项**命名映射表**（便于相互迁移/共享预设文件）。
 
-## 9. 合成思路（一页版 · 2026-10-16）
-
-**一句话**：MFS 的"面子"（单屏分类 + 富描述 + 全局 JSON + 选项族） + 我们的"里子"
+## 9. 合成思路（一页版 · 2026-10-16）**一句话**：MFS 的"面子"（单屏分类 + 富描述 + 全局 JSON + 选项族） + 我们的"里子"
 （语义控件 + key 角标 + 双语 + 来源/校验/门/草稿） + 我们独有的"测试机"。
 
 ### 三层合成
@@ -198,3 +196,23 @@
 
 **落点**：1-3 → §5 F3；4-7 → §6 测试机面板；8-10 → §4 设置屏（来源角标/预设/解锁区）；
 11-13 → 引擎层（不进 UI，但"引擎模式"需在设置屏显性标注）；14-16 → 关于页/文档直达链接。
+
+## 11. 26.2 UI API 差异备忘（P0 实测，2026-10-16）
+
+P0 骨架（G2 首落）编译期实锤的 API 差异，G1 下放时直接复用：
+
+- **`net.minecraft.client.gui.GuiGraphics` 不存在**（GUI 渲染重构，`client/gui/render/*` 一代）；
+  屏幕**不要写 `render(GuiGraphics,...)` 覆写**——纯声明式控件（G1 tabs 同款策略）。
+- `Minecraft.setScreen` 已改名 → **`setScreenAndShow(Screen)`**。
+- `CycleButton.builder(Function<T,Component>, T initial)`——**初值是第 2 参**，无 `.withInitialValue` 链；
+  `.withValues(Collection)` + `.create(x,y,w,h,label)` 照旧。
+- `Checkbox.builder(Component, Font).pos(x,y).selected(bool).tooltip(tip).build()`；
+  `Checkbox.selected()` 读值。
+- `EditBox(Font, width, height, Component)` 4 参构造 + `setX/setY/setValue/setHint/setTooltip`。
+- `Screen.width/height` 为 public；`addRenderableWidget` 为 protected → 跨类挂件走
+  `@Invoker` 访问器（`ScreenAccessor`）。
+- 过程坑（再次踩）：对含中文的 `.java` 用 PowerShell `Get/Set-Content` 会毁编码；
+  **只用 read/write/edit 工具**。
+- P0 落点文件（G2）：`client/config/FarLandsGlobalConfig.java`（全局 JSON）、
+  `client/config/FarLandsOption.java`（选项描述）、`client/FarLandsSettingsScreen.java`（骨架，10 选项）、
+  `client/FarLandsTestMachineScreen.java`（P2 桩）、`mixin/TitleScreenMixin.java` + `mixin/ScreenAccessor.java`。
