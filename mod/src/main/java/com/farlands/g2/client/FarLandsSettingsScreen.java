@@ -29,22 +29,32 @@ public class FarLandsSettingsScreen extends Screen {
 
     private static final FarLandsOption[] OPTIONS = {
         new FarLandsOption("farlands_style", "边境风格", "Farlands style", FarLandsOption.Type.ENUM,
-            "java_1_18_2p", "java_1_18_2p", "bedrock", "beta_12550821", "vanilla_2e88", "release_2e63", "exp_snapshot_4"),
+            FarLandsOption.Scope.WORLD, "java_1_18_2p", "java_1_18_2p", "bedrock", "beta_12550821", "vanilla_2e88", "release_2e63", "exp_snapshot_4"),
         new FarLandsOption("precision_mode", "精度模式", "Precision mode", FarLandsOption.Type.ENUM,
-            "32bit", "32bit", "wide"),
-        new FarLandsOption("progressive_farlands", "渐进式边境", "Progressive farlands", FarLandsOption.Type.BOOL, "false"),
-        new FarLandsOption("terrain_scaler.enabled", "地形缩放假器", "Terrain scaler", FarLandsOption.Type.BOOL, "false"),
-        new FarLandsOption("terrain_offset.enabled", "地形偏移", "Terrain offset", FarLandsOption.Type.BOOL, "false"),
-        new FarLandsOption("x_world_scaler", "X 缩放系数", "X scaler factor", FarLandsOption.Type.TEXT, "1"),
-        new FarLandsOption("skygrid.enabled", "天空网格", "SkyGrid", FarLandsOption.Type.BOOL, "false"),
-        new FarLandsOption("disable_structure_spawn", "禁用结构生成", "Disable structure spawn", FarLandsOption.Type.BOOL, "false"),
-        new FarLandsOption("fix_climate_float_precision", "修复气候浮点精度", "Fix climate float precision", FarLandsOption.Type.BOOL, "false"),
+            FarLandsOption.Scope.WORLD, "32bit", "32bit", "wide"),
+        new FarLandsOption("progressive_farlands", "渐进式边境", "Progressive farlands", FarLandsOption.Type.BOOL,
+            FarLandsOption.Scope.WORLD, "false"),
+        new FarLandsOption("terrain_scaler.enabled", "地形缩放假器", "Terrain scaler", FarLandsOption.Type.BOOL,
+            FarLandsOption.Scope.WORLD, "false"),
+        new FarLandsOption("terrain_offset.enabled", "地形偏移", "Terrain offset", FarLandsOption.Type.BOOL,
+            FarLandsOption.Scope.WORLD, "false"),
+        new FarLandsOption("x_world_scaler", "X 缩放系数", "X scaler factor", FarLandsOption.Type.TEXT,
+            FarLandsOption.Scope.WORLD, "1"),
+        new FarLandsOption("skygrid.enabled", "天空网格", "SkyGrid", FarLandsOption.Type.BOOL,
+            FarLandsOption.Scope.WORLD, "false"),
+        new FarLandsOption("disable_structure_spawn", "禁用结构生成", "Disable structure spawn", FarLandsOption.Type.BOOL,
+            FarLandsOption.Scope.WORLD, "false"),
+        new FarLandsOption("fix_climate_float_precision", "修复气候浮点精度", "Fix climate float precision", FarLandsOption.Type.BOOL,
+            FarLandsOption.Scope.GLOBAL, "false"),
         new FarLandsOption("config_mode", "配置模式", "Config mode", FarLandsOption.Type.ENUM,
-            "strict", "strict", "lenient"),
+            FarLandsOption.Scope.GLOBAL, "strict", "strict", "lenient"),
     };
+
+    private static final String[] PRESETS = {"P1", "P2", "P3", "P4", "P5", "P6", "P7"};
 
     private final Screen parent;
     private int category;
+    private CycleButton<String> presetCycle;
     private final Map<String, Checkbox> checks = new HashMap<>();
     private final Map<String, CycleButton<String>> cycles = new HashMap<>();
     private final Map<String, EditBox> edits = new HashMap<>();
@@ -72,11 +82,15 @@ public class FarLandsSettingsScreen extends Screen {
         StringWidget source = new StringWidget(FarLandsI18n.t(
             "生效来源：全局 JSON（-D / 每世界覆盖见文档）",
             "Source: global JSON (-D / per-world overrides in docs)"), font);
-        source.setX(118);
-        source.setY(26);
+        source.setX(240);
+        source.setY(30);
         addRenderableWidget(source);
 
         FarLandsGlobalConfig config = FarLandsGlobalConfig.get();
+        presetCycle = CycleButton.builder(s -> Component.literal(s), config.preset)
+            .withValues(java.util.List.of(PRESETS))
+            .create(118, 26, 110, 20, FarLandsI18n.t("预设", "Preset"));
+        addRenderableWidget(presetCycle);
         int x = 118;
         int y = 52;
         int width = 220;
@@ -84,7 +98,9 @@ public class FarLandsSettingsScreen extends Screen {
             if (family(option.key()) != category) {
                 continue;
             }
-            Component label = FarLandsI18n.t(option.cn(), option.en());
+            Component label = option.scope() == FarLandsOption.Scope.WORLD
+                ? FarLandsI18n.t(option.cn() + " [世界级]", option.en() + " [world]")
+                : FarLandsI18n.t(option.cn(), option.en());
             Tooltip tooltip = Tooltip.create(Component.literal(option.key()));
             switch (option.type()) {
                 case BOOL -> {
@@ -147,6 +163,9 @@ public class FarLandsSettingsScreen extends Screen {
         checks.forEach((key, box) -> config.set(key, Boolean.toString(box.selected())));
         cycles.forEach((key, cycle) -> config.set(key, cycle.getValue()));
         edits.forEach((key, box) -> config.set(key, box.getValue()));
+        if (presetCycle != null) {
+            config.preset = presetCycle.getValue();
+        }
         config.save();
     }
 

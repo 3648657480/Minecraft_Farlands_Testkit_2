@@ -197,9 +197,7 @@
 **落点**：1-3 → §5 F3；4-7 → §6 测试机面板；8-10 → §4 设置屏（来源角标/预设/解锁区）；
 11-13 → 引擎层（不进 UI，但"引擎模式"需在设置屏显性标注）；14-16 → 关于页/文档直达链接。
 
-## 11. 26.2 UI API 差异备忘（P0 实测，2026-10-16）
-
-P0 骨架（G2 首落）编译期实锤的 API 差异，G1 下放时直接复用：
+## 11. 26.2 UI API 差异备忘（P0 实测，2026-10-16）P0 骨架（G2 首落）编译期实锤的 API 差异，G1 下放时直接复用：
 
 - **`net.minecraft.client.gui.GuiGraphics` 不存在**（GUI 渲染重构，`client/gui/render/*` 一代）；
   屏幕**不要写 `render(GuiGraphics,...)` 覆写**——纯声明式控件（G1 tabs 同款策略）。
@@ -216,3 +214,31 @@ P0 骨架（G2 首落）编译期实锤的 API 差异，G1 下放时直接复用
 - P0 落点文件（G2）：`client/config/FarLandsGlobalConfig.java`（全局 JSON）、
   `client/config/FarLandsOption.java`（选项描述）、`client/FarLandsSettingsScreen.java`（骨架，10 选项）、
   `client/FarLandsTestMachineScreen.java`（P2 桩）、`mixin/TitleScreenMixin.java` + `mixin/ScreenAccessor.java`。
+
+## 12. 作用域模型：全局 / 世界 / -D（2026-10-16）
+
+### 12.1 三源与优先级
+`-D` 覆盖 > 每世界 `farlands.properties` > 全局 `farlands_config.json` > 内置默认。
+设置屏显示**生效来源角标**（-D / world / global）；-D 命中项在 UI 里只读。
+
+### 12.2 归属规则（哪项放哪）
+| 类别 | 判定 | 例 | 落盘位置 |
+|---|---|---|---|
+| **随世界（地形身份）** | 改了会造成世界身份断裂 | 风格预设、精度模式、采样模式、地形 scaler/offset、SkyGrid、结构/实体禁用 | 创建世界草稿（WorldDraft）→ 世界创建时写 `farlands.properties`；创建后改 → "世界设置"入口（P2），不许悄悄改 |
+| **全局（随时改）** | 行为/修复/工具类，随时生效 | 修复家族开关、调试级别、流体替换、提示与日志 | 全局 `farlands_config.json` |
+| **-D** | 实验/CI 强覆盖 | 全部键 | 进程级，UI 只读显示 |
+
+### 12.3 UI 流程
+- **全局设置屏**（标题屏）：显示所有项；随世界项带 `[世界级]` 角标；若当前世界中存在覆盖，
+  灰显并提示"本世界覆盖：<值>（在存档设置里改）"。
+- **创建世界 [高级…]**：复用同一屏幕组件；随世界项写入 **WorldDraft**（不落盘直到创建），
+  保存键文案变"写入本世界"；纯全局项此处也可见但标注"全局（随时可改）"。
+- **存档设置（P2）**：世界内修改世界级项；仅允许"未生成区域仍有效"的项（如后加载区块的
+  style/工具开关），已生成区域不受影响——UI 上明示影响范围。
+
+### 12.4 实施（P1 范围）
+- `FarLandsOption` 增 `scope`（GLOBAL / WORLD）与可选 `choices` 已具备；
+- 全局屏按 scope 分组渲染 + 角标；创建世界 `[高级…]` 挂同一组件、写草稿；
+- 世界内覆盖读取沿用现有 `farlands.properties`（服务端已有加载链，不新增机制）。
+- P2 再做：存档设置入口 + 世界内改项的"影响范围"提示 + 预设矩阵跨 scope 应用。
+
