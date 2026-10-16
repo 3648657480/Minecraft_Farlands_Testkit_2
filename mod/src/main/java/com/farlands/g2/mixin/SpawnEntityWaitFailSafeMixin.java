@@ -39,6 +39,7 @@ public abstract class SpawnEntityWaitFailSafeMixin {
                     if (System.currentTimeMillis() > deadline) {
                         System.out.println("[FarLands-G2] spawn entity wait timed out at " + chunk
                             + "; proceeding with the player spawn");
+                        this.farlands$dumpSpawnStatuses(chunks);
                         System.out.flush();
                         return true;
                     }
@@ -48,5 +49,36 @@ public abstract class SpawnEntityWaitFailSafeMixin {
             return true;
         });
         ci.cancel();
+    }
+
+    /**
+     * Diagnostic dump (task c): for every spawn-area chunk that never reached
+     * LOADED, print the entity manager's load status + visibility entry.
+     * FRESH / visibility-absent = the holder never reached a non-HIDDEN full
+     * status (scheduling side); PENDING = the entity load is stuck (I/O side).
+     */
+    private void farlands$dumpSpawnStatuses(java.util.List<ChunkPos> chunks) {
+        var accessor = (PersistentEntitySectionManagerAccessor) (Object) this.entityManager;
+        var statuses = accessor.farlands$chunkLoadStatuses();
+        var visibility = accessor.farlands$chunkVisibility();
+        int loaded = 0;
+        StringBuilder missing = new StringBuilder();
+        ServerLevel self = (ServerLevel) (Object) this;
+        for (ChunkPos chunk : chunks) {
+            long key = chunk.pack();
+            if (self.areEntitiesLoaded(key)) {
+                loaded++;
+                continue;
+            }
+            Object status = statuses.get(key);
+            Object vis = visibility.get(key);
+            missing.append("[").append(chunk.x()).append(',').append(chunk.z()).append("]=")
+                .append(status == null ? "FRESH(null)" : status)
+                .append(", vis=").append(vis == null ? "absent" : vis).append("; ");
+        }
+        System.out.println("[FarLands-G2] spawn status dump: total=" + chunks.size()
+            + " loaded=" + loaded + " (bookkeeping maps: statuses=" + statuses.size()
+            + ", visibility=" + visibility.size() + ")");
+        System.out.println("[FarLands-G2] not loaded: " + missing);
     }
 }

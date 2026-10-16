@@ -9,6 +9,7 @@
         "ServerLevelSendMixin",
         "ServerTickMixin",
         "SpawnEntityWaitFailSafeMixin",
+        "PersistentEntitySectionManagerAccessor",
         "PlayerJoinConfigNoticeMixin",
         "LayerLightSectionStorageMixin",
         "AquiferIndexMixin",
