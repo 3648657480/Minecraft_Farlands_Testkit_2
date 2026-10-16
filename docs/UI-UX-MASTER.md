@@ -1,0 +1,115 @@
+# FarLands UI/UX 集大成设计（v1 草案 · 2026-10-16）
+
+> 目标：把本项目（G1/G2）的配置/信息体系与 MFSCelebrate/MCRe-NoiseFarlandsJava（26.2）
+> 的配置/界面体系合并成一套"集大成"方案。草案先行，实施按 R8 拆轮次。
+> 配套：`docs/CONFIG-UX-NOTES.md`（社区建议原文整理 + MFS 选项盘点）。
+
+## 0. 设计原则
+
+1. **入口按用途分层**（社区建议 2）：测试类 → 标题屏"单人游戏"旁；全局配置 → "多人游戏"旁；
+   创建世界只留"必须随世界走"的项。**禁止把一切塞进创建世界标签栏**。
+2. **配置分层且可追溯**：`-D` JVM 覆盖 > 每世界文件 > 全局配置 > 内置默认；谁生效、落到哪，
+   界面上要能看（"某某来源覆盖"标注）。
+3. **选项 = 可实验的开关键**：每个修复/行为都是可独立开关的单变量（R8 实验纪律的 UX 化）。
+4. **预设矩阵**：以"风格 × 精度 × 地形工具"的预设组合一键到位，进阶用户再微调。
+5. **描述即文档**：每个选项带一句话说明 +（长描述折叠）；中文/英文双语文案。
+
+## 1. 入口架构（标题屏）
+
+```
+主菜单
+ ├─ [单人游戏]  ── 旁: [FarLands 实验台]   ← 测试/headless/传送/诊断工具
+ ├─ [多人游戏]  ── 旁: [FarLands 设置]     ← 全局配置
+ ├─ [Realms]  [选项…]  [退出]
+创建世界页
+ └─ FarLands 随世界项（少量）：epoch_x/epoch_z（G1）/ 采样模式 / 世界级预设
+    └─ [高级…] → 弹出全局设置的同款屏幕（带"将写入本世界"标记）
+游戏内
+ ├─ F3：版式参照 26.4 snapshot（社区建议 1）+ 我们的精度行（见 §5）
+ └─ 命令：/realtp、/archive、诊断（沿用；G2 侧 /realtp 去 epoch 化）
+```
+
+## 2. 配置体系合并（存储与优先级）
+
+| 层 | 载体 | 借鉴 | 备注 |
+|---|---|---|---|
+| 全局 | **`farlands_config.json`**（Gson, pretty） | MFS | 替代 `config/farlands-g1.properties` 模板；便于 UI 直接读写 |
+| 每世界 | `farlands.properties`（保留） | 我方 | 随世界走、可手改、可被服务器分发 |
+| JVM | `-Dfarlands.<key>=<value>` | 我方 | 最高优先级（CI/实验脚本用） |
+| 预设 | JSON 内嵌 preset 段 | 双方 | P1-P7（我方）× farlandsStyle（MFS）合并为矩阵 |
+
+- **校验策略双模**：默认 **严格**（非法值中止加载 = 我方红线 R1-R6 政策）；
+  新增 `config_mode=lenient`（借 MFS）：非法值 → 回默认 + 屏幕警告，便于社区玩家。
+- **危险项门**：沿用我方 `unlock` 双开关（`i_know_what_im_doing`）保护 pro 项。
+- **每次改动可回溯**：设置屏底部"生效来源"列表（全局/每世界/-D）+ "本会话已改"高亮。
+
+## 3. 选项分类总表（两清单合并）
+
+### A. 形态与风格（MFS 主导，全新面）
+- `farlands_style`：`java_1_18_2p` / `bedrock` / `beta_12550821` / `vanilla_2e88` /
+  `release_2e63` / `exp_snapshot_4`（历史风格预设；每项配"形态说明 + 示意"）
+- `precision_mode`（32bit/…；与我们的采样模式联动，见 E）
+- `progressive_farlands`（渐进显现）、`exact_terrain_rewrite`、`simulated_wraparound_overflow`
+
+### B. 地形工具（per 轴，实验利器 → 直接服务 R8）
+- `terrain_scaler.enabled` + `x/y/z`；`terrain_offset.enabled` + `x/y/z`
+- `y_clamped_gradient_offset`、`disable_offset_noise`、`surface_noise_offset`
+
+### C. 内容开关（远域实验/净化）
+- `skygrid.enabled/force`、`replace_default_fluid(+block)`、`replace_underground_lava(+block)`
+- `disable_structure_spawn`、`disable_entity_spawn`、`prevent_generation_fails`、
+  `allow_illegal_value_player_position`
+
+### D. 修复家族（逐项可开关；与我方既有修复对齐）
+- `fix_chunk_out_of_bounds`、`fix_average_function_overflow`（Mineshaft 平均溢出）、
+  `fix_climate_float_precision`、`fix_end_rings`、`fix_float_overflow_crash`、
+  `expand_datapack_value_range`、`expand_noise_value_retrieval_limit`、`limit_return_value(+value)`
+- 我方既有对应：surface 生物群系回退（§10）、特征回绕写（§11）、读侧降级（§15）、
+  写侧守护（§17）→ 全部纳入本族命名规范并暴露开关。
+
+### E. 我方独有（G1/G2 资产）
+- G1：`epoch_x/epoch_z`、`auto_relocate`、`relocate_margin`、`archive_dir`、
+  `worldgen_sample_mode(raw/clamp/quantize)`、`worldgen_sample_clamp`、`worldgen_far_threshold`、
+  `fluid_tick_limit`、`debug(0-3)`、预设 P1-P7
+- G2：真坐标体系（无 epoch）；W4 宽链开关（内部）
+- 工具族：`testgen(+stop/settle)`、`testspawn`、`spawnset`、`/realtp`、`/archive`、F3 精度行
+
+## 4. 设置屏幕设计（借 MFS 分节 + 我们的严谨性）
+
+- 左侧**分类页签**：风格 / 地形工具 / 内容开关 / 修复 / 实验台 / 高级（危险区）
+- 每项：开关/输入 + **一句话说明** + 折叠长说明（MFS 的长描述体系）+ 生效来源角标
+- 顶部：**预设矩阵**一键应用（风格 × 精度 × 工具）；应用前 diff 预览（"将改动 N 项"）
+- 工具条：搜索框（按 key/中文名）、导出/导入 JSON、恢复默认、"仅看已改动"
+- 冲突提示：互斥项（如 `exact_terrain_rewrite` × `terrain_scaler`）即时红字
+- 安全区：危险项置于"高级"页签且需 unlock（沿用双开关文案）
+
+## 5. F3 设计（社区建议 1 + 我方精度行）
+
+- 版式：参照 **26.4 snapshot** 的新 debug 布局（分区、留白、行距）
+- 内容行（合并）：
+  - 真实坐标（XYZ / Block / Chunk）
+  - `Local (in-epoch)`、`Epoch … Laps (2^31)`（G1）
+  - **`Real double ULP`**（我方招牌）
+  - 采样模式与近阈值提示（`mode=raw/clamp/quantize`、`far_threshold 距离`）
+  - 宽链诊断行（G2：`wide` 状态，调试构建显示）
+
+## 6. 实验台（标题屏"单人游戏"旁）
+
+- 面板化展示现 testgen 工具族：testgen 串、settle、spawnset、diag 开关
+- 一键"生成-指纹"对比视图（最近 N 次的 wgHash 表；读取 `logs/` 证据目录）
+- "真实传送"入口（复用 /realtp；G2 版为纯真实坐标）
+- 冷启动/ULP 工具链接（可选：打开对应文档）
+
+## 7. 实施路线（每步 R8：先写预期、单变量、证据入档）
+
+- **P0**：入口重组（实验台/设置两按钮）+ 全局 `farlands_config.json` + 设置屏框架（空分类）
+- **P1**：选项并入（A-D 族）+ 预设矩阵 + 严格/宽松双模 + 来源角标
+- **P2**：F3 改版（26.4 版式 + 精度行整合）
+- **P3**：实验台 UI（testgen 面板 + 指纹视图）
+- **P4**：与 MFS 作者交流后，落 `farlands_style` 诸预设的实现细节
+
+## 8. 对外接口（待与 MFS 交流）
+
+1. `farlandsStyle` 的实现方式（改常量 vs 改噪声管线）——决定我们预设能否复用其数值；
+2. `precisionMode` 的精确定义与边界；
+3. 双方配置项**命名映射表**（便于相互迁移/共享预设文件）。
