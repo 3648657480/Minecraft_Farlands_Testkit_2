@@ -62,6 +62,45 @@ public final class FarConfig {
         "testgen", "testgen_stop", "testgen_settle", "testspawn", "spawnset"
     };
 
+    /**
+     * Global-behavior keys: the settings-screen global config (JSON) is
+     * authoritative for these even over an existing world's file. All other
+     * keys are world-identity (terrain/epoch) and the world file wins.
+     */
+    private static final String[] GLOBAL_KEYS = {
+        "fluid_tick_limit", "debug", "config_mode"
+    };
+
+    /**
+     * Reads the global settings JSON ({@code config/farlands_config.json},
+     * written by the settings screen). Missing or unreadable = empty (the
+     * world file / defaults then apply unchanged; never fatal here - the
+     * policy checks below judge whatever ends up in the merged config).
+     */
+    private static Properties readGlobalJson() {
+        Properties out = new Properties();
+        try {
+            Path json = net.fabricmc.loader.api.FabricLoader.getInstance()
+                .getConfigDir().resolve("farlands_config.json");
+            if (!Files.isRegularFile(json)) {
+                return out;
+            }
+            var root = com.google.gson.JsonParser.parseString(Files.readString(json))
+                .getAsJsonObject();
+            var values = root.getAsJsonObject("values");
+            if (values != null) {
+                for (var entry : values.entrySet()) {
+                    if (entry.getValue().isJsonPrimitive()) {
+                        out.setProperty(entry.getKey(), entry.getValue().getAsString());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("[FarLands-G2] global settings JSON read FAILED: " + e);
+        }
+        return out;
+    }
+
     private FarConfig() {
     }
 
@@ -90,16 +129,29 @@ public final class FarConfig {
         FarProjection.resetEpoch();
         file = worldDir.resolve("farlands.properties");
         Properties p = new Properties();
+        Properties jsonValues = readGlobalJson();
         boolean fresh = !Files.isRegularFile(file);
         if (fresh) {
             // Brand-new world: seed from the world-creation draft (the FarLands
-            // tabs on the create-world screen) or, failing that, the global
-            // template. Configuration is therefore available BEFORE the world
-            // is generated - it is never invented out of nothing here.
-            Properties seed = draft != null ? draft : globalTemplate;
-            if (seed != null) {
+            // tabs on the create-world screen), the global template, and the
+            // global settings JSON. Precedence: template < global JSON < draft.
+            if (globalTemplate != null) {
                 for (String k : KEYS) {
-                    String v = seed.getProperty(k);
+                    String v = globalTemplate.getProperty(k);
+                    if (v != null) {
+                        p.setProperty(k, v);
+                    }
+                }
+            }
+            for (String k : KEYS) {
+                String v = jsonValues.getProperty(k);
+                if (v != null) {
+                    p.setProperty(k, v);
+                }
+            }
+            if (draft != null) {
+                for (String k : KEYS) {
+                    String v = draft.getProperty(k);
                     if (v != null) {
                         p.setProperty(k, v);
                     }
@@ -110,6 +162,23 @@ public final class FarConfig {
                 p.load(in);
             } catch (Exception e) {
                 System.out.println("[FarLands-G2] config read FAILED: " + e);
+            }
+            // Global settings JSON: global-behavior keys apply on top of the
+            // world file (the global config UI is authoritative for them);
+            // world-identity keys only fill values the world never set.
+            for (String k : GLOBAL_KEYS) {
+                String v = jsonValues.getProperty(k);
+                if (v != null) {
+                    p.setProperty(k, v);
+                }
+            }
+            for (String k : KEYS) {
+                if (!p.containsKey(k)) {
+                    String v = jsonValues.getProperty(k);
+                    if (v != null) {
+                        p.setProperty(k, v);
+                    }
+                }
             }
         }
         // migrate the legacy epoch file
