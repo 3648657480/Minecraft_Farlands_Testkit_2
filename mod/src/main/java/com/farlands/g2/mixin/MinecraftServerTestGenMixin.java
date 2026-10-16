@@ -176,7 +176,8 @@ public abstract class MinecraftServerTestGenMixin {
                 ChunkAccess chunk = null;
                 boolean fitsInt = cxL >= Integer.MIN_VALUE && cxL <= Integer.MAX_VALUE
                     && czL >= Integer.MIN_VALUE && czL <= Integer.MAX_VALUE;
-                if (fitsInt) {
+                boolean forceWide = Boolean.getBoolean("farlands.testgen.widepath");
+                if (fitsInt && !forceWide) {
                     int cx = (int) cxL;
                     int cz = (int) czL;
                     for (int dx = 0; dx < n; dx++) {

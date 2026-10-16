@@ -957,3 +957,22 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   `ChunkHolder` 状态翻转顺序、`persistedStatus` 读取、或宽 setLevelW 的"首次创建即 46→33
   一次性翻转"与 vanilla 的多步翻转差异）。
 - 证据：`logs/m2-w4-20261014/w4-3-probe{24..28}/`（genTask 诊断、edge miss 列表、R 扫描）。
+
+## 36. W4-3：苹果对苹果——宽票路径在 int 域 (0,0) 同样复现（2026-10-16）
+
+- 实验：新增 `-Dfarlands.testgen.widepath=true`（强制 int 坐标也走**宽票路径**，同代码同半径）。
+  探针 `0,0`（R=2）→ **同构失败**：`acquireWide miss centre=(2,1) cell=(13,-10)`——
+  环 2（level 33）的 FULL 任务（r=11）需要环 13（band=R+10=12）→ 缺 1 环。
+- 对照（同一日志内，vanilla 阶段）：world spawn 阶段（vanilla `addTicketAndLoadWithRadius` 半径 3）
+  只创建了 **环 0** 的 FULL 任务（`pos=6,-2` r=11，成功）+ 级联子任务；**没有**为 level-33
+  边缘 holder 建 FULL 任务。我们的宽路径则出现了 `(1,0)(1,1)(1,2)(2,0) initialize_light`
+  后接 **`(2,1) full r=11`** ——多出来的那一个。
+- 结论（本实验条件下）：**该缺陷与坐标域无关，是宽票路径自身的调度/级联行为**：宽链下
+  level-33 边缘 holder 被安排了 FULL 生成任务（vanilla 同几何不安排）。headless M1 走的
+  `level.getChunk` 不经过此链，所以一直没暴露。此结论仅适用于上述条件（R10）。
+- 下一步（下一轮一击定位）：给 `ChunkGenerationTask.create` 诊断加**调用来源**（打印
+  `new Throwable().getStackTrace()[2..3]`）→ 判定 `(2,1)` FULL 任务来自：
+  ① 级联子任务（父任务 `applyStep` 的 cache 依赖请求）；还是 ② `chunksToUpdateFutures /
+  updateHighestAllowedStatus` 的直接调度。按来源修（级联来源 = 子目标状态计算错；直接调度 =
+  宽路径 holder 状态/触发与 vanilla 不一致）。
+- 证据：`logs/m2-w4-20261014/w4-3-probe29-intwide/`。
