@@ -218,7 +218,7 @@ public class FarLandsSettingsScreen extends Screen {
                     addRenderableWidget(cycle);
                 }
                 case TEXT -> {
-                    StringWidget rowLabel = new StringWidget(label, font);
+                    StringWidget rowLabel = new StringWidget(fitLabel(font, label, 100), font);
                     rowLabel.setX(x);
                     rowLabel.setY(y + 6);
                     addRenderableWidget(rowLabel);
@@ -310,6 +310,21 @@ public class FarLandsSettingsScreen extends Screen {
             return 3;
         }
         return 4;
+    }
+
+    private static Component fitLabel(net.minecraft.client.gui.Font font, Component text, int maxWidth) {
+        if (font.width(text) <= maxWidth) {
+            return text;
+        }
+        String s = text.getString();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            if (font.width(sb.toString() + s.charAt(i) + "…") > maxWidth) {
+                break;
+            }
+            sb.append(s.charAt(i));
+        }
+        return Component.literal(sb + "…");
     }
 
     private void saveAll() {
