@@ -193,7 +193,7 @@ public abstract class MinecraftServerTestGenMixin {
                     net.minecraft.world.level.ChunkPos widePos =
                         new net.minecraft.world.level.ChunkPos(cxL, czL);
                     sc.farlands$addTicketWithRadiusW(
-                        net.minecraft.server.level.TicketType.FORCED, widePos, 30 + Math.max(0, n - 1));
+                        net.minecraft.server.level.TicketType.FORCED, widePos, 2 + Math.max(0, n - 1));
                     net.minecraft.server.level.ChunkMap cm = sc.chunkMap;
                     try {
                         cm.getDistanceManager().runAllUpdates(cm);
@@ -222,6 +222,20 @@ public abstract class MinecraftServerTestGenMixin {
                         }
                     }
                     System.out.println("[FarLands-Test] wide miss rings(<=45): " + missRings);
+                    StringBuilder edgeMiss = new StringBuilder();
+                    for (int dx3 = -44; dx3 <= 44; dx3++) {
+                        for (int dz3 = -44; dz3 <= 44; dz3++) {
+                            int rr = Math.max(Math.abs(dx3), Math.abs(dz3));
+                            if (rr < 41 || rr > 44) {
+                                continue;
+                            }
+                            if (cm.farlands$getUpdatingChunkW(
+                                new net.minecraft.world.level.ChunkPos(cxL + dx3, czL + dz3).packWide()) == null) {
+                                edgeMiss.append(dx3).append(',').append(dz3).append(' ');
+                            }
+                        }
+                    }
+                    System.out.println("[FarLands-Test] edge miss(41..44): " + edgeMiss);
                     System.out.flush();
                     net.minecraft.server.level.ChunkHolder wideHolder = null;
                     for (int spin = 0; spin < 200; spin++) {

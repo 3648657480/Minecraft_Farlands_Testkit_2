@@ -7,6 +7,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.InvokeDynamicInsnNode;
@@ -95,10 +96,63 @@ public final class ChunkGenerationTaskWidePatch implements ClassPatch {
             "(" + GEN_MAP_D + CHUNK_POS_D + ")L" + INITIALIZER + ";", target.bsm, args);
         create.instructions.insertBefore(target, new VarInsnNode(Opcodes.ALOAD, 2)); // centre pos
         create.instructions.set(target, replaced);
+        injectTaskDiag(create);
 
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
         return cw.toByteArray();
+    }
+
+    /** Debug aid: print far-domain task centre/target/cache radius right before cache construction. */
+    private static void injectTaskDiag(MethodNode create) {
+        MethodInsnNode createCall = null;
+        for (AbstractInsnNode insn = create.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (insn instanceof MethodInsnNode mi && "create".equals(mi.name)
+                && mi.owner.startsWith("net/minecraft/util/StaticCache2D")) {
+                createCall = mi;
+                break;
+            }
+        }
+        if (createCall == null) {
+            return;
+        }
+        InsnList il = new InsnList();
+        il.add(new FieldInsnNode(Opcodes.GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;"));
+        il.add(new TypeInsnNode(Opcodes.NEW, "java/lang/StringBuilder"));
+        il.add(new InsnNode(Opcodes.DUP));
+        il.add(new LdcInsnNode("genTask far pos="));
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, "java/lang/StringBuilder", "<init>",
+            "(Ljava/lang/String;)V", false));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 2));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNK_POS, "xLong", "()J", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(J)Ljava/lang/StringBuilder;", false));
+        il.add(new LdcInsnNode(","));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 2));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNK_POS, "zLong", "()J", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(J)Ljava/lang/StringBuilder;", false));
+        il.add(new LdcInsnNode(" target="));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/world/level/chunk/status/ChunkStatus",
+            "getName", "()Ljava/lang/String;", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
+        il.add(new LdcInsnNode(" r="));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 3));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(I)Ljava/lang/StringBuilder;", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString",
+            "()Ljava/lang/String;", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/io/PrintStream", "println",
+            "(Ljava/lang/String;)V", false));
+        create.instructions.insertBefore(createCall, il);
     }
 
     /**

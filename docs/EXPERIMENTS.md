@@ -934,3 +934,26 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   客户端与 headless 共用 `mod\run`（日志/目录会串）——下轮给 client runConfig 单独 runDir。
 - 证据：客户端日志快照（会话被自身冒烟覆盖前捕获）；线程栈（`PrepareSpawnTask` 卡点、
   Render RUNNABLE 渲染实体）；用户目视三条（F3+A/F3+G/固定 3 块）。
+
+## 35. W4-3 收官定位：不变式"恒差 1 环"= level-33 边缘 holder 被安排 FULL 任务（2026-10-16）
+
+- 本轮修复（REV58）：`TicketStorage/SimulationChunkTracker` 的宽读回退**加 int 域限定**——
+  此前远键经 `packTrunc` 落回 long 表，会别名到无关 int 票（如出生区 (0,0) 的 PLAYER_SPAWN
+  票 level 30），污染远格"源级"。语义修正（保留），但失败形态未变（见下）。
+- 定量事实（多次探针，含运行时诊断）：
+  - `genTask` 诊断（REV57 注入）：FULL 目标的任务缓存半径 **r=11**（运行时）；宽加载带
+    = **环 0..(R+10)**（R=2→12、R=30→40、R=31→41，均**干净方形**，仅末环零星）。
+  - 失败任务**永远在 level 33 的边缘环**（= `byStatus(FULL)`），其 FULL 缓存需 R+11 →
+    **恒差 1 环** → miss。R=2/8/30/31 全部同构（失败点随 R 外移，且只在 int 中第一次
+    runAllUpdates 时触发）。
+  - **对照组（关键）**：同几何的 int 域（spawn 半径 3，band 13）**通过**（M1/冒烟）——
+    说明 int 域下 level-33 边缘 holder **不会**被安排 FULL 任务，而宽路径会。
+- 结论（本实验条件下）：宽链的剩余缺口**不是带宽/键编码**，而是**调度触发侧**：宽路径下
+  level-33 边缘 holder 的生成调度（`chunksToUpdateFutures → updateHighestAllowedStatus →
+  scheduleChunkGenerationTask`）与 vanilla 行为不一致（vanilla 同几何不触发）。此结论仅适用于
+  上述条件（R10）。
+- 下一步（下一轮首个动作）：在同一次运行里同域对照——对 level-33 holder 的调度点加日志
+  （level/目标/触发者），int 域与远域各打一份，找出宽路径多出的那次调度（候选：
+  `ChunkHolder` 状态翻转顺序、`persistedStatus` 读取、或宽 setLevelW 的"首次创建即 46→33
+  一次性翻转"与 vanilla 的多步翻转差异）。
+- 证据：`logs/m2-w4-20261014/w4-3-probe{24..28}/`（genTask 诊断、edge miss 列表、R 扫描）。

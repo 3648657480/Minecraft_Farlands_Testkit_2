@@ -56,6 +56,7 @@ public final class SimulationChunkTrackerWidePatch implements ClassPatch {
 
         node.fields.add(new FieldNode(Opcodes.ACC_PRIVATE, "farlands$chunksW", MAP_D, null, null));
         node.methods.add(packTrunc());
+        node.methods.add(isIntW());
         node.methods.add(mapHelper());
         node.methods.add(getLevelW());
         node.methods.add(setLevelW());
@@ -83,6 +84,33 @@ public final class SimulationChunkTrackerWidePatch implements ClassPatch {
         il.add(new InsnNode(Opcodes.L2I));
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, CHUNK_POS, "pack", "(II)J", false));
         il.add(new InsnNode(Opcodes.LRETURN));
+        return mn;
+    }
+
+    /** True when the wide key's coordinates fit int (long store authoritative there). */
+    private static MethodNode isIntW() {
+        MethodNode mn = m(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, "farlands$isIntW", "(" + W512_D + ")Z");
+        InsnList il = mn.instructions;
+        LabelNode no = new LabelNode();
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, WK, "x", "(" + W512_D + ")J", false));
+        il.add(new InsnNode(Opcodes.DUP2));
+        il.add(new InsnNode(Opcodes.L2I));
+        il.add(new InsnNode(Opcodes.I2L));
+        il.add(new InsnNode(Opcodes.LCMP));
+        il.add(new JumpInsnNode(Opcodes.IFNE, no));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, WK, "z", "(" + W512_D + ")J", false));
+        il.add(new InsnNode(Opcodes.DUP2));
+        il.add(new InsnNode(Opcodes.L2I));
+        il.add(new InsnNode(Opcodes.I2L));
+        il.add(new InsnNode(Opcodes.LCMP));
+        il.add(new JumpInsnNode(Opcodes.IFNE, no));
+        il.add(new InsnNode(Opcodes.ICONST_1));
+        il.add(new InsnNode(Opcodes.IRETURN));
+        il.add(no);
+        il.add(new InsnNode(Opcodes.ICONST_0));
+        il.add(new InsnNode(Opcodes.IRETURN));
         return mn;
     }
 
@@ -127,6 +155,14 @@ public final class SimulationChunkTrackerWidePatch implements ClassPatch {
         il.add(new InsnNode(Opcodes.IAND));
         il.add(new InsnNode(Opcodes.IRETURN));
         il.add(fallback);
+        // far keys must not fall back to the long map (truncation aliases int chunks)
+        LabelNode fbOk = new LabelNode();
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "farlands$isIntW", "(" + W512_D + ")Z", false));
+        il.add(new JumpInsnNode(Opcodes.IFNE, fbOk));
+        il.add(new org.objectweb.asm.tree.IntInsnNode(Opcodes.BIPUSH, 33));
+        il.add(new InsnNode(Opcodes.IRETURN));
+        il.add(fbOk);
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new VarInsnNode(Opcodes.ALOAD, 1));
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "farlands$packTrunc", "(" + W512_D + ")J", false));
