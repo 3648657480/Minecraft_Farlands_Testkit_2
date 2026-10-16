@@ -1039,3 +1039,27 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 结论：**在本实验条件下**，双模落地且两端行为符合预期；宽松模式无静默回退（有警告与计数）。
   此结论仅适用于上述条件（R10）。
 - 证据：`logs/m2-w4-20261014/p1-dualmode-strict/`、`p1-dualmode-lenient/`；对应 exp-*.log。
+
+## 40. P1 补全：全局设置桥接 + 宽松警告游戏内可见（2026-10-16 续）
+
+- 用户实测暴露三缺陷链：
+  1. 设置屏保存的全局 JSON **从未被读取**（`FarConfig.load` 只读世界文件/模板）——`fluid_tick_limit=-2000`
+     试 policy 无任何反应，直接进世界；
+  2. 桥接初版读取路径错误（找 `config/farlands_config.json`，实际写入在 run 根 options.txt 旁）→ 仍未生效；
+     已对齐（run 根优先，`config/` 后备）；
+  3. 宽松警告只进日志，游戏内不可见（用户："根本没提示"）。
+- 修复（提交 c869ffe/a018bd2）：
+  - 合并链定为 `-D > 世界文件 > 全局JSON > 模板/默认`；全局行为键（fluid_tick_limit/debug/config_mode）
+    JSON 恒压世界文件，地形身份键只补缺（世界身份不被 UI 覆盖）；
+  - `PlayerJoinConfigNoticeMixin`：加入世界时聊天栏复报警告（≤5 行 + 汇总）。
+- 实测（21:00 会话）：两条警告齐出（`fluid_tick_limit ... got -2000`、`debug ... got 9`）+
+  `lenient mode: 2 invalid value(s)` + CHAT 复报可见；值回退 2000，世界可进 → policy 实验闭环。
+- 同会话新线索：
+  - **出生实体等待卡点仍 flaky**：本轮超时格 `[-3,-4]`（上轮 `[-6,-3]`）——两次均为 7×7 边界格、
+    每次不同 → 时序竞态而非固定坏格；任务 c 需在超时时转储 49 格状态并跟踪 `ensureChunkQueuedForLoad`
+    到达性（候选：FULL 状态回调较实体管理器开始跟踪的时序窗）；
+  - **用户报告 F3 XYZ 抖动消失**：上轮（"Timed out while waiting for the client to load chunks" 放行）
+    抖动明显；本轮无该超时、抖动消失 → 抖动与"入世界时区块管线未完成"强相关，疑似位置回传/修正
+    环路症状，非独立渲染缺陷（细化任务 b 的范围）。
+- 结论：在本实验条件下，P1 的 policy 闭环（含游戏内可见性）成立；F3 抖动极可能与入世界卡点同根。
+- 证据：`mod/run/logs/latest.log`（21:00:29 / 21:00:51 / 21:00:52 行）。
