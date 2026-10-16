@@ -129,7 +129,6 @@ public class FarLandsSettingsScreen extends Screen {
     );
 
     private static final String[] PRESETS = {"P1", "P2", "P3", "P4", "P5", "P6", "P7"};
-    private static final int ROWS_PER_PAGE = 9;
 
     private final Screen parent;
     private int category;
@@ -174,16 +173,18 @@ public class FarLandsSettingsScreen extends Screen {
         addRenderableWidget(source);
 
         java.util.List<FarLandsOption> rows = optionsFor(category);
-        int pages = Math.max(1, (rows.size() + ROWS_PER_PAGE - 1) / ROWS_PER_PAGE);
+        // rows per page follow the real screen height (GUI scale changes height)
+        int rowsPerPage = Math.max(3, (height - 64 - 52) / 26);
+        int pages = Math.max(1, (rows.size() + rowsPerPage - 1) / rowsPerPage);
         if (page >= pages) {
             page = pages - 1;
         }
-        int from = page * ROWS_PER_PAGE;
-        int to = Math.min(rows.size(), from + ROWS_PER_PAGE);
+        int from = page * rowsPerPage;
+        int to = Math.min(rows.size(), from + rowsPerPage);
 
         int x = 118;
         int y = 52;
-        int width = 220;
+        int width = Math.min(220, this.width - x - 16);
         for (int i = from; i < to; i++) {
             FarLandsOption option = rows.get(i);
             Component label = labelFor(option);
