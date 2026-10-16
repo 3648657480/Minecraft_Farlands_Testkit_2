@@ -181,17 +181,14 @@ public final class ChunkGenerationTaskWidePatch implements ClassPatch {
     /**
      * {@code (map, centre, x, z) -> map.farlands$acquireGenerationW(key(cell))}.
      *
-     * <p>Key encoding caveat: int-domain holders are stored by the long path
-     * through {@code ChunkMap.farlands$cmKey} whose halves are swapped relative to
-     * {@code ChunkPos.packWide} (vanilla {@code pack} is x-low/z-high). Far
-     * holders (wide ticket chain) use the true {@code packWide} layout. The cell
-     * key therefore depends on whether the cell is int-domain.</p>
+     * <p>All cell keys are built in the true {@code ChunkPos.packWide} layout;
+     * the long-path {@code ChunkMap.farlands$cmKey} translation produces the
+     * same key (unified encoding).</p>
      */
     private static MethodNode acquireWide() {
         MethodNode mn = new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "farlands$acquireWide",
             WIDE_SIG, null, null);
         InsnList il = mn.instructions;
-        LabelNode wide = new LabelNode();
         LabelNode have = new LabelNode();
         // cx, cz (exact long coords of the centre)
         il.add(new VarInsnNode(Opcodes.ALOAD, 1));
@@ -222,26 +219,8 @@ public final class ChunkGenerationTaskWidePatch implements ClassPatch {
         il.add(new InsnNode(Opcodes.I2L));
         il.add(new InsnNode(Opcodes.LADD));
         il.add(new VarInsnNode(Opcodes.LSTORE, 12));
-        // int-domain cell?
-        il.add(new VarInsnNode(Opcodes.LLOAD, 10));
-        il.add(new InsnNode(Opcodes.L2I));
-        il.add(new InsnNode(Opcodes.I2L));
-        il.add(new VarInsnNode(Opcodes.LLOAD, 10));
-        il.add(new InsnNode(Opcodes.LCMP));
-        il.add(new JumpInsnNode(Opcodes.IFNE, wide));
-        il.add(new VarInsnNode(Opcodes.LLOAD, 12));
-        il.add(new InsnNode(Opcodes.L2I));
-        il.add(new InsnNode(Opcodes.I2L));
-        il.add(new VarInsnNode(Opcodes.LLOAD, 12));
-        il.add(new InsnNode(Opcodes.LCMP));
-        il.add(new JumpInsnNode(Opcodes.IFNE, wide));
-        // long-path encoding for int cells: pack(z, x) (swapped halves)
-        il.add(new VarInsnNode(Opcodes.LLOAD, 12));
-        il.add(new VarInsnNode(Opcodes.LLOAD, 10));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, WK, "pack", "(JJ)" + W512_D, false));
-        il.add(new JumpInsnNode(Opcodes.GOTO, have));
-        il.add(wide);
-        // wide encoding: pack(x, z) (true layout)
+        // cell key: true packWide layout, unified with the long-path cmKey
+        // translation (both now produce ChunkPos.packWide(x, z))
         il.add(new VarInsnNode(Opcodes.LLOAD, 10));
         il.add(new VarInsnNode(Opcodes.LLOAD, 12));
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, WK, "pack", "(JJ)" + W512_D, false));

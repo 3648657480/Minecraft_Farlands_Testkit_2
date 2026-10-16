@@ -224,28 +224,35 @@ public final class ChunkMapKeyPatch implements ClassPatch {
     }
 
     /**
-     * {@code Wide512.of(l0..l7)} from the packed 32+32 value, sign-extended per
-     * axis into the two 256-bit halves - the wide key equal to the packed value
-     * in the int domain (l0-l3 = z low half, l4-l7 = x high half, matching
-     * {@code ChunkPos.packWide()}). */
+     * {@code Wide512.of(l0..l7)} from the vanilla packed long, in the true
+     * {@code ChunkPos.packWide} layout: z in the low half (l0-l3), x in the
+     * high half (l4-l7).
+     *
+     * <p>Vanilla {@code pack(x, z)} is x-low32 / z-high32, so the low half of
+     * the wide key must be {@code packed >> 32} (z) and the high half
+     * {@code (int) packed} (x). This makes
+     * {@code farlands$cmKey(pack(x,z)) == packWide(x,z)} - the same key the
+     * wide holders use. (A swapped layout here silently aliased every
+     * int-domain neighbour lookup against the wide-key queries - REV49
+     * regression: only diagonal chunks matched.) */
     private static MethodNode wideKey() {
         MethodNode mn = new MethodNode(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, "farlands$cmKey",
             "(J)L" + WIDE + ";", null, null);
         InsnList il = mn.instructions;
-        // z = (int) packed, sign-extended
+        // z = packed >> 32, sign-extended (low half)
         il.add(new VarInsnNode(Opcodes.LLOAD, 0));
-        il.add(new InsnNode(Opcodes.L2I));
-        il.add(new InsnNode(Opcodes.I2L));
+        il.add(new IntInsnNode(Opcodes.BIPUSH, 32));
+        il.add(new InsnNode(Opcodes.LSHR));
         // s = z >> 63
         il.add(new InsnNode(Opcodes.DUP2));
         il.add(new IntInsnNode(Opcodes.BIPUSH, 63));
         il.add(new InsnNode(Opcodes.LSHR));
         il.add(new InsnNode(Opcodes.DUP2));
         il.add(new InsnNode(Opcodes.DUP2));
-        // x = packed >> 32
+        // x = (int) packed, sign-extended (high half)
         il.add(new VarInsnNode(Opcodes.LLOAD, 0));
-        il.add(new IntInsnNode(Opcodes.BIPUSH, 32));
-        il.add(new InsnNode(Opcodes.LSHR));
+        il.add(new InsnNode(Opcodes.L2I));
+        il.add(new InsnNode(Opcodes.I2L));
         // t = x >> 63
         il.add(new InsnNode(Opcodes.DUP2));
         il.add(new IntInsnNode(Opcodes.BIPUSH, 63));
