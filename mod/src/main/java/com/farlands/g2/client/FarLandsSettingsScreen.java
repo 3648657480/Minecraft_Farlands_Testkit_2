@@ -218,11 +218,15 @@ public class FarLandsSettingsScreen extends Screen {
                     addRenderableWidget(cycle);
                 }
                 case TEXT -> {
-                    EditBox box = new EditBox(font, width, 20, label);
+                    StringWidget rowLabel = new StringWidget(label, font);
+                    rowLabel.setX(x);
+                    rowLabel.setY(y + 6);
+                    addRenderableWidget(rowLabel);
+                    EditBox box = new EditBox(font, Math.max(80, width - 106), 20, Component.empty());
                     box.setValue(config.get(option.key(), option.def()));
                     box.setHint(Component.literal(option.key()));
                     box.setTooltip(tooltip);
-                    box.setX(x);
+                    box.setX(x + 106);
                     box.setY(y);
                     edits.put(option.key(), box);
                     addRenderableWidget(box);
