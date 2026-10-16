@@ -10,6 +10,7 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.JumpInsnNode;
 import org.objectweb.asm.tree.LabelNode;
@@ -148,6 +149,28 @@ public final class ChunkGenerationTaskWidePatch implements ClassPatch {
         il.add(new VarInsnNode(Opcodes.ILOAD, 3));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
             "(I)Ljava/lang/StringBuilder;", false));
+        il.add(new LdcInsnNode(" src="));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+            "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
+        // new Throwable().getStackTrace()[2..3]
+        for (int frame = 4; frame <= 5; frame++) {
+            il.add(new TypeInsnNode(Opcodes.NEW, "java/lang/Throwable"));
+            il.add(new InsnNode(Opcodes.DUP));
+            il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, "java/lang/Throwable", "<init>", "()V", false));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Throwable", "getStackTrace",
+                "()[Ljava/lang/StackTraceElement;", false));
+            il.add(new IntInsnNode(Opcodes.BIPUSH, frame));
+            il.add(new InsnNode(Opcodes.AALOAD));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StackTraceElement", "toString",
+                "()Ljava/lang/String;", false));
+            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+                "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
+            if (frame == 2) {
+                il.add(new LdcInsnNode(" | "));
+                il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
+                    "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
+            }
+        }
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString",
             "()Ljava/lang/String;", false));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/io/PrintStream", "println",

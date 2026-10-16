@@ -45,7 +45,7 @@ while ((Get-Date) -lt $deadline) {
     Start-Sleep -Seconds 5
     if (Test-Path $log) {
         if (Select-String -Path $log -Pattern "FarLands-Test\] DONE saved" -Quiet) { $done = $true; break }
-        $m = Select-String -Path $log -Pattern "gen FAILED|Requested chunk unavailable|Exception generating" | Select-Object -First 1
+        $m = Select-String -Path $log -Pattern "gen FAILED|Requested chunk unavailable|Exception generating|BUILD FAILED|FAILURE: Build failed|Exception in thread|VerifyError|NoClassDefFoundError|NoSuchMethodError|BootstrapMethodError" | Select-Object -First 1
         if ($m) { $crash = $m.Line; break }
     }
 }

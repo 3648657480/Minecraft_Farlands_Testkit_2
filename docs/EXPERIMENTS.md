@@ -976,3 +976,25 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   updateHighestAllowedStatus` 的直接调度。按来源修（级联来源 = 子目标状态计算错；直接调度 =
   宽路径 holder 状态/触发与 vanilla 不一致）。
 - 证据：`logs/m2-w4-20261014/w4-3-probe29-intwide/`。
+
+## 37. W4-3：缺陷收敛为"MAX_LEVEL 环部分填充"（2026-10-16）
+
+- 调用来源栈诊断（REV60，打 4/5 帧）实测：
+  - vanilla 阶段唯一 FULL 任务：`src=ServerChunkCache.getChunkFutureMainThread ← getChunk`（请求驱动）；
+  - 我们的失败任务：`initialize_light` 目标（缓存 r=10）在**环 3**，`src=ChunkMap.getChunkRangeFuture
+    ← prepareAccessible…`（**级联子任务**）→ 它的缓存需要环 13（=3+10）；band=R+10。
+- 半径对照收敛：R=2→缺环13*、R=3→缺环13*、R=30→缺环41*、R=31→缺环42*——**缺的永远是
+  `level = MAX_LEVEL（43）` 的那一圈，且总是"部分填充"（其余环干净）**。这是**单一缺陷**：
+  宽传播对**最外层 level 环**的填充不完整（时序相关：某格先被"外圈父"触到算成 44（无 holder），
+  后又未被内圈父的再检查降回 43 → 永久缺）。
+- 对照：vanilla int 路径（同几何）不出现该缺格——vanilla 的 `getComputedLevel` 取**全邻域 min**
+  抵消触达顺序；我们的镜像理论上同义，疑点在**触达顺序 vs holder 创建时序**（宽 setLevelW 的
+  holder 创建时机/读取的 level 值）。
+- 下一步（收口一击）：对某个具体缺格（如 R=3 时的环 13 格）打**赋值序列日志**
+  （每次 `farlands$setLevelW/farlands$checkEdgeW` 赋值：node/level/wasConsistent/old），
+  对照一个正常格；确认是否存在"先 44 后无降级"的轨迹，然后修（候选：在 `farlands$getLevelW`
+  对**未创建的 holder 返回 MAX_LEVEL 而不是 46**，使 min-scan 语义与 vanilla 在时序上一致）。
+- 过程改进（用户要求）：`tools/exp-run.ps1` 增**早停检测**（`BUILD FAILED / Exception in thread /
+  VerifyError / NoClassDefFoundError / BootstrapMethodError` 立即中止，不再空等超时）；构建失败
+  时不再启动实验（命令链加 `if ($LASTEXITCODE -eq 0)`）。
+- 证据：`logs/m2-w4-20261014/w4-3-probe30-src/`、`w4-3-probe31-src/`、`w4-3-probe32-r3/`。
