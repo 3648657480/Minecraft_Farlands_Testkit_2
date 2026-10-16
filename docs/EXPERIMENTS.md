@@ -1096,3 +1096,21 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   `21:23:04 Loading 47 chunks for player spawn...` 后无任何超时/转储行，出生等待未再卡；
   区块渲染覆盖正常、F3 稳定）。在本实验条件下，三症（出生卡点/只渲染 4 格/F3 抖动）
   共根于键编码交换，统一为真 packWide 布局后一并消除。此结论仅适用于上述条件（R10）。
+
+## 42. 键编码统一后的 M1 14 点回归（2026-10-16 续）
+
+- 实验：REV63（键编码统一）下复跑 §24 的 M1 代表集（14 坐标，`-Dfarlands.diag.farread=true`，
+  Settle=120；附加 `-Dfarlands.config_mode=lenient` 以对齐基线配置——见插曲）。
+- 预期（先写）：与 §24 基线逐位一致——14/14 `gen OK`、`(0,0)`/`(62,62)` 指纹逐位一致、
+  diag=1（同族残余）、STUCK=0、far-chunk-setBlock=0。
+- 实测：**14/14 `gen OK`**、`gen FAILED`=0、`STUCK`=0、far-chunk-setBlock=0；
+  `(0,0)` surf=b9216bad2029 floor=8936c275d063 biome=4bf4e2ea5526 与
+  `(62,62)` floor=8682357e5167 biome=bb77ccfc9cac **均与基线逐位一致**；
+  diag=1（center=(268435455,-1) distance=134217728 同基线；首命中格本次 z=-2、基线 z=-1，
+  属 worker 并发读取顺序差异，同族残余）。
+- 插曲（顺带验证）：首跑被 policy 严格模式**正确拦截**——全局 JSON 的 `fluid_tick_limit=-2000`
+  经 §40 桥接直达 headless 服务端，无 lenient 即 `POLICY VIOLATION` halt(1)（构建失败）；
+  加 lenient 后回退 2000 正常跑完。说明 §40 的全局桥接在服务端侧同样生效。
+- 结论：在本实验条件下，键编码统一（cmKey 真布局）对 int 域生成**零影响**（指纹逐位一致），
+  可继续 W4-3。此结论仅适用于上述条件（R10）。
+- 证据：`logs/m2-w4-20261014/w4-2s3f-m1-rev63/`；`exp-w4-2s3f-m1-rev63.log`。
