@@ -24,7 +24,8 @@ G2 = 沿用 G1 的全部经验与工具链，但**放弃 epoch（local 域）路
 2. **含水层宽化**：2^31 沟的直接根因（`minGridX/Y/Z` → long，缓存填充循环坐标从宽 origin 推导）
 3. **噪声采样双域 → 单域**：宽 origin + `getBlockXDouble` 宽域
 4. **宽键账本**：光照（SectionPos）、区块存储（ChunkPos）的 64 位打包 long 换成宽键
-   （X=Wide256 / Y=Wide128 / Z=Wide256 共 640，triple；chunk 键=Wide512；见 `M2-W4-PLAN.md` 键位账本）
+   （X=Wide256 / Y=Wide128 / Z=Wide256 共 640，triple；chunk 键=Wide512；见 `M2-W4-PLAN.md` 键位账本，
+   2026-10-16 起移出仓库：`C:\Project-G2-aux\docs\`）
 5. **消费者**：光照、实体、tick、结构逐个打通（看门狗 / jstack 兜底）
 
 ## 交界点（可验证里程碑）

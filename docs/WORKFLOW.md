@@ -5,7 +5,7 @@
 ## 构建
 
 ```powershell
-cd C:\Project-G1
+cd C:\Project-G2
 .\gradlew.bat :patcher-cli:build :mod:build --no-daemon
 ```
 
@@ -21,7 +21,7 @@ cd C:\Project-G1
 ```powershell
 $java = "C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot\bin\java.exe"
 & $java "-Dfarlands.wide=true" "-Dfarlands.continuity=true" "-Dfarlands.epoch=true" `
-  -jar "C:\Project-G1\patcher-cli\build\libs\patcher-cli-1.0.0.jar" `
+  -jar "C:\Project-G2\patcher-cli\build\libs\patcher-cli-1.0.0.jar" `
   --in "D:\Minecraft\.minecraft\versions\26.2-Fabric 0.19.3\26.2-Fabric 0.19.3.jar" `
   --out "D:\Minecraft\.minecraft\versions\26.2-Fabric 0.19.3_fork\26.2-Fabric 0.19.3_fork.jar"
 ```
@@ -108,7 +108,7 @@ tools\exp-run.ps1 -Tag F0-x -OutDir <证据目录> -TestGen "0,0;62,62;..." `
 ## 目录速查
 
 ```
-C:\Project-G1\
+C:\Project-G2\
 ├─ patcher-core\     字节码补丁（ChunkPosEpochPatch=标记only 等）
 ├─ patcher-cli\      补丁 CLI
 ├─ vanilla-rig\      原版参照（无补丁 jar + 仅测量桩）

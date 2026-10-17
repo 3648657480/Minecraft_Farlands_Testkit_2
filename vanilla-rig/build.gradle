@@ -18,7 +18,8 @@ if (System.getProperty('farlands.rig.patch') == 'true') {
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings loom.layered { mappings file(rootProject.file('mappings.tiny')) }
+    def farMappingsFile = findProperty('farlands.mappingsFile') ?: '../Project-G2-aux/mappings.tiny'
+    mappings loom.layered { mappings file(rootProject.file(farMappingsFile)) }
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 }
 
@@ -40,6 +41,9 @@ loom {
             }
             if (System.getProperty('farlands.testgen.delay') != null) {
                 property 'farlands.testgen.delay', System.getProperty('farlands.testgen.delay')
+            }
+            if (System.getProperty('farlands.testgen.ticket') != null) {
+                property 'farlands.testgen.ticket', System.getProperty('farlands.testgen.ticket')
             }
         }
     }
