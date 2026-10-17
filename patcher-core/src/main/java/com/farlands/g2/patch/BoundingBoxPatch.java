@@ -36,7 +36,7 @@ import java.util.List;
 public final class BoundingBoxPatch implements ClassPatch {
 
     private static final String TARGET = "net/minecraft/world/level/levelgen/structure/BoundingBox";
-    private static final long CLAMP_XZ = 2_147_483_647L - 30_000_000L; // 2117483647
+    private static final long CLAMP_XZ = 2_147_483_647L; // int max
     private static final long CLAMP_CENTER = 2_147_483_647L - 16_384L; // 2147467263
 
     @Override
@@ -111,11 +111,16 @@ public final class BoundingBoxPatch implements ClassPatch {
         return null;
     }
 
-    /** Idempotency marker: our unique clamp lower bound, not a generic Math.clamp. */
+    /** Idempotency marker: our clamp bound, not a generic Math.clamp. */
     private static boolean containsClampBound(MethodNode m) {
         for (AbstractInsnNode n : m.instructions) {
-            if (n instanceof LdcInsnNode ldc && ldc.cst instanceof Long v && v == -2_117_483_648L) {
-                return true;
+            if (n instanceof LdcInsnNode ldc) {
+                if (ldc.cst instanceof Long v && v == -2_147_483_648L) {
+                    return true;
+                }
+                if (ldc.cst instanceof Integer v && v == -2_147_483_648) {
+                    return true;
+                }
             }
         }
         return false;
@@ -126,8 +131,8 @@ public final class BoundingBoxPatch implements ClassPatch {
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, field, "I"));
         il.add(new InsnNode(Opcodes.I2L));
-        il.add(new LdcInsnNode(-2_117_483_648));
-        il.add(new LdcInsnNode(2_117_483_647));
+        il.add(new LdcInsnNode(-2_147_483_648));
+        il.add(new LdcInsnNode(2_147_483_647));
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Math", "clamp", "(JII)I", false));
         il.add(new InsnNode(Opcodes.IRETURN));
         return il;
@@ -229,8 +234,8 @@ public final class BoundingBoxPatch implements ClassPatch {
         il.add(new VarInsnNode(Opcodes.ALOAD, 1));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Vec3i", "getLong" + axis, "()J", false));
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Math", min ? "min" : "max", "(JJ)J", false));
-        il.add(new LdcInsnNode(-2_117_483_648L));
-        il.add(new LdcInsnNode(2_117_483_647L));
+        il.add(new LdcInsnNode(-2_147_483_648L));
+        il.add(new LdcInsnNode(2_147_483_647L));
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Math", "clamp", "(JJJ)J", false));
         il.add(new InsnNode(Opcodes.L2I));
     }

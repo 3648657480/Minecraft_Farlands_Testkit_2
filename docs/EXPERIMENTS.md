@@ -1212,3 +1212,34 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 下一步候选（未执行）：给 unsafe-read 守卫加一次性调用栈（定位树 feature 的越界来源）+
   抓 `schedule tick` 的调用栈；客户端渲染另立 M3 任务。
 - 证据：`mod/run/logs/latest.log`（286MB，含 866k 刷屏）；`%TEMP%\opencode\client-gradle.log`。
+
+## 46. W5：block 2^31 边缘树装饰器越界读——BoundingBox 30M 钳制 + wide BlockPos int 截断（2026-10-17）
+
+- 背景：§45 客户端在 x=2^31−0.5 森林观测到 866k 条 unsafe read
+  （`trees_birch_and_oak_leaf_litter`）+ 8 次 6s 级卡顿。FarReadDiag 首次栈：
+  `WorldGenRegion.getBlockState ← isStateAtPosition ← PlaceOnGroundDecorator.attemptToPlaceBlockAbove
+  ← TreeFeature.place`（树装饰器）。
+- 事实链：
+  1. 树原点 chunk (134217726/727,-113)，装饰器采样点却读到 chunk (132342727..132342728,-113)，
+     距离 1,874,999 chunk；读点块 x≈2,117,483,632 = int max − 30,000,015。
+  2. `BoundingBoxPatch` 的 getter/构造归一化把 XZ 无条件钳到 **±2,117,483,647（int max−30M）**，
+     "最后 30M 带"内所有盒子塌到同一点（30M 外）→ 装饰器采样整段搬走，128 tries/树反复越界读。
+  3. 钳制边界改回真实 int 边界（±2^31，REV71）后，读点回到 seam 但变成 **-134,217,728**：
+     树日志位置是 wide `BlockPos`（`getLongX=2^31`），未迁移的装饰器用 int `getX()` 取到
+     `Integer.MIN_VALUE`，盒子跨 seam 到负侧。
+- 修复（REV71）：
+  1. `BoundingBoxPatch` `CLAMP_XZ=±2^31`（只收敛到真实边界，不再搬 30M；getter 对合法 int 成为空操作）。
+  2. `PlaceOnGroundDecoratorMixin`：装饰器内 `BlockPos.getX/getZ` 重定向为
+     `clamp(getLongX/Z, int min, int max)`——正常坐标等价，seam 处收敛到边缘块。
+     残余：跨 seam 树的装饰落在边界块而非对侧第一格（记账）。
+- 验证（种子 12345、fresh world、Settle=120）：
+  - seam 森林 `134217726,-112`：**unsafe=0、无 far-read diag**、gen OK（该点指纹因装饰位置修正
+    而变化，属预期）。
+  - M1 14 点：14/14 gen OK、0 unsafe、13 点 wgHash 与 REV70 逐位一致；`(-2147482646,0)` 仍为
+    非确定点（第 5 个值）。
+  - 远域 2^49：gen OK、指纹不变（`cafe10ee90c9`）。
+- 遗留（W5-2）：`Trying to schedule tick in not loaded position x=-2147483647` 仍在（tick 调度
+  仍用 int block 坐标）；已加 `ScheduleTickDiagMixin`（|x|≥2e9 首次调度打印栈），待客户端复测抓栈。
+  客户端渲染碎裂/错位属 M3（客户端渲染坐标），不在本轮。
+- 证据：`logs/m2-w4-20261014/w5-scan-seam/`、`w5-seam-forest-r71/`、`w5-seam-forest-r72/`、
+  `w5-m1-rev71/`、`w5-far-2p49-r71/`；`exp-w5-*.log`；客户端 §45 的 `latest.log`。

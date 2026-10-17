@@ -34,7 +34,8 @@
         "TreeFeatureMixin",
         "MineshaftSkipMixin",
         "FlowingFluidRateLimitMixin",
-        "FarReadDiagMixin"
+        "FarReadDiagMixin",
+        "PlaceOnGroundDecoratorMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }
