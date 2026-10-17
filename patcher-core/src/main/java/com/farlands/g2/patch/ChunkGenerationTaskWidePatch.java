@@ -226,18 +226,17 @@ public final class ChunkGenerationTaskWidePatch implements ClassPatch {
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, WK, "pack", "(JJ)" + W512_D, false));
         il.add(have);
         il.add(new VarInsnNode(Opcodes.ASTORE, 14));
-        // pre-check: on miss throw with centre + cell coordinates (debug aid)
+        // pre-check: vanilla keeps a null cell; defer instead of throwing (REV65)
         LabelNode ok = new LabelNode();
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new VarInsnNode(Opcodes.ALOAD, 14));
         il.add(new MethodInsnNode(Opcodes.INVOKEINTERFACE, GEN_MAP, "farlands$hasGenerationW",
             "(" + W512_D + ")Z", true));
         il.add(new JumpInsnNode(Opcodes.IFNE, ok));
-        il.add(new TypeInsnNode(Opcodes.NEW, "java/lang/IllegalStateException"));
-        il.add(new InsnNode(Opcodes.DUP));
+        il.add(new FieldInsnNode(Opcodes.GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;"));
         il.add(new TypeInsnNode(Opcodes.NEW, "java/lang/StringBuilder"));
         il.add(new InsnNode(Opcodes.DUP));
-        il.add(new LdcInsnNode("acquireWide miss centre=("));
+        il.add(new LdcInsnNode("acquireWide defer centre=("));
         il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, "java/lang/StringBuilder", "<init>",
             "(Ljava/lang/String;)V", false));
         il.add(new VarInsnNode(Opcodes.LLOAD, 4));
@@ -266,9 +265,10 @@ public final class ChunkGenerationTaskWidePatch implements ClassPatch {
             "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString",
             "()Ljava/lang/String;", false));
-        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, "java/lang/IllegalStateException", "<init>",
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/io/PrintStream", "println",
             "(Ljava/lang/String;)V", false));
-        il.add(new InsnNode(Opcodes.ATHROW));
+        il.add(new InsnNode(Opcodes.ACONST_NULL));
+        il.add(new InsnNode(Opcodes.ARETURN));
         il.add(ok);
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new VarInsnNode(Opcodes.ALOAD, 14));

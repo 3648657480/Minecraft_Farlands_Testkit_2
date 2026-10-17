@@ -223,6 +223,29 @@ public abstract class MinecraftServerTestGenMixin {
                         }
                     }
                     System.out.println("[FarLands-Test] wide miss rings(<=45): " + missRings);
+                    StringBuilder ringScan = new StringBuilder();
+                    for (int rs = 13; rs <= 17; rs++) {
+                        int present = 0;
+                        int total = 0;
+                        for (int dxs = -rs; dxs <= rs; dxs++) {
+                            for (int dzs = -rs; dzs <= rs; dzs++) {
+                                if (Math.max(Math.abs(dxs), Math.abs(dzs)) != rs) {
+                                    continue;
+                                }
+                                total++;
+                                if (cm.farlands$getUpdatingChunkW(
+                                    new net.minecraft.world.level.ChunkPos(cxL + dxs, czL + dzs).packWide()) != null) {
+                                    present++;
+                                }
+                            }
+                        }
+                        ringScan.append("r").append(rs).append("=").append(present).append("/").append(total).append(' ');
+                    }
+                    net.minecraft.server.level.ChunkHolder scanCell = cm.farlands$getUpdatingChunkW(
+                        new net.minecraft.world.level.ChunkPos(cxL + 16, czL - 13).packWide());
+                    System.out.println("[FarLands-Test] scan " + ringScan
+                        + "cell(16,-13)=" + (scanCell == null ? "none" : scanCell.getTicketLevel())
+                        + " MAX_LEVEL=" + net.minecraft.server.level.ChunkLevel.MAX_LEVEL);
                     StringBuilder edgeMiss = new StringBuilder();
                     for (int dx3 = -44; dx3 <= 44; dx3++) {
                         for (int dz3 = -44; dz3 <= 44; dz3++) {

@@ -30,6 +30,15 @@ public abstract class TestGenMixin {
     @Unique
     private static int harness$saveCountdown = -1;
 
+    @Unique
+    private static ServerLevel harness$scanLevel = null;
+
+    @Unique
+    private static int harness$scanCx;
+
+    @Unique
+    private static int harness$scanCz;
+
     @Inject(method = "tickServer", at = @At("HEAD"))
     private void harness$testgen(BooleanSupplier hasTime, CallbackInfo ci) {
         MinecraftServer self = (MinecraftServer) (Object) this;
@@ -40,6 +49,9 @@ public abstract class TestGenMixin {
         if (harness$saveCountdown > 0) {
             harness$saveCountdown--;
             if (harness$saveCountdown == 0) {
+                if (harness$scanLevel != null) {
+                    harness$scanHolders(harness$scanLevel, harness$scanCx, harness$scanCz);
+                }
                 self.saveAllChunks(true, true, true);
                 System.out.println("[FarLands-Test] DONE saved");
                 System.out.flush();
@@ -80,9 +92,22 @@ public abstract class TestGenMixin {
                 int n = parts.length > 2 ? Integer.parseInt(parts[2].trim()) : 1;
                 long t0 = System.currentTimeMillis();
                 ChunkAccess chunk = null;
-                for (int dx = 0; dx < n; dx++) {
-                    for (int dz = 0; dz < n; dz++) {
-                        chunk = level.getChunk(cx + dx, cz + dz);
+                if (Boolean.getBoolean("farlands.testgen.ticket")) {
+                    int radius = 3 + Math.max(0, n - 1);
+                    net.minecraft.server.level.ServerChunkCache sc =
+                        (net.minecraft.server.level.ServerChunkCache) level.getChunkSource();
+                    sc.addTicketAndLoadWithRadius(
+                        net.minecraft.server.level.TicketType.FORCED,
+                        new net.minecraft.world.level.ChunkPos(cx, cz), radius);
+                    harness$scanLevel = level;
+                    harness$scanCx = cx;
+                    harness$scanCz = cz;
+                    chunk = level.getChunk(cx, cz);
+                } else {
+                    for (int dx = 0; dx < n; dx++) {
+                        for (int dz = 0; dz < n; dz++) {
+                            chunk = level.getChunk(cx + dx, cz + dz);
+                        }
                     }
                 }
                 long genMs = System.currentTimeMillis() - t0;
@@ -99,6 +124,47 @@ public abstract class TestGenMixin {
             }
         } catch (Throwable t) {
             System.out.println("[FarLands-Test] gen FAILED: " + t);
+            t.printStackTrace(System.out);
+            System.out.flush();
+        }
+    }
+
+    @Unique
+    private static void harness$scanHolders(ServerLevel level, int cx, int cz) {
+        try {
+            net.minecraft.server.level.ServerChunkCache sc =
+                (net.minecraft.server.level.ServerChunkCache) level.getChunkSource();
+            net.minecraft.server.level.ChunkMap cm = sc.chunkMap;
+            java.lang.reflect.Field f = net.minecraft.server.level.ChunkMap.class
+                .getDeclaredField("updatingChunkMap");
+            f.setAccessible(true);
+            Object raw = f.get(cm);
+            if (!(raw instanceof it.unimi.dsi.fastutil.longs.Long2ObjectMap<?> map)) {
+                System.out.println("[harness] scan: unexpected map " + raw);
+                return;
+            }
+            int maxRing = -1;
+            int holders = 0;
+            Integer cellLevel = null;
+            for (it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry<?> e : map.long2ObjectEntrySet()) {
+                net.minecraft.world.level.ChunkPos p = net.minecraft.world.level.ChunkPos.unpack(e.getLongKey());
+                int dx = p.x() - cx;
+                int dz = p.z() - cz;
+                int ring = Math.max(Math.abs(dx), Math.abs(dz));
+                if (ring > maxRing) {
+                    maxRing = ring;
+                }
+                holders++;
+                if (dx == 16 && dz == -13
+                    && e.getValue() instanceof net.minecraft.server.level.GenerationChunkHolder h) {
+                    cellLevel = h.getTicketLevel();
+                }
+            }
+            System.out.println("[harness] scan centre=(" + cx + "," + cz + ") holders=" + holders
+                + " maxRing=" + maxRing + " cell(16,-13)=" + (cellLevel == null ? "none" : cellLevel));
+            System.out.flush();
+        } catch (Throwable t) {
+            System.out.println("[harness] scan FAILED: " + t);
             t.printStackTrace(System.out);
             System.out.flush();
         }

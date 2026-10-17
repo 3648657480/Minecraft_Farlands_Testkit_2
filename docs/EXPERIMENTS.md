@@ -3,6 +3,10 @@
 > 版本 1.0.0（权威：仓库根目录 VERSION）
 > 适用红线：R5、R8、R9。本文档是地形生成器深层调试域的**唯一**实验规范与记录。
 > 违反任一前提的实验结论一律作废。
+>
+> 2026-10-16：`logs/` 证据与内部计划/设计文档（`M2-W4-PLAN.md` 等）已移出仓库至
+> `C:\Project-G2-aux\`（证据根 = `C:\Project-G2-aux\logs\`）；文中 `logs/…`、`M2-W4-PLAN.md`
+> 等相对引用均以该目录为根，历史记录原文未改。
 
 ---
 
@@ -1128,3 +1132,83 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   按 §36 的下一步推进：`ChunkGenerationTask.create` 加**调用来源**诊断（栈帧 2..3），判定边缘
   FULL 任务来自级联子任务还是直接调度。此结论仅适用于上述条件（R10）。
 - 证据：`logs/m2-w4-20261014/w4-3-probe35-encfix/`；`exp-w4-3-probe35-encfix.log`。
+
+## 44. W4-3 结案：宽图队列队首维护反转（REV69）——远域 2^49 生成打通（2026-10-16 续）
+
+- 预期（先写）：
+  1. `[setL]`：miss 格从未赋值或 old=44 后无降级；正常环 13 格为完整 43 环。
+  2. `[range]/[demand]`：vanilla 阶段只有 spawn 区域索求；宽阶段多出 centre 在 band−10
+     的 `prepareTickingChunk/prepareEntityTickingChunk` 索求，其 3×3/5×5 FULL 任务需要 band+1 环。
+  3. 失败复现（同 §43），据此按索求/层级证据修。
+- 插桩（REV64→68，均为诊断，一次一变量）：
+  - `ChunkTrackerWidePatch.setLevelW` 有界 `[setL] cell old new`（level≥43）；
+    `LoadingChunkTracker.setLevel(JI)` 增 `[longSetL]`（old/new，≥40）——int 域实际走长图，
+    基类宽钩子不触发（此即"REV62 setL 代码未留"的真相）。
+  - `ChunkMapSchedulingWidePatch` 注入 `[range] centre/r` 与逐格 `[demand] centre/cell/d/status`。
+  - `DynamicGraphMinFixedPointWidePatch.farlands$enqueueW` 加 level≥44 的 `[enqW]`（附 levelCount）；
+    mod harness 增环 13–17 holder 计数 + (16,-13) 级别 + `ChunkLevel.MAX_LEVEL`。
+- 实测事实链（种子 12345、fresh world、Settle=120）：
+  1. **REV64（probe36，n=3）**：失败复现 `acquireWide miss centre=(5,-2) cell=(16,-13)`。
+     索求链 = `prepareEntityTickingChunk(centre=(3,0) r=2)` 强制 5×5 FULL → 在 (5,-2) 建
+     FULL 任务（r=11）→ cache 需要 band+1 环的 (16,-13)。band = MAX_LEVEL − ticketLevel。
+  2. **REV65（probe37，miss→null defer，单变量）**：不再早炸；worker 在
+     `ChunkGenerationTask.scheduleChunkInLayer:136` NPE（`getPersistedStatus` on null）
+     → **该 cache 环确实被使用**，不是可忽略的边界假象。
+  3. **vanilla 参考（vanilla-rig，同 FORCED radius=5 票 + 同中心请求）**：`DONE`；结算扫描
+     `holders=1089`（完整 33×33）、`maxRing=16`、`cell(16,-13)=44`；`ChunkLevel.MAX_LEVEL=44`。
+     → 交接单"MAX_LEVEL(43)"**实测错误**（真实为 44；Loading 图哨兵 = 45，levelCount = 46）。
+  4. **宽侧扫描（REV67，probe39）**：r13/14/15 完整（104/112/120），**r16=1/128**，
+     `cell(16,-13)=none`；`[setL]` 层级 40–43 均为完整环，**level 44 仅 1 格 (-16,-16)**。
+  5. **入队诊断（REV68，probe40）**：level 44 共 368 次入队、**128 个不同环 16 格全部入队**
+     （levelCount=46）→ 传播算到了 44，问题在**出队/队首维护**。
+  6. **根因**：`farlands$removeFirstLongW` 弹出后"桶是否为空→是否重算队首"条件写反
+     （`IFNE skip` 应为 `IFEQ skip`）：桶仍非空时反而重算并把队首推进到下一层，
+     同层剩余节点永久搁浅。最外层（环 16）因下一层为空而暴露；内层靠后续入队掩盖，
+     表现为 §37 的"最外环部分填充"。
+  7. **REV69 修复（probe41）**：`r16=128/128`、`cell(16,-13)=44`、`defer=0`、`gen OK`、
+     `DONE saved`；wgHash `surf=b9216bad2029 floor=8936c275d063 biome=4bf4e2ea5526`
+     ——与 vanilla 参考同票同中心的结果**逐位一致**。
+- 回归与远域验收（REV69）：
+  - M1 14 点：**14/14 gen OK、gen FAILED=0、STUCK=0、diag=1 同族**；13 点指纹与 rev63 逐位一致；
+    `(-2147482646,0)` 指纹三次运行三值（60871a94eca9 / d03e2bfa476e / 993286dd6c4d，第三次为单点
+    复跑）→ **该远边界点存在既有非确定性**（§14 已将 MAX 邻域 bug B 归 W4），与本次修复无关。
+  - 真远域：`562949953421312,0,3`（chunk 2^49，真实 block 2^53）**两次 gen OK、指纹逐位一致**
+    （`surf=b9216bad2029 floor=cafe10ee90c9 biome=4bf4e2ea5526`）、`DONE saved`、0 miss/0 defer。
+- 结论（仅限上述条件，R10）：W4-3 的 `acquireWide miss` 根因是**宽图优先队列队首维护反转**，
+  不是 min-scan 的"44 无降级"假设；修复后 int 域宽票路径与远域（chunk 2^49）headless 生成
+  均打通且指纹可复现。`(-2147482646,0)` 的内容非确定性仍归 W4 记账。
+- 遗留：REV61 双次排空保留未复测；`(-2147482646,0)` 的内容非确定性仍归 W4 记账。
+- 清理与干净构建（REV70）：移除本轮 REV64–68 的运行时诊断（setL/enqW/range/demand），保留
+  genTask/acquireWide 既有诊断与 harness 环扫描；同条件复跑：
+  - 宽票 n=3：环 16=128/128、gen OK、指纹与 vanilla 参考一致、0 诊断输出；
+  - 远域 2^49：gen OK、指纹不变（`cafe10ee90c9`）；
+  - M1 14 点：14/14 gen OK、0 FAILED、0 STUCK；`(-2147482646,0)` 第四次得到新值
+    `49efc7d94a18`（该点 4 次运行 4 值，非确定性再次确认；其余 13 点稳定）。
+- 证据：`logs/m2-w4-20261014/w4-3-probe{36-demand,37-defer,38-longsetl,39-scan,40-enq,41-qfix}/`、
+  `w4-3-vanilla-ticket5b/`、`w4-3-m1-rev69/`、`w4-3-m1-negmax-r1/`、`w4-3-far-2p49{,-r2}/`；
+  对应 `%TEMP%\opencode\exp-*.log`。
+
+## 45. 客户端边界探针：block 2^31−0.5 暴露 W5 消费者缺口（2026-10-17）
+
+- 条件：dev 客户端 REV70（wide/continuity 开、epoch 关、lenient、debug=9）；玩家 `/realtp` 到
+  **x=2147483647.5, y=128, z=0.5**（block 2^31−0.5，森林群系）；客户端 dev 世界（种子未按
+  实验基线固定，本轮为观察记录）。用户观察：①2^31 后渲染碎裂、②服务端 2000ms 级卡顿、
+  ③区块严重错位。
+- 日志事实（`mod/run/logs/latest.log`，286 MB）：
+  - **0 次 `acquireWide miss`**、7,980 条 genTask → W4-3 调度修复成立（§44）。
+  - **866,444 条** `Detected unsafe terrain read`：生成 chunk `[134217724,2]` 时读
+    `[132342727,2]`（distance=1,874,997，step=features，feature=`trees_birch_and_oak_leaf_litter`）
+    同一坐标反复刷屏 → feature 在 block 2^31 邻域的**越界读/重试**，而非生成失败。
+  - 8 次 `Can't keep up`（最大 **6025ms / 120 ticks**）→ 上述刷屏与 feature 重试造成的服务器饱和。
+  - `Trying to schedule tick in not loaded position BlockPos{x=-2147483647,...}` /
+    `x=-2147483550` → **区块 tick 调度仍用 int block 坐标**，正 2^31 邻域回绕成负值。
+  - 客户端渲染碎裂/错位属客户端渲染路径（W5/M3），日志无对应异常，表现为坐标回绕后的位置错乱。
+- 对照：同构建的 headless M1（含 chunk 134217727/134217728 等）与远域 2^49 探针均为
+  **0 条 unsafe read**——本轮客户端世界在该坐标是森林（树 feature 触发），headless 对照点
+  为海洋（无树 feature）→ 该缺陷是 **biome/feature 相关**，不是调度回归。
+- 结论（仅限上述条件，R10）：W4-3 修复未回退；block 2^31 边界仍暴露 3 个 W5 消费者缺口：
+  ①feature 越界读（树 feature，chunk 偏移 1.87M）②tick 调度 int 回绕 ③客户端渲染坐标。
+  另：unsafe-read 守卫当前"记录并继续"，单点可刷出 86 万行/286MB 日志，清理前不宜再在该点长时间停留。
+- 下一步候选（未执行）：给 unsafe-read 守卫加一次性调用栈（定位树 feature 的越界来源）+
+  抓 `schedule tick` 的调用栈；客户端渲染另立 M3 任务。
+- 证据：`mod/run/logs/latest.log`（286MB，含 866k 刷屏）；`%TEMP%\opencode\client-gradle.log`。

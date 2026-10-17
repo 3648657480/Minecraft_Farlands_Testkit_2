@@ -312,7 +312,7 @@ public final class DynamicGraphMinFixedPointWidePatch implements ClassPatch {
         LabelNode skip = new LabelNode();
         il.add(new VarInsnNode(Opcodes.ALOAD, 1));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, SET, "isEmpty", "()Z", false));
-        il.add(new JumpInsnNode(Opcodes.IFNE, skip));
+        il.add(new JumpInsnNode(Opcodes.IFEQ, skip));
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         getLevelCount(il);
         il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TARGET, "farlands$checkFirstQueuedLevelW", "(I)V", false));
