@@ -35,7 +35,9 @@
         "MineshaftSkipMixin",
         "FlowingFluidRateLimitMixin",
         "FarReadDiagMixin",
-        "PlaceOnGroundDecoratorMixin"
+        "PlaceOnGroundDecoratorMixin",
+        "SnowAndFreezeFeatureGuardMixin",
+        "TreeFeatureSeamGuardMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }

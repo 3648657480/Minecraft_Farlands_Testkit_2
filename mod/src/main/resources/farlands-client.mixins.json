@@ -14,6 +14,7 @@
         "CameraMixin",
         "RenderSectionFloatingOriginMixin",
         "RenderSectionVertexSortingMixin",
+        "RenderSectionWideOriginMixin",
         "GlobalSettingsUniformGrabMixin",
         "LevelRendererCamWrapMixin",
         "ParticlePosMixin",

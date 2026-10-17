@@ -1243,3 +1243,36 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   客户端渲染碎裂/错位属 M3（客户端渲染坐标），不在本轮。
 - 证据：`logs/m2-w4-20261014/w5-scan-seam/`、`w5-seam-forest-r71/`、`w5-seam-forest-r72/`、
   `w5-m1-rev71/`、`w5-far-2p49-r71/`；`exp-w5-*.log`；客户端 §45 的 `latest.log`。
+- 客户端 REV71 复测（同一世界、x≈2^31−33）：unsafe read **866,444 → 2,026（有限，随后停止）**，
+  0 次 `Can't keep up`、0 次 tick 回绕；渲染碎裂/错位仍在（M3）。残余 2,026 条为新形态：
+  feature=`trees_flower_forest`，**生成中心 = -134,217,729**、读 +134,217,726（距离 268,435,455）
+  ——生成任务中心跨 seam 回绕，与本节已修的两层不同，待 farread 栈定位（W5-2 之后）。
+
+## 47. W5-2：block ≥2^31 的 feature/tick 回绕（SnowAndFreeze / TreeFeature）（2026-10-17）
+
+- 条件：客户端 `/realtp` 到 x>2^31（生成 chunk +134,217,738），145MB unsafe 风暴
+  （feature=`trees_plains`，读 chunk **-134,217,718**，距离 2^28）+ tick 回绕
+  （`x=-2147483643/-2147483500`）。FarReadDiag 在 headless（seed 12345、chunk 134217738、
+  z=-16..48）复现，首次栈两层：
+  1. `WorldGenRegion.getBlockState ← Biome.shouldFreeze ← SnowAndFreezeFeature.place`
+     —— feature 用 `origin.getX()+dx` / `MutableBlockPos.set(int,int,int)`（int 视图）。
+  2. 加 SnowAndFreeze 守卫后：`WorldGenRegion.getBlockState ← StructureTemplate.updateShapeAtEdge
+     ← TreeFeature.place` —— 树的形状边界扫描用 int BlockPos 偏移。
+- 修复（REV72）：
+  1. `ChunkPos.pack(BlockPos)` 改用 `getLongX/Z >> 4`（chunk 坐标在 int 域内；正常坐标恒等）。
+  2. `SnowAndFreezeFeature`/`TreeFeature` 在 origin 的 long 坐标超出 int block 域时**跳过**
+     （残余：seam 带无树/无积雪；地形其余部分正常）。
+  3. `RenderSectionWideOriginMixin`：渲染 section 的 origin/AABB 用 long 重算
+     （section 2^27 的 `sectionToBlockCoord` int 回绕 → AABB 在 4.29G 外被视锥剔除）。
+- 验证（REV72/73/74，seed 12345、fresh world、Settle=120）：
+  - seam2 扫描（chunk 134217738, z=-16..48）：**unsafe=0、far-read diag=0、tick=0**。
+  - M1 14 点：14/14 gen OK、unsafe=0（diag=1 仍为既有远读点）。
+  - 远域 2^49：gen OK、指纹不变（`cafe10ee90c9`）。
+  - 客户端渲染（x>2^31）待复测：REV71（仅渲染 origin 修复）时用户仍报"基本不渲染"；
+    REV74 含生成守卫 + 渲染 origin，需用新 seam 区域重测。
+- 遗留：若 x>2^31 仍缺块，下一嫌疑 = 客户端 chunk 接收/存储（`ClientChunkCache*`）或
+  `getRenderOrigin()` 的 int 消费方（`BlockPos.distToCenterSqr`、LevelRenderer 平移）。
+  树/雪在 seam 带被跳过是临时残余，完整修法为 feature 全链路 wide 化。
+- 证据：`logs/m2-w4-20261014/w5-seam2-scan/`、`w5-seam2-r72/`、`w5-seam2-r73/`、
+  `w5-seam2-r74/`、`w5-m1-rev72/`、`w5-m1-rev74/`、`w5-far-2p49-r73/`；`exp-w5-*.log`；
+  客户端 `latest.log`（145MB 风暴）。

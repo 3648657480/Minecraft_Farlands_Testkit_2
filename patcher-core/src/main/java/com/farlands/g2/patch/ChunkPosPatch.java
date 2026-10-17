@@ -147,6 +147,8 @@ public final class ChunkPosPatch implements ClassPatch {
 
         replaceRecordEquals(node);
 
+        rewritePackBlockPos(node);
+
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
         return cw.toByteArray();
@@ -165,6 +167,46 @@ public final class ChunkPosPatch implements ClassPatch {
      * widened x/z storage; at normal coordinates every result equals the int
      * one it replaces.</p>
      */
+    /**
+     * {@code pack(BlockPos)}: derive the chunk key from the wide block fields
+     * ({@code (int)(getLongX()>>4)}); the int view wraps at block 2^31 and puts
+     * worldgen/tick reads on the negative chunk. Chunk coords fit an int over the
+     * whole int block domain; at normal coordinates the key is identical.
+     */
+    private static void rewritePackBlockPos(ClassNode node) {
+        MethodNode m = null;
+        for (MethodNode mn : node.methods) {
+            if ("pack".equals(mn.name) && "(Lnet/minecraft/core/BlockPos;)J".equals(mn.desc)) {
+                m = mn;
+                break;
+            }
+        }
+        if (m == null) {
+            return;
+        }
+        for (AbstractInsnNode n : m.instructions) {
+            if (n instanceof MethodInsnNode mi && "getLongX".equals(mi.name)) {
+                return; // already patched
+            }
+        }
+        m.instructions.clear();
+        m.localVariables = null;
+        m.tryCatchBlocks.clear();
+        InsnList il = m.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Vec3i", "getLongX", "()J", false));
+        il.add(new IntInsnNode(Opcodes.BIPUSH, 4));
+        il.add(new InsnNode(Opcodes.LSHR));
+        il.add(new InsnNode(Opcodes.L2I));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Vec3i", "getLongZ", "()J", false));
+        il.add(new IntInsnNode(Opcodes.BIPUSH, 4));
+        il.add(new InsnNode(Opcodes.LSHR));
+        il.add(new InsnNode(Opcodes.L2I));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "pack", "(II)J", false));
+        il.add(new InsnNode(Opcodes.LRETURN));
+    }
+
     private static void addWideBlockAccessors(ClassNode node) {
         if (node.methods.stream().anyMatch(m -> "getMinBlockXLong".equals(m.name))) {
             return;
