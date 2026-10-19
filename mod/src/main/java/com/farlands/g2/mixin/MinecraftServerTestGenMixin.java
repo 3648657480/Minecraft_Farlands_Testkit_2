@@ -211,7 +211,7 @@ public abstract class MinecraftServerTestGenMixin {
                                     continue;
                                 }
                                 if (cm.farlands$getUpdatingChunkW(
-                                    new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).packWide()) != null) {
+                                    new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).widePos()) != null) {
                                     anyPresent = true;
                                 } else {
                                     anyMissing = true;
@@ -234,7 +234,7 @@ public abstract class MinecraftServerTestGenMixin {
                                 }
                                 total++;
                                 if (cm.farlands$getUpdatingChunkW(
-                                    new net.minecraft.world.level.ChunkPos(cxL + dxs, czL + dzs).packWide()) != null) {
+                                    new net.minecraft.world.level.ChunkPos(cxL + dxs, czL + dzs).widePos()) != null) {
                                     present++;
                                 }
                             }
@@ -242,7 +242,7 @@ public abstract class MinecraftServerTestGenMixin {
                         ringScan.append("r").append(rs).append("=").append(present).append("/").append(total).append(' ');
                     }
                     net.minecraft.server.level.ChunkHolder scanCell = cm.farlands$getUpdatingChunkW(
-                        new net.minecraft.world.level.ChunkPos(cxL + 16, czL - 13).packWide());
+                        new net.minecraft.world.level.ChunkPos(cxL + 16, czL - 13).widePos());
                     System.out.println("[FarLands-Test] scan " + ringScan
                         + "cell(16,-13)=" + (scanCell == null ? "none" : scanCell.getTicketLevel())
                         + " MAX_LEVEL=" + net.minecraft.server.level.ChunkLevel.MAX_LEVEL);
@@ -254,7 +254,7 @@ public abstract class MinecraftServerTestGenMixin {
                                 continue;
                             }
                             if (cm.farlands$getUpdatingChunkW(
-                                new net.minecraft.world.level.ChunkPos(cxL + dx3, czL + dz3).packWide()) == null) {
+                                new net.minecraft.world.level.ChunkPos(cxL + dx3, czL + dz3).widePos()) == null) {
                                 edgeMiss.append(dx3).append(',').append(dz3).append(' ');
                             }
                         }
@@ -265,7 +265,7 @@ public abstract class MinecraftServerTestGenMixin {
                     for (int spin = 0; spin < 200; spin++) {
                         cm.getDistanceManager().runAllUpdates(cm);
                         cm.runGenerationTasks();
-                        wideHolder = cm.farlands$getUpdatingChunkW(widePos.packWide());
+                        wideHolder = cm.farlands$getUpdatingChunkW(widePos.widePos());
                         if (wideHolder != null) {
                             break;
                         }
@@ -280,7 +280,7 @@ public abstract class MinecraftServerTestGenMixin {
                                 continue;
                             }
                             net.minecraft.server.level.ChunkHolder nh = cm.farlands$getUpdatingChunkW(
-                                new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).packWide());
+                                new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).widePos());
                             nb.append(dx).append(',').append(dz).append('=')
                                 .append(nh == null ? "null" : String.valueOf(nh.getTicketLevel())).append(' ');
                         }
@@ -290,7 +290,7 @@ public abstract class MinecraftServerTestGenMixin {
                     for (int dx = -3; dx <= 3; dx++) {
                         for (int dz = -3; dz <= 3; dz++) {
                             if (cm.farlands$getUpdatingChunkW(
-                                new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).packWide()) == null) {
+                                new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).widePos()) == null) {
                                 miss.append(dx).append(',').append(dz).append(' ');
                             }
                         }
@@ -329,6 +329,16 @@ public abstract class MinecraftServerTestGenMixin {
                     .append(" topX8=").append(chunk.getHeight(Heightmap.Types.WORLD_SURFACE, 8, 8))
                     .append(" topX9=").append(chunk.getHeight(Heightmap.Types.WORLD_SURFACE, 9, 8))
                     .append(" topX12=").append(chunk.getHeight(Heightmap.Types.WORLD_SURFACE, 12, 8))
+                    .append(" topX0=").append(chunk.getHeight(Heightmap.Types.WORLD_SURFACE, 0, 8))
+                    .append(" topX15=").append(chunk.getHeight(Heightmap.Types.WORLD_SURFACE, 15, 8))
+                    .append(" bX0=").append(chunk.getBlockState(
+                        new net.minecraft.core.BlockPos(cxL * 16L, 64, czL * 16L + 8)))
+                    .append(" bX15=").append(chunk.getBlockState(
+                        new net.minecraft.core.BlockPos(cxL * 16L + 15L, 64, czL * 16L + 8)))
+                    .append(" biomeX0=").append(chunk.getNoiseBiome(0, 60, 8).unwrapKey()
+                        .map(Object::toString).orElse("?"))
+                    .append(" biomeX15=").append(chunk.getNoiseBiome(15, 60, 8).unwrapKey()
+                        .map(Object::toString).orElse("?"))
                     .append(" topZ8=").append(chunk.getHeight(Heightmap.Types.WORLD_SURFACE, 8, 9))
                     .append(" sections=").append(nonEmpty)
                     .append(" surfWG=").append(chunk.getHeight(Heightmap.Types.WORLD_SURFACE_WG, 8, 8))
@@ -339,6 +349,12 @@ public abstract class MinecraftServerTestGenMixin {
                         new net.minecraft.core.BlockPos(cxL * 16 + 8, 100, czL * 16 + 8)));
                 System.out.println(sb);
                 System.out.flush();
+                if (Boolean.getBoolean("farlands.testgen.access_probe")) {
+                    farlands$probeWorldAccess(level, chunk);
+                }
+            }
+            if (Boolean.getBoolean("farlands.testgen.pick_probe")) {
+                farlands.worlddiff.EntityPickProbe.run(level);
             }
             if (FarConfig.testgenStop()) {
                 farlands$saveCountdown = FarConfig.testgenSettle();
@@ -349,6 +365,38 @@ public abstract class MinecraftServerTestGenMixin {
             System.out.println("[FarLands-Test] gen FAILED: " + t);
             t.printStackTrace(System.out);
             System.out.flush();
+        }
+    }
+
+    @Unique
+    private static void farlands$probeWorldAccess(ServerLevel level, ChunkAccess chunk) {
+        net.minecraft.world.level.ChunkPos cp = chunk.getPos();
+        long x = cp.getMinBlockXLong() + 8L;
+        long z = cp.getMinBlockZLong() + 8L;
+        boolean same = true;
+        for (int y : new int[]{level.getMinY(), 64, 67}) {
+            net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(x, (long) y, z);
+            net.minecraft.world.level.block.state.BlockState direct = chunk.getBlockState(pos);
+            net.minecraft.world.level.block.state.BlockState throughLevel = level.getBlockState(pos);
+            boolean valid = level.isInValidBounds(pos);
+            same &= valid && direct == throughLevel;
+            System.out.println("[ACCESS] chunk=" + cp + " block=(" + x + "," + y + "," + z
+                + ") intX=" + pos.getX() + " longX=" + pos.getLongX()
+                + " staticValid=" + net.minecraft.world.level.ChunkPos.isValid(cp.x(), cp.z())
+                + " instanceValid=" + cp.isValid() + " levelValid=" + valid
+                + " direct=" + direct.getBlock().getDescriptionId()
+                + " level=" + throughLevel.getBlock().getDescriptionId());
+        }
+        boolean heightRejected = !level.isInValidBounds(new net.minecraft.core.BlockPos(x,
+            (long) level.getMinY() - 1L, z))
+            && !level.isInValidBounds(new net.minecraft.core.BlockPos(x,
+                (long) level.getMaxY() + 1L, z));
+        System.out.println("[ACCESS] marker=world-access-01 revision=75"
+            + " maxLegacyChunk=" + net.minecraft.world.level.chunk.status.ChunkPyramid.MAX_CHUNK_COORDINATE_VALUE
+            + " same=" + same + " heightRejected=" + heightRejected);
+        System.out.flush();
+        if (Boolean.getBoolean("farlands.testgen.access_assert") && (!same || !heightRejected)) {
+            throw new IllegalStateException("World access probe failed for " + cp);
         }
     }
 

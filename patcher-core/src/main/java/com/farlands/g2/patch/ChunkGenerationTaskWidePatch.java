@@ -29,7 +29,7 @@ import org.objectweb.asm.tree.VarInsnNode;
  * ChunkPos.pack(x,z))}. For a far chunk every cache cell key is truncated. The
  * cache's int coordinates are only an offset space, so the fix is local: the
  * initializer lambda additionally captures the centre {@code ChunkPos} and
- * resolves each cell as {@code WideChunkKey.neighbor(centre.packWide(), x-cx,
+ * resolves each cell as {@code WideChunkPos.neighbor(centre.widePos(), x-cx,
  * z-cz)} into the wide acquisition. Exact in the int domain (the wide key equals
  * the packed key there).</p>
  */
@@ -42,8 +42,8 @@ public final class ChunkGenerationTaskWidePatch implements ClassPatch {
     private static final String GEN_HOLDER_D = "Lnet/minecraft/server/level/GenerationChunkHolder;";
     private static final String CHUNK_POS = "net/minecraft/world/level/ChunkPos";
     private static final String CHUNK_POS_D = "Lnet/minecraft/world/level/ChunkPos;";
-    private static final String W512_D = "Lcom/scalarwide/Wide512;";
-    private static final String WK = "com/scalarwide/mc/WideChunkKey";
+    private static final String W512_D = "Lcom/scalarwide/mc/WideChunkPos;";
+    private static final String WK = "com/scalarwide/mc/WideChunkPos";
     private static final String INITIALIZER = "net/minecraft/util/StaticCache2D$Initializer";
     private static final String WIDE_SIG =
         "(" + GEN_MAP_D + CHUNK_POS_D + "II)" + GEN_HOLDER_D;
@@ -181,7 +181,7 @@ public final class ChunkGenerationTaskWidePatch implements ClassPatch {
     /**
      * {@code (map, centre, x, z) -> map.farlands$acquireGenerationW(key(cell))}.
      *
-     * <p>All cell keys are built in the true {@code ChunkPos.packWide} layout;
+     * <p>All cell keys are built in the true {@code ChunkPos.widePos} layout;
      * the long-path {@code ChunkMap.farlands$cmKey} translation produces the
      * same key (unified encoding).</p>
      */
@@ -219,8 +219,8 @@ public final class ChunkGenerationTaskWidePatch implements ClassPatch {
         il.add(new InsnNode(Opcodes.I2L));
         il.add(new InsnNode(Opcodes.LADD));
         il.add(new VarInsnNode(Opcodes.LSTORE, 12));
-        // cell key: true packWide layout, unified with the long-path cmKey
-        // translation (both now produce ChunkPos.packWide(x, z))
+        // cell key: true widePos layout, unified with the long-path cmKey
+        // translation (both now produce ChunkPos.widePos(x, z))
         il.add(new VarInsnNode(Opcodes.LLOAD, 10));
         il.add(new VarInsnNode(Opcodes.LLOAD, 12));
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, WK, "pack", "(JJ)" + W512_D, false));

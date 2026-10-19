@@ -1,5 +1,7 @@
 package com.farlands.g2.mixin;
 
+import java.util.Iterator;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import net.minecraft.core.BlockPos;
@@ -85,22 +87,73 @@ public class BlockPosMixin {
     }
 
     @Inject(method = "containing(DDD)Lnet/minecraft/core/BlockPos;",
-        at = @At("RETURN"), cancellable = true)
-    private static void farlands$clampContaining(double x, double y, double z, CallbackInfoReturnable<BlockPos> cir) {
-        long lx = (long)Mth.floor(x);
-        long lz = (long)Mth.floor(z);
-        int sx = farlands$safeInt(lx);
-        int sy = Mth.floor(y);
-        int sz = farlands$safeInt(lz);
-        BlockPos result = cir.getReturnValue();
-        if (sx != result.getX() || sz != result.getZ())
-            cir.setReturnValue(new BlockPos(sx, sy, sz));
+        at = @At("HEAD"), cancellable = true)
+    private static void farlands$containingWide(double x, double y, double z, CallbackInfoReturnable<BlockPos> cir) {
+        long lx = (long)Math.floor(x);
+        long ly = Mth.floor(y);
+        long lz = (long)Math.floor(z);
+        cir.setReturnValue(new BlockPos(lx, ly, lz));
     }
 
-    @Unique
-    private static int farlands$safeInt(long v) {
-        if (v > Integer.MAX_VALUE) return Integer.MAX_VALUE;
-        if (v < Integer.MIN_VALUE) return Integer.MIN_VALUE;
-        return (int)v;
+    /**
+     * The patched BlockPos.betweenClosed clamps every corner into the int
+     * range. For a render section east of 2^31 the long corner is 2^31..2^31+15,
+     * both corners clamp to Integer.MAX_VALUE, and the section compiler visits
+     * only block x=2147483647 instead of the east section. Keep the clamp for
+     * large worldgen boxes, but let small (<=16^3) section-sized boxes use the
+     * wrapped int view so the int iterator walks the real 16-block span.
+     */
+    @Overwrite
+    public static Iterable<BlockPos> betweenClosed(BlockPos a, BlockPos b) {
+        long minX = Math.min(a.getLongX(), b.getLongX());
+        long minY = Math.min(a.getLongY(), b.getLongY());
+        long minZ = Math.min(a.getLongZ(), b.getLongZ());
+        long maxX = Math.max(a.getLongX(), b.getLongX());
+        long maxY = Math.max(a.getLongY(), b.getLongY());
+        long maxZ = Math.max(a.getLongZ(), b.getLongZ());
+        long spanX = maxX - minX;
+        long spanY = maxY - minY;
+        long spanZ = maxZ - minZ;
+        if (spanX <= 16L && spanY <= 16L && spanZ <= 16L) {
+            final long fx0 = minX;
+            final long fy0 = minY;
+            final long fz0 = minZ;
+            final long fx1 = maxX;
+            final long fy1 = maxY;
+            final long fz1 = maxZ;
+            return () -> new Iterator<BlockPos>() {
+                private long x = fx0;
+                private long y = fy0;
+                private long z = fz0;
+
+                @Override
+                public boolean hasNext() {
+                    return this.y <= fy1;
+                }
+
+                @Override
+                public BlockPos next() {
+                    if (!this.hasNext()) {
+                        throw new NoSuchElementException();
+                    }
+                    BlockPos pos = new BlockPos(this.x, this.y, this.z);
+                    if (++this.x > fx1) {
+                        this.x = fx0;
+                        if (++this.z > fz1) {
+                            this.z = fz0;
+                            ++this.y;
+                        }
+                    }
+                    return pos;
+                }
+            };
+        }
+        int cx0 = (int) Math.max((long) Integer.MIN_VALUE, Math.min((long) Integer.MAX_VALUE, minX));
+        int cy0 = (int) Math.max((long) Integer.MIN_VALUE, Math.min((long) Integer.MAX_VALUE, minY));
+        int cz0 = (int) Math.max((long) Integer.MIN_VALUE, Math.min((long) Integer.MAX_VALUE, minZ));
+        int cx1 = (int) Math.max((long) Integer.MIN_VALUE, Math.min((long) Integer.MAX_VALUE, maxX));
+        int cy1 = (int) Math.max((long) Integer.MIN_VALUE, Math.min((long) Integer.MAX_VALUE, maxY));
+        int cz1 = (int) Math.max((long) Integer.MIN_VALUE, Math.min((long) Integer.MAX_VALUE, maxZ));
+        return BlockPos.betweenClosed(cx0, cy0, cz0, cx1, cy1, cz1);
     }
 }

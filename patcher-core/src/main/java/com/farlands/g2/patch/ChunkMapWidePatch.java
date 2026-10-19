@@ -18,7 +18,7 @@ import org.objectweb.asm.tree.VarInsnNode;
  *
  * <ul>
  *   <li>{@code farlands$getChunkW} - exact: reads {@code ChunkMap.updatingChunkMap}
- *       (now a {@code Wide512FlatMap}) through {@code ChunkMap.farlands$cmGetW},
+ *       (now a {@code WideChunkPosFlatMap}) through {@code ChunkMap.farlands$cmGetW},
  *       preserving far-domain keys.</li>
  *   <li>{@code farlands$isChunkToRemoveW} - {@code toDrop} is still a 64-bit
  *       {@code LongSet} (recorded residual), so the wide key is truncated here.</li>
@@ -36,12 +36,12 @@ public final class ChunkMapWidePatch implements ClassPatch {
     private static final String CHUNK_MAP_D = "Lnet/minecraft/server/level/ChunkMap;";
     private static final String HOLDER = "net/minecraft/server/level/ChunkHolder";
     private static final String HOLDER_D = "Lnet/minecraft/server/level/ChunkHolder;";
-    private static final String W512_D = "Lcom/scalarwide/Wide512;";
-    private static final String WMAP = "com/scalarwide/mc/Wide512FlatMap";
-    private static final String WMAP_D = "Lcom/scalarwide/mc/Wide512FlatMap;";
+    private static final String W512_D = "Lcom/scalarwide/mc/WideChunkPos;";
+    private static final String WMAP = "com/scalarwide/mc/WideChunkPosFlatMap";
+    private static final String WMAP_D = "Lcom/scalarwide/mc/WideChunkPosFlatMap;";
     private static final String LONG_SET = "it/unimi/dsi/fastutil/longs/LongSet";
     private static final String LONG_SET_D = "Lit/unimi/dsi/fastutil/longs/LongSet;";
-    private static final String WK = "com/scalarwide/mc/WideChunkKey";
+    private static final String WK = "com/scalarwide/mc/WideChunkPos";
     private static final String CHUNK_POS = "net/minecraft/world/level/ChunkPos";
 
     @Override

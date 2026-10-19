@@ -5,7 +5,6 @@
     "compatibilityLevel": "JAVA_21",
     "mixins": [
         "BlockPosMixin",
-        "MthFloorMixin",
         "SectionPosMixin",
         "ChunkPosMixin",
         "Vec3RealCoordsMixin",

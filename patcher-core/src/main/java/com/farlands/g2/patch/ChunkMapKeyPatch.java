@@ -18,7 +18,7 @@ import org.objectweb.asm.tree.VarInsnNode;
 /**
  * W4-1b: re-keys {@code ChunkMap}'s chunk-holder maps from the 32+32 packed
  * {@code long} ({@code ChunkPos.pack()}) to the 512-bit
- * {@link com.scalarwide.mc.Wide512FlatMap} (key {@code com.scalarwide.Wide512},
+ * {@link com.scalarwide.mc.WideChunkPosFlatMap} (key {@code com.scalarwide.mc.WideChunkPos},
  * per the W4 key ledger: x high 256 / z low 256).
  *
  * <p>The three maps ({@code updatingChunkMap} / {@code visibleChunkMap} /
@@ -59,8 +59,8 @@ public final class ChunkMapKeyPatch implements ClassPatch {
     private static final String OLD_ENTSET =
         "it/unimi/dsi/fastutil/longs/Long2ObjectSortedMap$FastSortedEntrySet";
     private static final String OLD_ENTRY = "it/unimi/dsi/fastutil/longs/Long2ObjectMap$Entry";
-    private static final String WIDE_MAP = "com/scalarwide/mc/Wide512FlatMap";
-    private static final String WIDE = "com/scalarwide/Wide512";
+    private static final String WIDE_MAP = "com/scalarwide/mc/WideChunkPosFlatMap";
+    private static final String WIDE = "com/scalarwide/mc/WideChunkPos";
     private static final String CHUNKPOS = "net/minecraft/world/level/ChunkPos";
     private static final String HOLDER = "net/minecraft/server/level/ChunkHolder";
     private static final String FIELD_DESC = "L" + WIDE_MAP + ";";
@@ -225,13 +225,13 @@ public final class ChunkMapKeyPatch implements ClassPatch {
 
     /**
      * {@code Wide512.of(l0..l7)} from the vanilla packed long, in the true
-     * {@code ChunkPos.packWide} layout: z in the low half (l0-l3), x in the
+     * {@code ChunkPos.widePos} layout: z in the low half (l0-l3), x in the
      * high half (l4-l7).
      *
      * <p>Vanilla {@code pack(x, z)} is x-low32 / z-high32, so the low half of
      * the wide key must be {@code packed >> 32} (z) and the high half
      * {@code (int) packed} (x). This makes
-     * {@code farlands$cmKey(pack(x,z)) == packWide(x,z)} - the same key the
+     * {@code farlands$cmKey(pack(x,z)) == widePos(x,z)} - the same key the
      * wide holders use. (A swapped layout here silently aliased every
      * int-domain neighbour lookup against the wide-key queries - REV49
      * regression: only diagonal chunks matched.) */
@@ -239,28 +239,15 @@ public final class ChunkMapKeyPatch implements ClassPatch {
         MethodNode mn = new MethodNode(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, "farlands$cmKey",
             "(J)L" + WIDE + ";", null, null);
         InsnList il = mn.instructions;
-        // z = packed >> 32, sign-extended (low half)
+        // x = (int) packed (low 32); z = packed >> 32 (high 32)
+        il.add(new VarInsnNode(Opcodes.LLOAD, 0));
+        il.add(new InsnNode(Opcodes.L2I));
         il.add(new VarInsnNode(Opcodes.LLOAD, 0));
         il.add(new IntInsnNode(Opcodes.BIPUSH, 32));
         il.add(new InsnNode(Opcodes.LSHR));
-        // s = z >> 63
-        il.add(new InsnNode(Opcodes.DUP2));
-        il.add(new IntInsnNode(Opcodes.BIPUSH, 63));
-        il.add(new InsnNode(Opcodes.LSHR));
-        il.add(new InsnNode(Opcodes.DUP2));
-        il.add(new InsnNode(Opcodes.DUP2));
-        // x = (int) packed, sign-extended (high half)
-        il.add(new VarInsnNode(Opcodes.LLOAD, 0));
         il.add(new InsnNode(Opcodes.L2I));
-        il.add(new InsnNode(Opcodes.I2L));
-        // t = x >> 63
-        il.add(new InsnNode(Opcodes.DUP2));
-        il.add(new IntInsnNode(Opcodes.BIPUSH, 63));
-        il.add(new InsnNode(Opcodes.LSHR));
-        il.add(new InsnNode(Opcodes.DUP2));
-        il.add(new InsnNode(Opcodes.DUP2));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, WIDE, "of",
-            "(JJJJJJJJ)L" + WIDE + ";", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, WIDE, "pack",
+            "(II)L" + WIDE + ";", false));
         il.add(new InsnNode(Opcodes.ARETURN));
         return mn;
     }
@@ -339,7 +326,7 @@ public final class ChunkMapKeyPatch implements ClassPatch {
 
     // ------------------------------------------------------------------
     // W4-2 slice 3 primitives: same ops, but the caller already holds the
-    // Wide512 key (e.g. from holder.getPos().packWide()) - no packed-long
+    // Wide512 key (e.g. from holder.getPos().widePos()) - no packed-long
     // round trip, so far-domain keys survive. Used by the wide
     // DistanceManager / ChunkMap scheduling methods.
     // ------------------------------------------------------------------
@@ -407,7 +394,7 @@ public final class ChunkMapKeyPatch implements ClassPatch {
         return mn;
     }
 
-    /** The wide registry key of a holder: {@code holder.getPos().packWide()}. */
+    /** The wide registry key of a holder: {@code holder.getPos().widePos()}. */
     private static MethodNode cmKeyOf() {
         MethodNode mn = new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "farlands$cmKeyOf",
             "(L" + HOLDER + ";)L" + WIDE + ";", null, null);
@@ -415,7 +402,7 @@ public final class ChunkMapKeyPatch implements ClassPatch {
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, HOLDER, "getPos",
             "()L" + CHUNKPOS + ";", false));
-        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNKPOS, "packWide",
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNKPOS, "widePos",
             "()L" + WIDE + ";", false));
         il.add(new InsnNode(Opcodes.ARETURN));
         return mn;

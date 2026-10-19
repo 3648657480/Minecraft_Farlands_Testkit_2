@@ -57,6 +57,9 @@ public class SectionPosMixin {
 
     @Overwrite
     public static int blockToSectionCoord(double coord) {
-        return blockToSectionCoord((int)(long)Math.floor(coord));
+        // Must stay wide here: this @Overwrite replaces the patched
+        // SectionPos.blockToSectionCoord(double). Casting to int first
+        // clamped the camera at 2^31 back to section 2^27-1.
+        return (int) (net.minecraft.util.Mth.lfloor(coord) >> 4);
     }
 }

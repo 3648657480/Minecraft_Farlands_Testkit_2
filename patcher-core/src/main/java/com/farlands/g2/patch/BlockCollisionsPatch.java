@@ -60,6 +60,7 @@ public final class BlockCollisionsPatch implements ClassPatch {
             throw new IllegalStateException(TARGET + "#computeNext not found");
         }
         patchComputeNext(computeNext);
+        patchConstructor(node);
 
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
@@ -80,6 +81,85 @@ public final class BlockCollisionsPatch implements ClassPatch {
                 patchMoveArgs(mn, min);
             }
         }
+    }
+
+    /**
+     * Vanilla pads the AABB block range with {@code floor(...) +/- 1}. At
+     * block 2147483647 the {@code +1} wraps to -2147483648, the cursor then
+     * asks for chunk -134217728 and the server stops on the missing chunk.
+     * Saturate the padding to the int bounds.
+     */
+    private static void patchConstructor(ClassNode node) {
+        boolean patched = false;
+        for (MethodNode m : node.methods) {
+            if (!"<init>".equals(m.name)) {
+                continue;
+            }
+            for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode min) || min.getOpcode() != Opcodes.INVOKESTATIC
+                    || !"net/minecraft/util/Mth".equals(min.owner) || !"floor".equals(min.name)
+                    || !"(D)I".equals(min.desc)) {
+                    continue;
+                }
+                AbstractInsnNode one = insn.getNext();
+                AbstractInsnNode op = one == null ? null : one.getNext();
+                if (!(one instanceof InsnNode ic && ic.getOpcode() == Opcodes.ICONST_1)
+                    || !(op instanceof InsnNode ar
+                        && (ar.getOpcode() == Opcodes.IADD || ar.getOpcode() == Opcodes.ISUB))) {
+                    continue;
+                }
+                String helper = ar.getOpcode() == Opcodes.IADD ? "farlands$satAdd" : "farlands$satSub";
+                InsnList repl = new InsnList();
+                repl.add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, helper, "(II)I", false));
+                m.instructions.insertBefore(op, repl);
+                m.instructions.remove(op);
+                patched = true;
+            }
+        }
+        if (patched) {
+            addSatHelper(node, "farlands$satAdd", true);
+            addSatHelper(node, "farlands$satSub", false);
+        }
+    }
+
+    private static void addSatHelper(ClassNode node, String name, boolean add) {
+        if (node.methods.stream().anyMatch(m -> name.equals(m.name))) {
+            return;
+        }
+        MethodNode mn = new MethodNode(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, name, "(II)I", null, null);
+        InsnList il = new InsnList();
+        il.add(new VarInsnNode(Opcodes.ILOAD, 0));
+        il.add(new InsnNode(Opcodes.I2L));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 1));
+        il.add(new InsnNode(Opcodes.I2L));
+        il.add(new InsnNode(add ? Opcodes.LADD : Opcodes.LSUB));
+        il.add(new VarInsnNode(Opcodes.LSTORE, 2));
+
+        LabelNode normal = new LabelNode();
+        LabelNode low = new LabelNode();
+        il.add(new VarInsnNode(Opcodes.LLOAD, 2));
+        il.add(new LdcInsnNode(2147483647L));
+        il.add(new InsnNode(Opcodes.LCMP));
+        il.add(new JumpInsnNode(Opcodes.IFLE, normal));
+        il.add(new LdcInsnNode(2147483647L));
+        il.add(new InsnNode(Opcodes.L2I));
+        il.add(new InsnNode(Opcodes.IRETURN));
+        il.add(normal);
+
+        il.add(new VarInsnNode(Opcodes.LLOAD, 2));
+        il.add(new LdcInsnNode(-2147483648L));
+        il.add(new InsnNode(Opcodes.LCMP));
+        il.add(new JumpInsnNode(Opcodes.IFGE, low));
+        il.add(new LdcInsnNode(-2147483648L));
+        il.add(new InsnNode(Opcodes.L2I));
+        il.add(new InsnNode(Opcodes.IRETURN));
+        il.add(low);
+
+        il.add(new VarInsnNode(Opcodes.LLOAD, 2));
+        il.add(new InsnNode(Opcodes.L2I));
+        il.add(new InsnNode(Opcodes.IRETURN));
+        mn.instructions.add(il);
+        node.methods.add(mn);
     }
 
     private static void patchIntersectsArgs(MethodNode mn, MethodInsnNode invoke) {

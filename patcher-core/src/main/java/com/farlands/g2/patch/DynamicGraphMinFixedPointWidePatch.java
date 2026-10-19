@@ -25,9 +25,9 @@ import org.objectweb.asm.tree.VarInsnNode;
  * positions, so changing the vanilla {@code long} signatures would drag the
  * whole lighting chain into the widening (explicitly out of scope). Instead a
  * complete wide twin of the algorithm is injected: same state machine, but
- * nodes are {@code com.scalarwide.Wide512} chunk keys and the maps/queues are
- * the ScalarWide mc structures {@code Wide512ByteMap} and
- * {@code Wide512OrderedSet} (the 68-line {@code LeveledPriorityQueue} logic is
+ * nodes are {@code com.scalarwide.mc.WideChunkPos} chunk keys and the maps/queues are
+ * the ScalarWide mc structures {@code WideChunkPosByteMap} and
+ * {@code WideChunkPosOrderedSet} (the 68-line {@code LeveledPriorityQueue} logic is
  * inlined here, so that class stays untouched for lighting).</p>
  *
  * <p>The wide hooks ({@code farlands$isSourceW}, {@code farlands$getLevelW},
@@ -41,12 +41,12 @@ import org.objectweb.asm.tree.VarInsnNode;
 public final class DynamicGraphMinFixedPointWidePatch implements ClassPatch {
 
     private static final String TARGET = "net/minecraft/world/level/lighting/DynamicGraphMinFixedPoint";
-    private static final String W512 = "com/scalarwide/Wide512";
-    private static final String W512_D = "Lcom/scalarwide/Wide512;";
-    private static final String SET = "com/scalarwide/mc/Wide512OrderedSet";
-    private static final String SET_D = "Lcom/scalarwide/mc/Wide512OrderedSet;";
-    private static final String MAP = "com/scalarwide/mc/Wide512ByteMap";
-    private static final String MAP_D = "Lcom/scalarwide/mc/Wide512ByteMap;";
+    private static final String W512 = "com/scalarwide/mc/WideChunkPos";
+    private static final String W512_D = "Lcom/scalarwide/mc/WideChunkPos;";
+    private static final String SET = "com/scalarwide/mc/WideChunkPosOrderedSet";
+    private static final String SET_D = "Lcom/scalarwide/mc/WideChunkPosOrderedSet;";
+    private static final String MAP = "com/scalarwide/mc/WideChunkPosByteMap";
+    private static final String MAP_D = "Lcom/scalarwide/mc/WideChunkPosByteMap;";
     private static final String MTH = "net/minecraft/util/Mth";
 
     @Override
@@ -873,7 +873,7 @@ public final class DynamicGraphMinFixedPointWidePatch implements ClassPatch {
         il.add(new InsnNode(Opcodes.POP));
         il.add(new LdcInsnNode(Long.MAX_VALUE));
         il.add(new LdcInsnNode(Long.MAX_VALUE));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/mc/WideChunkKey", "pack",
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/mc/WideChunkPos", "pack",
             "(JJ)" + W512_D, false));
         il.add(new InsnNode(Opcodes.DUP));
         il.add(new FieldInsnNode(Opcodes.PUTSTATIC, TARGET, "farlands$sourceW", W512_D));

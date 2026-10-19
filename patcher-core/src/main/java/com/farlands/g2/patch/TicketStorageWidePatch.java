@@ -37,13 +37,13 @@ import org.objectweb.asm.tree.VarInsnNode;
 public final class TicketStorageWidePatch implements ClassPatch {
 
     private static final String TARGET = "net/minecraft/world/level/TicketStorage";
-    private static final String W512 = "com/scalarwide/Wide512";
-    private static final String W512_D = "Lcom/scalarwide/Wide512;";
-    private static final String WMAP = "com/scalarwide/mc/Wide512FlatMap";
-    private static final String WMAP_D = "Lcom/scalarwide/mc/Wide512FlatMap;";
-    private static final String WSET = "com/scalarwide/mc/Wide512OrderedSet";
-    private static final String WSET_D = "Lcom/scalarwide/mc/Wide512OrderedSet;";
-    private static final String WK = "com/scalarwide/mc/WideChunkKey";
+    private static final String W512 = "com/scalarwide/mc/WideChunkPos";
+    private static final String W512_D = "Lcom/scalarwide/mc/WideChunkPos;";
+    private static final String WMAP = "com/scalarwide/mc/WideChunkPosFlatMap";
+    private static final String WMAP_D = "Lcom/scalarwide/mc/WideChunkPosFlatMap;";
+    private static final String WSET = "com/scalarwide/mc/WideChunkPosOrderedSet";
+    private static final String WSET_D = "Lcom/scalarwide/mc/WideChunkPosOrderedSet;";
+    private static final String WK = "com/scalarwide/mc/WideChunkPos";
     private static final String CHUNK_POS = "net/minecraft/world/level/ChunkPos";
     private static final String TICKET = "net/minecraft/server/level/Ticket";
     private static final String TICKET_D = "Lnet/minecraft/server/level/Ticket;";
@@ -101,13 +101,13 @@ public final class TicketStorageWidePatch implements ClassPatch {
         il.add(new FieldInsnNode(Opcodes.GETFIELD, owner, name, desc));
     }
 
-    /** {@code ChunkPos.unpack(packed).packWide()} */
+    /** {@code ChunkPos.unpack(packed).widePos()} */
     private static MethodNode keyW() {
         MethodNode mn = m(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, "farlands$keyW", "(J)" + W512_D);
         InsnList il = mn.instructions;
         il.add(new VarInsnNode(Opcodes.LLOAD, 0));
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, CHUNK_POS, "unpack", "(J)L" + CHUNK_POS + ";", false));
-        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNK_POS, "packWide", "()" + W512_D, false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNK_POS, "widePos", "()" + W512_D, false));
         il.add(new InsnNode(Opcodes.ARETURN));
         return mn;
     }
@@ -242,7 +242,7 @@ public final class TicketStorageWidePatch implements ClassPatch {
         InsnList il = mn.instructions;
         // key
         il.add(new VarInsnNode(Opcodes.ALOAD, 1));
-        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNK_POS, "packWide", "()" + W512_D, false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNK_POS, "widePos", "()" + W512_D, false));
         il.add(new VarInsnNode(Opcodes.ASTORE, 3));
         // list = (List) wide().get(key)
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
@@ -366,7 +366,7 @@ public final class TicketStorageWidePatch implements ClassPatch {
         MethodNode mn = m(Opcodes.ACC_PUBLIC, "farlands$removeTicketW", "(L" + CHUNK_POS + ";" + TICKET_D + ")Z");
         InsnList il = mn.instructions;
         il.add(new VarInsnNode(Opcodes.ALOAD, 1));
-        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNK_POS, "packWide", "()" + W512_D, false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNK_POS, "widePos", "()" + W512_D, false));
         il.add(new VarInsnNode(Opcodes.ASTORE, 3));
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TARGET, "farlands$wide", "()" + WMAP_D, false));

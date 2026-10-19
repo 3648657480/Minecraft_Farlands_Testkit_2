@@ -11,4 +11,9 @@ public class LevelMixin {
     private static boolean isInWorldBoundsHorizontal(BlockPos pos) {
         return true;
     }
+
+    @Overwrite
+    private static boolean isInValidBoundsHorizontal(BlockPos pos) {
+        return true;
+    }
 }

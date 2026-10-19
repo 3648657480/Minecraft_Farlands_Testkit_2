@@ -28,7 +28,7 @@ public final class LoadingChunkTrackerWidePatch implements ClassPatch {
     private static final String DM_D = "Lnet/minecraft/server/level/DistanceManager;";
     private static final String HOLDER = "net/minecraft/server/level/ChunkHolder";
     private static final String HOLDER_D = "Lnet/minecraft/server/level/ChunkHolder;";
-    private static final String W512_D = "Lcom/scalarwide/Wide512;";
+    private static final String W512_D = "Lcom/scalarwide/mc/WideChunkPos;";
     private static final String TICKET_STORAGE = "net/minecraft/world/level/TicketStorage";
     private static final String TICKET_STORAGE_D = "Lnet/minecraft/world/level/TicketStorage;";
     private static final String SET_D = "Ljava/util/Set;";
@@ -104,14 +104,14 @@ public final class LoadingChunkTrackerWidePatch implements ClassPatch {
         il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, "java/lang/StringBuilder", "<init>",
             "(Ljava/lang/String;)V", false));
         il.add(new VarInsnNode(Opcodes.ALOAD, 1));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/mc/WideChunkKey", "x", "(" + W512_D + ")J", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/mc/WideChunkPos", "x", "(" + W512_D + ")J", false));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
             "(J)Ljava/lang/StringBuilder;", false));
         il.add(new org.objectweb.asm.tree.LdcInsnNode(","));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
             "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
         il.add(new VarInsnNode(Opcodes.ALOAD, 1));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/mc/WideChunkKey", "z", "(" + W512_D + ")J", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/mc/WideChunkPos", "z", "(" + W512_D + ")J", false));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
             "(J)Ljava/lang/StringBuilder;", false));
         il.add(new org.objectweb.asm.tree.LdcInsnNode(" lvl="));

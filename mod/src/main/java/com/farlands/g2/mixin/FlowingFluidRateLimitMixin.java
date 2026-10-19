@@ -30,6 +30,8 @@ public class FlowingFluidRateLimitMixin {
     @Unique
     private static final AtomicInteger farlands$count = new AtomicInteger();
     @Unique
+    private static final AtomicInteger farlands$diagCount = new AtomicInteger();
+    @Unique
     private static volatile long farlands$lastTick = -1;
 
     @Inject(method = "tick", at = @At("HEAD"), cancellable = true)
@@ -37,6 +39,15 @@ public class FlowingFluidRateLimitMixin {
             CallbackInfo ci) {
         if (!FarProjection.isFarEngine()) {
             return;
+        }
+        if ((Math.abs((long) pos.getLongX()) >= 2_147_483_600L
+            || Math.abs((long) pos.getLongZ()) >= 2_147_483_600L)
+            && farlands$diagCount.incrementAndGet() <= 20) {
+            System.out.println("[FarLands-G2][diag] fluidTick n=" + farlands$diagCount.get()
+                + " pos=" + pos + " longX=" + pos.getLongX() + " intX=" + pos.getX()
+                + " longZ=" + pos.getLongZ() + " intZ=" + pos.getZ()
+                + " time=" + level.getGameTime() + " state=" + state);
+            System.out.flush();
         }
         long now = level.getGameTime();
         if (now != farlands$lastTick) {

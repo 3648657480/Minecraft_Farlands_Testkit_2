@@ -10,6 +10,10 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 @Mixin(LevelRenderer.class)
 public class LevelRendererCamWrapMixin {
 
+    @Unique private static final boolean farlands$traceEnabled = Boolean.getBoolean("farlands.trace.seam");
+
+    @Unique private static long farlands$lastOutlineLog;
+
     @Unique
     private static double farlands$wrap(double v) {
         if (com.farlands.g2.util.FarProjection.isFarEngine()) {
@@ -19,9 +23,31 @@ public class LevelRendererCamWrapMixin {
         return (double)(int)(long)floor + (v - floor);
     }
 
+    @Unique
+    private static double farlands$wrapOutline(double v) {
+        if (!com.farlands.g2.util.FarProjection.isFarEngine()) {
+            return farlands$wrap(v);
+        }
+        if (v >= 2_147_483_648.0) {
+            return v - 4_294_967_296.0;
+        }
+        if (v < -2_147_483_648.0) {
+            return v + 4_294_967_296.0;
+        }
+        return v;
+    }
+
     @ModifyVariable(method = "submitBlockOutline", at = @At("STORE"), ordinal = 0)
     private Vec3 farlands$wrapOutlineCam(Vec3 cameraPos) {
-        return new Vec3(farlands$wrap(cameraPos.x), farlands$wrap(cameraPos.y), farlands$wrap(cameraPos.z));
+        Vec3 out = new Vec3(farlands$wrapOutline(cameraPos.x), farlands$wrapOutline(cameraPos.y),
+            farlands$wrapOutline(cameraPos.z));
+        long now = System.currentTimeMillis();
+        if (farlands$traceEnabled && now - farlands$lastOutlineLog >= 1000L) {
+            farlands$lastOutlineLog = now;
+            System.out.println("[G2OUT] cam=" + cameraPos + " -> " + out);
+            System.out.flush();
+        }
+        return out;
     }
 
     @ModifyVariable(method = "submitBlockEntities", at = @At("STORE"), ordinal = 0)
