@@ -24,11 +24,8 @@ public class TreeFeatureSeamGuardMixin {
         BlockPos origin = context.origin();
         long x = origin.getLongX();
         long z = origin.getLongZ();
-        // The tree shape/leaf scan can extend ~16 blocks; skip origins whose
-        // shape may cross the int block seam (int positions would wrap).
-        long margin = 16L;
-        if (x < Integer.MIN_VALUE + margin || x > Integer.MAX_VALUE - margin
-            || z < Integer.MIN_VALUE + margin || z > Integer.MAX_VALUE - margin) {
+        if (x < Integer.MIN_VALUE || x > Integer.MAX_VALUE
+            || z < Integer.MIN_VALUE || z > Integer.MAX_VALUE) {
             cir.setReturnValue(false);
         }
     }

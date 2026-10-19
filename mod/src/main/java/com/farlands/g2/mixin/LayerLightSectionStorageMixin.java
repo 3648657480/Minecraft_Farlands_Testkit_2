@@ -27,14 +27,14 @@ public class LayerLightSectionStorageMixin {
     @Inject(method = "getStoredLevel", at = @At("HEAD"), cancellable = true)
     private void farlands$guardGet(long blockNode, CallbackInfoReturnable<Integer> cir) {
         if (farlands$isFar(BlockPos.getX(blockNode)) || farlands$isFar(BlockPos.getZ(blockNode))) {
-            cir.setReturnValue(14);
+            cir.setReturnValue(15);
         }
     }
 
     @Redirect(method = "getStoredLevel", at = @At(value = "INVOKE",
         target = "Lnet/minecraft/world/level/chunk/DataLayer;get(III)I"))
     private int farlands$safeGet(DataLayer layer, int x, int y, int z) {
-        return layer == null ? 14 : layer.get(x, y, z);
+        return layer == null ? 15 : layer.get(x, y, z);
     }
 
     @Inject(method = "setStoredLevel", at = @At("HEAD"), cancellable = true)

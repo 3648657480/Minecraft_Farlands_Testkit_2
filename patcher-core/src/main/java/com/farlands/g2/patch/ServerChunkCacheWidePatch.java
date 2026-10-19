@@ -97,13 +97,13 @@ public final class ServerChunkCacheWidePatch implements ClassPatch {
         InsnList il = mn.instructions;
         LabelNode hasHolder = new LabelNode();
         LabelNode hasResult = new LabelNode();
-        // holder = chunkMap.farlands$getUpdatingChunkW(pos.widePos())
+        // holder = chunkMap.farlands$getUpdatingChunkW(pos.packWide())
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "chunkMap", "Lnet/minecraft/server/level/ChunkMap;"));
         il.add(new VarInsnNode(Opcodes.ALOAD, 1));
-        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNK_POS, "widePos", "()Lcom/scalarwide/mc/WideChunkPos;", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNK_POS, "packWide", "()Lcom/scalarwide/Wide512;", false));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/server/level/ChunkMap",
-            "farlands$getUpdatingChunkW", "(Lcom/scalarwide/mc/WideChunkPos;)Lnet/minecraft/server/level/ChunkHolder;", false));
+            "farlands$getUpdatingChunkW", "(Lcom/scalarwide/Wide512;)Lnet/minecraft/server/level/ChunkHolder;", false));
         il.add(new VarInsnNode(Opcodes.ASTORE, 2));
         il.add(new VarInsnNode(Opcodes.ALOAD, 2));
         il.add(new JumpInsnNode(Opcodes.IFNONNULL, hasHolder));

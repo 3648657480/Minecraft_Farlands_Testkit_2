@@ -24,8 +24,8 @@ dependencies {
     // com.scalarwide.* - the library must be on the game classpath at runtime,
     // and bundled into the mod jar for production. Additive/drop-in per
     // ScalarWide docs/COMPATIBILITY.md §6.
-    implementation "com.scalarwide:scalarwide:1.0.4"
-    include "com.scalarwide:scalarwide:1.0.4"
+    implementation "com.scalarwide:scalarwide:1.0.3"
+    include "com.scalarwide:scalarwide:1.0.3"
 }
 
 loom {
@@ -36,10 +36,6 @@ loom {
     }
     runConfigs {
         server {
-            def accessProbeRunDir = System.getProperty('farlands.testgen.run_dir')
-            if (accessProbeRunDir != null) {
-                runDir accessProbeRunDir
-            }
             // Forward every farlands.* system property to the run JVM so
             // experiments can override config keys without editing files.
             System.getProperties().each { key, value ->

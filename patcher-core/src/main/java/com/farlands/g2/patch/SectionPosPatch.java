@@ -101,30 +101,9 @@ public final class SectionPosPatch implements ClassPatch {
         // on origin() and BlockPos.offset (already widened), so it inherits this.
         rewrite(node, "origin", "()Lnet/minecraft/core/BlockPos;", wideOrigin());
 
-        // asLong(BlockPos) and of(BlockPos) were producers still reading the
-        // wrapped int view; derive the section coords from the wide block
-        // fields.
+        // asLong(BlockPos) was the one producer still reading the wrapped int
+        // view; derive the section coords from the wide block fields.
         rewrite(node, "asLong", "(Lnet/minecraft/core/BlockPos;)J", asLongBlockPos());
-        rewrite(node, "of", "(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/core/SectionPos;",
-            ofBlockPos());
-
-        // blockToSectionCoord(double) and posToSectionCoord(double):
-        // vanilla uses Mth.floor(d) which casts to int via (int)Math.floor(d).
-        // At d >= 2^31, the cast clamps to Integer.MAX_VALUE, pinning camera and
-        // section resolution to section 134217727. Use Mth.lfloor(d) >> 4 instead.
-        rewrite(node, "blockToSectionCoord", "(D)I", new InsnList() {{
-            add(new VarInsnNode(Opcodes.DLOAD, 0));
-            add(new MethodInsnNode(Opcodes.INVOKESTATIC, "net/minecraft/util/Mth", "lfloor", "(D)J", false));
-            add(new IntInsnNode(Opcodes.BIPUSH, 4));
-            add(new InsnNode(Opcodes.LSHR));
-            add(new InsnNode(Opcodes.L2I));
-            add(new InsnNode(Opcodes.IRETURN));
-        }});
-        rewrite(node, "posToSectionCoord", "(D)I", new InsnList() {{
-            add(new VarInsnNode(Opcodes.DLOAD, 0));
-            add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "blockToSectionCoord", "(D)I", false));
-            add(new InsnNode(Opcodes.IRETURN));
-        }});
 
         // Wide section-coord decode used by consumers that must not wrap at
         // block 2^31 (e.g. BulkSectionAccess resolving the owning chunk).
@@ -170,23 +149,6 @@ public final class SectionPosPatch implements ClassPatch {
         }
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "asLong", "(III)J", false));
         il.add(new InsnNode(Opcodes.LRETURN));
-        return il;
-    }
-
-    /** {@code new SectionPos((int)(getLongX()>>4), ...)} (wide section). */
-    private static InsnList ofBlockPos() {
-        InsnList il = new InsnList();
-        il.add(new TypeInsnNode(Opcodes.NEW, TARGET));
-        il.add(new InsnNode(Opcodes.DUP));
-        for (String axis : new String[]{"X", "Y", "Z"}) {
-            il.add(new VarInsnNode(Opcodes.ALOAD, 0));
-            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLong" + axis, "()J", false));
-            il.add(new IntInsnNode(Opcodes.BIPUSH, 4));
-            il.add(new InsnNode(Opcodes.LSHR));
-            il.add(new InsnNode(Opcodes.L2I));
-        }
-        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TARGET, "<init>", "(III)V", false));
-        il.add(new InsnNode(Opcodes.ARETURN));
         return il;
     }
 

@@ -10,7 +10,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ViewArea.class)
 public class ViewAreaMixin {
-
     @Inject(method = "repositionCamera(Lnet/minecraft/core/SectionPos;)Z", at = @At("HEAD"))
     private void farlands$captureCenter(SectionPos cam, CallbackInfoReturnable<Boolean> cir) {
         int cx = cam.x();

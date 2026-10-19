@@ -20,30 +20,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class ScheduleTickDiagMixin {
 
     private static final AtomicBoolean farlands$logged = new AtomicBoolean();
-    private static final java.util.concurrent.atomic.AtomicInteger farlands$count =
-        new java.util.concurrent.atomic.AtomicInteger();
 
     @Inject(method = "schedule", at = @At("HEAD"))
     private void farlands$diagSchedule(ScheduledTick<?> tick, CallbackInfo ci) {
         BlockPos pos = tick.pos();
         int x = pos.getX();
-        if (Math.abs((long) pos.getLongX()) < 2_147_483_600L
-            && Math.abs((long) pos.getLongZ()) < 2_147_483_600L) {
+        if (x < 2_000_000_000 && x > -2_000_000_000) {
             return;
         }
-        int n = farlands$count.incrementAndGet();
-        if (n > 20) {
+        if (!farlands$logged.compareAndSet(false, true)) {
             return;
         }
-        System.out.println("[FarLands-G2][diag] scheduleTick n=" + n
-            + " pos=" + pos + " longX=" + pos.getLongX() + " intX=" + pos.getX()
-            + " longZ=" + pos.getLongZ() + " intZ=" + pos.getZ()
-            + " chunk=" + new net.minecraft.world.level.ChunkPos(
-                net.minecraft.core.SectionPos.blockToSectionCoord(pos.getX()),
-                net.minecraft.core.SectionPos.blockToSectionCoord(pos.getZ())));
-        if (farlands$logged.compareAndSet(false, true)) {
-            new Throwable("schedule-tick-caller").printStackTrace(System.out);
-        }
+        System.out.println("[FarLands-G2][diag] scheduleTick pos=(" + x + ","
+            + pos.getY() + "," + pos.getZ() + ")");
+        new Throwable("schedule-tick-caller").printStackTrace(System.out);
         System.out.flush();
     }
 }

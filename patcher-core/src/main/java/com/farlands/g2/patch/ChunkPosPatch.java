@@ -22,9 +22,9 @@ import org.objectweb.asm.tree.VarInsnNode;
  * equals/hashCode) preserve their wrapped semantics, so every consumer and
  * storage key behaves exactly as before. New {@code xLong()/zLong()} expose
  * the wide values for the far-domain generation pipeline, a (JJ)
- * constructor carries wide positions. The 64-bit {@code pack()} remains for
- * the legacy int domain; new consumers use {@code widePos()} from
- * {@code ChunkPosWideIdentityPatch}.</p>
+ * constructor carries wide positions, and {@code packWide()} produces the
+ * 128-bit key ({@code com.scalarwide.Wide128}: x high limb, z low limb) for
+ * wide consumers that outgrow the 32+32 {@code pack()}.</p>
  */
 public final class ChunkPosPatch implements ClassPatch {
 
@@ -115,6 +115,32 @@ public final class ChunkPosPatch implements ClassPatch {
             il.add(new FieldInsnNode(Opcodes.PUTFIELD, TARGET, "z", "J"));
             il.add(new InsnNode(Opcodes.RETURN));
             node.methods.add(ctor);
+
+            // Wide chunk key (W4 key ledger): (x:Wide256, z:Wide256) packed as one
+            // Wide512 - x in the high 256 bits, z in the low 256 bits, both
+            // sign-extended from the long fields. The 64-bit pack() stays for the
+            // int domain; wide consumers key on this instead.
+            MethodNode packWide = new MethodNode(Opcodes.ACC_PUBLIC, "packWide",
+                "()Lcom/scalarwide/Wide512;", null, null);
+            InsnList pw = packWide.instructions;
+            pw.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            pw.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TARGET, "zLong", "()J", false));
+            pw.add(new InsnNode(Opcodes.DUP2));
+            pw.add(new IntInsnNode(Opcodes.BIPUSH, 63));
+            pw.add(new InsnNode(Opcodes.LSHR));
+            pw.add(new InsnNode(Opcodes.DUP2));
+            pw.add(new InsnNode(Opcodes.DUP2));
+            pw.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            pw.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TARGET, "xLong", "()J", false));
+            pw.add(new InsnNode(Opcodes.DUP2));
+            pw.add(new IntInsnNode(Opcodes.BIPUSH, 63));
+            pw.add(new InsnNode(Opcodes.LSHR));
+            pw.add(new InsnNode(Opcodes.DUP2));
+            pw.add(new InsnNode(Opcodes.DUP2));
+            pw.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/Wide512", "of",
+                "(JJJJJJJJ)Lcom/scalarwide/Wide512;", false));
+            pw.add(new InsnNode(Opcodes.ARETURN));
+            node.methods.add(packWide);
         }
 
         addWideBlockAccessors(node);
@@ -122,8 +148,6 @@ public final class ChunkPosPatch implements ClassPatch {
         replaceRecordEquals(node);
 
         rewritePackBlockPos(node);
-
-        rewriteContainingBlockPos(node);
 
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
@@ -181,48 +205,6 @@ public final class ChunkPosPatch implements ClassPatch {
         il.add(new InsnNode(Opcodes.L2I));
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "pack", "(II)J", false));
         il.add(new InsnNode(Opcodes.LRETURN));
-    }
-
-    /**
-     * {@code containing(BlockPos)}: vanilla derives the chunk from
-     * {@code BlockPos.getX()}, which wraps at block 2^31 and puts the client's
-     * view center on the negative chunk band while the server sends the
-     * positive east chunks. Use the wide block fields; identical at normal
-     * coordinates.
-     */
-    private static void rewriteContainingBlockPos(ClassNode node) {
-        MethodNode m = null;
-        for (MethodNode mn : node.methods) {
-            if ("containing".equals(mn.name)
-                && "(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/ChunkPos;".equals(mn.desc)) {
-                m = mn;
-                break;
-            }
-        }
-        if (m == null) {
-            throw new IllegalStateException(TARGET + "#containing(BlockPos) not found");
-        }
-        for (AbstractInsnNode n : m.instructions) {
-            if (n instanceof MethodInsnNode mi && "getLongX".equals(mi.name)) {
-                return; // already patched
-            }
-        }
-        m.instructions.clear();
-        m.localVariables = null;
-        m.tryCatchBlocks.clear();
-        InsnList il = m.instructions;
-        il.add(new org.objectweb.asm.tree.TypeInsnNode(Opcodes.NEW, TARGET));
-        il.add(new InsnNode(Opcodes.DUP));
-        for (String axis : new String[]{"X", "Z"}) {
-            il.add(new VarInsnNode(Opcodes.ALOAD, 0));
-            il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Vec3i",
-                "getLong" + axis, "()J", false));
-            il.add(new IntInsnNode(Opcodes.BIPUSH, 4));
-            il.add(new InsnNode(Opcodes.LSHR));
-            il.add(new InsnNode(Opcodes.L2I));
-        }
-        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TARGET, "<init>", "(II)V", false));
-        il.add(new InsnNode(Opcodes.ARETURN));
     }
 
     private static void addWideBlockAccessors(ClassNode node) {

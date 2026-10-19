@@ -26,9 +26,9 @@ import org.objectweb.asm.tree.VarInsnNode;
 public final class DistanceManagerWidePatch implements ClassPatch {
 
     private static final String TARGET = "net/minecraft/server/level/DistanceManager";
-    private static final String W512_D = "Lcom/scalarwide/mc/WideChunkPos;";
+    private static final String W512_D = "Lcom/scalarwide/Wide512;";
     private static final String HOLDER_D = "Lnet/minecraft/server/level/ChunkHolder;";
-    private static final String WK = "com/scalarwide/mc/WideChunkPos";
+    private static final String WK = "com/scalarwide/mc/WideChunkKey";
     private static final String CHUNK_POS = "net/minecraft/world/level/ChunkPos";
 
     @Override

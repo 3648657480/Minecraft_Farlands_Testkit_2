@@ -7,7 +7,6 @@ import net.minecraft.client.gui.screens.GenericMessageScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -24,53 +23,6 @@ import java.nio.file.Path;
  */
 @Mixin(Minecraft.class)
 public class MinecraftClientRelocateMixin {
-
-    @Unique private static final boolean farlands$traceEnabled = Boolean.getBoolean("farlands.trace.seam");
-
-    private static boolean farlands$ambientOff;
-    private static long farlands$lastHitLog;
-
-    @Inject(method = "runTick", at = @At("HEAD"))
-    private void farlands$hitProbe(boolean advanceGameTime, CallbackInfo ci) {
-        if (!farlands$traceEnabled) {
-            return;
-        }
-        Minecraft mc = (Minecraft) (Object) this;
-        if (mc.player == null || mc.level == null) {
-            return;
-        }
-        double x = mc.player.getX();
-        if (Math.abs(x - 2_147_483_647.5) > 8.0) {
-            return;
-        }
-        long now = System.currentTimeMillis();
-        if (now - farlands$lastHitLog < 500L) {
-            return;
-        }
-        farlands$lastHitLog = now;
-        String hit;
-        if (mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult b) {
-            hit = "block " + b.getBlockPos() + " longX=" + b.getBlockPos().getLongX()
-                + " state=" + mc.level.getBlockState(b.getBlockPos()).getBlock().getName().getString()
-                + " type=" + b.getType();
-        } else {
-            hit = String.valueOf(mc.hitResult);
-        }
-        System.out.println("[HIT] x=" + x + " hit=" + hit);
-        System.out.flush();
-    }
-
-    @Inject(method = "runTick", at = @At("HEAD"))
-    private void farlands$disableAmbientOcclusion(boolean advanceGameTime, CallbackInfo ci) {
-        if (farlands$ambientOff) {
-            return;
-        }
-        Minecraft mc = (Minecraft) (Object) this;
-        if (mc.options != null) {
-            mc.options.ambientOcclusion().set(false);
-            farlands$ambientOff = true;
-        }
-    }
 
     @Inject(method = "runTick", at = @At("HEAD"))
     private void farlands$maybeRelocate(boolean advanceGameTime, CallbackInfo ci) {
