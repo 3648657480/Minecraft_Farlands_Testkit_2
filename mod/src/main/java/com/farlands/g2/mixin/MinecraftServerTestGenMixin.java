@@ -297,6 +297,7 @@ public abstract class MinecraftServerTestGenMixin {
                     }
                     System.out.println("[FarLands-Test] wide miss(7x7): " + miss);
                     System.out.flush();
+                    com.farlands.g2.runtime.WideGenerationProbe.schedule(cm, widePos);
                     chunk = sc.farlands$getChunkWide(widePos);
                     if (chunk == null) {
                         net.minecraft.server.level.ChunkResult<?> res = wideHolder == null ? null

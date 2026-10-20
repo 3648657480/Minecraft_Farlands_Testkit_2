@@ -65,6 +65,8 @@ public final class ChunkTrackerWidePatch implements ClassPatch {
         node.methods.add(getComputedLevelW());
         node.methods.add(computeLevelFromNeighborW());
         node.methods.add(getLevelFromSourceW());
+        node.methods.add(getLevelW());
+        node.methods.add(setLevelW());
         node.methods.add(updateW());
 
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
