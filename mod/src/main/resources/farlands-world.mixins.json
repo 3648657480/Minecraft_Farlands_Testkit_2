@@ -8,6 +8,8 @@
         "LevelGetChunkAtWideMixin",
         "LevelGetBlockStateWideMixin",
         "ServerTickMixin",
+        "ServerBreakDiagMixin",
+        "WorldBorderDisabledMixin",
         "SpawnEntityWaitFailSafeMixin",
         "PersistentEntitySectionManagerAccessor",
         "PlayerJoinConfigNoticeMixin",
