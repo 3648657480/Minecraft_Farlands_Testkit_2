@@ -908,14 +908,29 @@ public final class DynamicGraphMinFixedPointWidePatch implements ClassPatch {
     private static MethodNode getLevelW() {
         MethodNode mn = m(Opcodes.ACC_PROTECTED, "farlands$getLevelW", "(" + W512_D + ")I");
         InsnList il = mn.instructions;
-        il.add(new InsnNode(Opcodes.ICONST_0));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "farlands$computedLevelsW", MAP_D));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new IntInsnNode(Opcodes.BIPUSH, -1));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, MAP, "getOrDefault",
+            "(" + W512_D + "B)B", false));
         il.add(new InsnNode(Opcodes.IRETURN));
         return mn;
     }
 
     private static MethodNode setLevelW() {
         MethodNode mn = m(Opcodes.ACC_PROTECTED, "farlands$setLevelW", "(" + W512_D + "I)V");
-        mn.instructions.add(new InsnNode(Opcodes.RETURN));
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "farlands$computedLevelsW", MAP_D));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 2));
+        il.add(new InsnNode(Opcodes.I2B));
+        il.add(new InsnNode(Opcodes.ICONST_M1));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, MAP, "put",
+            "(" + W512_D + "BB)B", false));
+        il.add(new InsnNode(Opcodes.POP));
+        il.add(new InsnNode(Opcodes.RETURN));
         return mn;
     }
 
