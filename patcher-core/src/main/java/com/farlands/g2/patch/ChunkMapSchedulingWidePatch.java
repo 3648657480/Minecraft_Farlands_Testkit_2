@@ -35,15 +35,15 @@ import org.objectweb.asm.tree.VarInsnNode;
 public final class ChunkMapSchedulingWidePatch implements ClassPatch {
 
     private static final String TARGET = "net/minecraft/server/level/ChunkMap";
-    private static final String W512 = "com/scalarwide/Wide512";
-    private static final String W512_D = "Lcom/scalarwide/Wide512;";
+    private static final String W512 = "com/scalarwide/mc/WideChunkPos";
+    private static final String W512_D = "Lcom/scalarwide/mc/WideChunkPos;";
     private static final String CHUNK_POS = "net/minecraft/world/level/ChunkPos";
     private static final String HOLDER = "net/minecraft/server/level/ChunkHolder";
     private static final String HOLDER_D = "Lnet/minecraft/server/level/ChunkHolder;";
-    private static final String WMAP = "com/scalarwide/mc/Wide512FlatMap";
-    private static final String WMAP_D = "Lcom/scalarwide/mc/Wide512FlatMap;";
+    private static final String WMAP = "com/scalarwide/mc/WideChunkPosFlatMap";
+    private static final String WMAP_D = "Lcom/scalarwide/mc/WideChunkPosFlatMap;";
     private static final String LONG_SET = "it/unimi/dsi/fastutil/longs/LongSet";
-    private static final String WK = "com/scalarwide/mc/WideChunkKey";
+    private static final String WK = "com/scalarwide/mc/WideChunkPos";
     private static final String CHUNK_LEVEL = "net/minecraft/server/level/ChunkLevel";
     private static final String ORIG_DESC = "(JI" + HOLDER_D + "I)" + HOLDER_D;
 
@@ -132,7 +132,7 @@ public final class ChunkMapSchedulingWidePatch implements ClassPatch {
      * looks them up by a 64-bit key - for a far centre every neighbour key is
      * lost and the future resolves to {@code UNLOADED_CHUNK_LIST_FUTURE}
      * ("Unloaded chunks found in range"). Rewrite the span to a wide neighbour key
-     * ({@code WideChunkKey.neighbor(centerPos.packWide(), x, z)}) plus
+     * ({@code WideChunkPos.neighbor(centerPos.widePos(), x, z)}) plus
      * {@code farlands$cmGetW(this.updatingChunkMap, key)}.
      */
     private static void rewriteRangeLookups(ClassNode node, String updatingMap) {
@@ -192,7 +192,7 @@ public final class ChunkMapSchedulingWidePatch implements ClassPatch {
         int centerSlot = ((VarInsnNode) start).var;
         InsnList wide = new InsnList();
         wide.add(new VarInsnNode(Opcodes.ALOAD, centerSlot));
-        wide.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNK_POS, "packWide", "()" + W512_D, false));
+        wide.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNK_POS, "widePos", "()" + W512_D, false));
         wide.add(new VarInsnNode(Opcodes.ILOAD, xSlot));
         wide.add(new VarInsnNode(Opcodes.ILOAD, zSlot));
         wide.add(new MethodInsnNode(Opcodes.INVOKESTATIC, WK, "neighbor", "(" + W512_D + "II)" + W512_D, false));
@@ -278,7 +278,7 @@ public final class ChunkMapSchedulingWidePatch implements ClassPatch {
         il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, "java/lang/StringBuilder", "<init>",
             "(Ljava/lang/String;)V", false));
         il.add(new VarInsnNode(Opcodes.ALOAD, 1));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/mc/WideChunkKey", "x",
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/mc/WideChunkPos", "x",
             "(" + W512_D + ")J", false));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
             "(J)Ljava/lang/StringBuilder;", false));
@@ -286,7 +286,7 @@ public final class ChunkMapSchedulingWidePatch implements ClassPatch {
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
             "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false));
         il.add(new VarInsnNode(Opcodes.ALOAD, 1));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/mc/WideChunkKey", "z",
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/scalarwide/mc/WideChunkPos", "z",
             "(" + W512_D + ")J", false));
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append",
             "(J)Ljava/lang/StringBuilder;", false));

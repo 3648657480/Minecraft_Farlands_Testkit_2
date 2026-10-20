@@ -20,7 +20,7 @@ import org.objectweb.asm.tree.VarInsnNode;
  * of the distance graph; {@code DynamicGraphMinFixedPointWidePatch} carries the
  * algorithm).
  *
- * <p>Neighbour expansion goes through {@code WideChunkKey.neighbor} - the
+ * <p>Neighbour expansion goes through {@code WideChunkPos.neighbor} - the
  * field-wise unpack/offset/repack that avoids the sign-extension carry a plain
  * +-1 on the packed key would cause. The sentinel (vanilla
  * {@code ChunkPos.INVALID_CHUNK_POS}) becomes the wide key of its unpacked
@@ -36,9 +36,9 @@ public final class ChunkTrackerWidePatch implements ClassPatch {
 
     private static final String TARGET = "net/minecraft/server/level/ChunkTracker";
     private static final String CORE = "net/minecraft/world/level/lighting/DynamicGraphMinFixedPoint";
-    private static final String WK = "com/scalarwide/mc/WideChunkKey";
-    private static final String W512 = "com/scalarwide/Wide512";
-    private static final String W512_D = "Lcom/scalarwide/Wide512;";
+    private static final String WK = "com/scalarwide/mc/WideChunkPos";
+    private static final String W512 = "com/scalarwide/mc/WideChunkPos";
+    private static final String W512_D = "Lcom/scalarwide/mc/WideChunkPos;";
     private static final String CHUNK_POS = "net/minecraft/world/level/ChunkPos";
 
     @Override
@@ -78,7 +78,7 @@ public final class ChunkTrackerWidePatch implements ClassPatch {
         return new MethodNode(access, name, desc, null, null);
     }
 
-    /** Pushes {@code WideChunkKey.neighbor(node, dx, dz)} for local slots. */
+    /** Pushes {@code WideChunkPos.neighbor(node, dx, dz)} for local slots. */
     private static void neighbor(InsnList il, int nodeSlot, int dxSlot, int dzSlot) {
         il.add(new VarInsnNode(Opcodes.ALOAD, nodeSlot));
         il.add(new VarInsnNode(Opcodes.ILOAD, dxSlot));
@@ -90,7 +90,7 @@ public final class ChunkTrackerWidePatch implements ClassPatch {
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "farlands$trackerSentinelW", "()" + W512_D, false));
     }
 
-    /** {@code WideChunkKey.pack((int) x(node), (int) z(node))} on the stack. */
+    /** {@code WideChunkPos.pack((int) x(node), (int) z(node))} on the stack. */
     private static void packTruncated(InsnList il, int nodeSlot) {
         il.add(new VarInsnNode(Opcodes.ALOAD, nodeSlot));
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, WK, "x", "(" + W512_D + ")J", false));

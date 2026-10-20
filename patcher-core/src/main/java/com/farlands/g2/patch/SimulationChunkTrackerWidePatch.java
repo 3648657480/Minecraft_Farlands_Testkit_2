@@ -19,7 +19,7 @@ import org.objectweb.asm.tree.VarInsnNode;
 /**
  * W4-2 slice 3-C: wide hooks for {@code SimulationChunkTracker}.
  *
- * <p>Wide level storage ({@code Wide512ByteMap}, default 33) plus a wide source
+ * <p>Wide level storage ({@code WideChunkPosByteMap}, default 33) plus a wide source
  * lookup through {@code TicketStorage.farlands$getTicketLevelAtW}; reads fall
  * back to the vanilla long map (exact in the int domain) when the wide map has
  * no entry, mirroring the TicketStorage design. The constructor tail registers
@@ -29,11 +29,11 @@ public final class SimulationChunkTrackerWidePatch implements ClassPatch {
 
     private static final String TARGET = "net/minecraft/server/level/SimulationChunkTracker";
     private static final String CORE = "net/minecraft/world/level/lighting/DynamicGraphMinFixedPoint";
-    private static final String W512 = "com/scalarwide/Wide512";
-    private static final String W512_D = "Lcom/scalarwide/Wide512;";
-    private static final String MAP = "com/scalarwide/mc/Wide512ByteMap";
-    private static final String MAP_D = "Lcom/scalarwide/mc/Wide512ByteMap;";
-    private static final String WK = "com/scalarwide/mc/WideChunkKey";
+    private static final String W512 = "com/scalarwide/mc/WideChunkPos";
+    private static final String W512_D = "Lcom/scalarwide/mc/WideChunkPos;";
+    private static final String MAP = "com/scalarwide/mc/WideChunkPosByteMap";
+    private static final String MAP_D = "Lcom/scalarwide/mc/WideChunkPosByteMap;";
+    private static final String WK = "com/scalarwide/mc/WideChunkPos";
     private static final String CHUNK_POS = "net/minecraft/world/level/ChunkPos";
     private static final String TICKET_STORAGE = "net/minecraft/world/level/TicketStorage";
     private static final String TICKET_STORAGE_D = "Lnet/minecraft/world/level/TicketStorage;";

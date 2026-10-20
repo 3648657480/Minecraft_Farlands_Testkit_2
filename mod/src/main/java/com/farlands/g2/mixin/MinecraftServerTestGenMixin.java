@@ -211,7 +211,7 @@ public abstract class MinecraftServerTestGenMixin {
                                     continue;
                                 }
                                 if (cm.farlands$getUpdatingChunkW(
-                                    new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).packWide()) != null) {
+                                    new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).widePos()) != null) {
                                     anyPresent = true;
                                 } else {
                                     anyMissing = true;
@@ -234,7 +234,7 @@ public abstract class MinecraftServerTestGenMixin {
                                 }
                                 total++;
                                 if (cm.farlands$getUpdatingChunkW(
-                                    new net.minecraft.world.level.ChunkPos(cxL + dxs, czL + dzs).packWide()) != null) {
+                                    new net.minecraft.world.level.ChunkPos(cxL + dxs, czL + dzs).widePos()) != null) {
                                     present++;
                                 }
                             }
@@ -242,7 +242,7 @@ public abstract class MinecraftServerTestGenMixin {
                         ringScan.append("r").append(rs).append("=").append(present).append("/").append(total).append(' ');
                     }
                     net.minecraft.server.level.ChunkHolder scanCell = cm.farlands$getUpdatingChunkW(
-                        new net.minecraft.world.level.ChunkPos(cxL + 16, czL - 13).packWide());
+                        new net.minecraft.world.level.ChunkPos(cxL + 16, czL - 13).widePos());
                     System.out.println("[FarLands-Test] scan " + ringScan
                         + "cell(16,-13)=" + (scanCell == null ? "none" : scanCell.getTicketLevel())
                         + " MAX_LEVEL=" + net.minecraft.server.level.ChunkLevel.MAX_LEVEL);
@@ -254,7 +254,7 @@ public abstract class MinecraftServerTestGenMixin {
                                 continue;
                             }
                             if (cm.farlands$getUpdatingChunkW(
-                                new net.minecraft.world.level.ChunkPos(cxL + dx3, czL + dz3).packWide()) == null) {
+                                new net.minecraft.world.level.ChunkPos(cxL + dx3, czL + dz3).widePos()) == null) {
                                 edgeMiss.append(dx3).append(',').append(dz3).append(' ');
                             }
                         }
@@ -265,7 +265,7 @@ public abstract class MinecraftServerTestGenMixin {
                     for (int spin = 0; spin < 200; spin++) {
                         cm.getDistanceManager().runAllUpdates(cm);
                         cm.runGenerationTasks();
-                        wideHolder = cm.farlands$getUpdatingChunkW(widePos.packWide());
+                        wideHolder = cm.farlands$getUpdatingChunkW(widePos.widePos());
                         if (wideHolder != null) {
                             break;
                         }
@@ -280,7 +280,7 @@ public abstract class MinecraftServerTestGenMixin {
                                 continue;
                             }
                             net.minecraft.server.level.ChunkHolder nh = cm.farlands$getUpdatingChunkW(
-                                new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).packWide());
+                                new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).widePos());
                             nb.append(dx).append(',').append(dz).append('=')
                                 .append(nh == null ? "null" : String.valueOf(nh.getTicketLevel())).append(' ');
                         }
@@ -290,7 +290,7 @@ public abstract class MinecraftServerTestGenMixin {
                     for (int dx = -3; dx <= 3; dx++) {
                         for (int dz = -3; dz <= 3; dz++) {
                             if (cm.farlands$getUpdatingChunkW(
-                                new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).packWide()) == null) {
+                                new net.minecraft.world.level.ChunkPos(cxL + dx, czL + dz).widePos()) == null) {
                                 miss.append(dx).append(',').append(dz).append(' ');
                             }
                         }
