@@ -3,11 +3,11 @@
     "minVersion": "0.8",
     "package": "com.farlands.g2.mixin",
     "compatibilityLevel": "JAVA_21",
-    "mixins": [
-        "ClientLevelMixin"
-    ],
     "client": [
         "RenderSectionRegionMixin",
+        "ClientChunkCacheDiagMixin",
+        "ClientChunkCacheSeamLookupMixin",
+        "ClientAutoTestMixin",
         "FrustumMixin",
         "ViewAreaMixin",
         "OctreeMixin",

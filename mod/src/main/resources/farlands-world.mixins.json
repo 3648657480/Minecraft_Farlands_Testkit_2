@@ -5,8 +5,8 @@
     "compatibilityLevel": "JAVA_21",
     "mixins": [
         "LevelMixin",
-        "LevelSetBlockMixin",
-        "ServerLevelSendMixin",
+        "LevelGetChunkAtWideMixin",
+        "LevelGetBlockStateWideMixin",
         "ServerTickMixin",
         "SpawnEntityWaitFailSafeMixin",
         "PersistentEntitySectionManagerAccessor",

@@ -52,7 +52,10 @@ loom {
                     property k, value.toString()
                 }
             }
-            if (System.getProperty('farlands.testgen') != null) {
+            if (System.getProperty('farlands.autotest') != null) {
+                programArg '--quickPlaySingleplayer'
+                programArg 'test7'
+            } else if (System.getProperty('farlands.testgen') != null) {
                 programArg '--quickPlaySingleplayer'
                 programArg 'Test World'
             }
