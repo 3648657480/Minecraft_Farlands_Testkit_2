@@ -92,7 +92,13 @@ public class ClientAutoTestMixin {
             }
             case 4 -> {
                 if (farlands$ticks > 30) {
-                    mc.gameMode.destroyBlock(farlands$target);
+                    net.minecraft.core.BlockPos side = farlands$target.offset(0, 0, 1);
+                    boolean direct = mc.level.setBlock(side, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+                    System.out.println("[AUTOTEST] directSetBlock=" + direct + " side=" + side + " state=" + mc.level.getBlockState(side));
+                    System.out.println("[AUTOTEST] creative=" + mc.player.isCreative() + " mayBuild=" + mc.player.mayBuild()
+                        + " border=" + mc.level.getWorldBorder().isWithinBounds(farlands$target));
+                    boolean ok = mc.gameMode.destroyBlock(farlands$target);
+                    System.out.println("[AUTOTEST] destroyBlock=" + ok);
                     farlands$phase = 2;
                     farlands$ticks = 0;
                 }

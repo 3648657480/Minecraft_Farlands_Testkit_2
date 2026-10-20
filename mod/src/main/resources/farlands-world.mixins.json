@@ -10,6 +10,8 @@
         "ServerTickMixin",
         "ServerBreakDiagMixin",
         "WorldBorderDisabledMixin",
+        "LevelValidBoundsWideMixin",
+        "PathNavigationFarGuardMixin",
         "SpawnEntityWaitFailSafeMixin",
         "PersistentEntitySectionManagerAccessor",
         "PlayerJoinConfigNoticeMixin",
