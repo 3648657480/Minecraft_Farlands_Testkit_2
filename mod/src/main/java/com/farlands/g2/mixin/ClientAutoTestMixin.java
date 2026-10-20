@@ -23,6 +23,7 @@ public class ClientAutoTestMixin {
     private static int farlands$phase;
     private static BlockPos farlands$target;
     private static boolean farlands$logged;
+    private static boolean farlands$shot;
 
     @Inject(method = "runTick", at = @At("HEAD"))
     private void farlands$tick(boolean advanceGameTime, CallbackInfo ci) {
@@ -53,10 +54,12 @@ public class ClientAutoTestMixin {
                 }
             }
             case 1 -> {
-                if (farlands$ticks > 3000) {
-                    if (farlands$ticks == 3001) {
+                boolean ready = farlands$chunkReady(mc);
+                if (farlands$ticks > 1200 && (ready || farlands$ticks > 6000)) {
+                    if (!farlands$shot) {
+                        farlands$shot = true;
                         Screenshot.grab(mc, false);
-                        System.out.println("[AUTOTEST] screenshot autotest-seam.png");
+                        System.out.println("[AUTOTEST] screenshot autotest-seam.png ready=" + ready);
                     }
                     if (mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult bhr) {
                         farlands$target = bhr.getBlockPos();
@@ -66,15 +69,31 @@ public class ClientAutoTestMixin {
                             mc.player.getX() + 1.0, mc.player.getY() - 2.0, mc.player.getZ());
                     }
                     BlockState before = mc.level.getBlockState(farlands$target);
+                    int guard = 0;
+                    while ((before.isAir() || !before.getFluidState().isEmpty()) && guard++ < 40) {
+                        farlands$target = farlands$target.below();
+                        before = mc.level.getBlockState(farlands$target);
+                    }
                     System.out.println("[AUTOTEST] player=" + mc.player.position()
                         + " target=" + farlands$target + " before=" + before);
                     if (before.isAir()) {
                         System.out.println("[AUTOTEST] BREAK_SKIP_AIR");
                         farlands$phase = 3;
                     } else {
-                        mc.gameMode.destroyBlock(farlands$target);
-                        farlands$phase = 2;
+                        mc.player.connection.sendCommand("tp @s "
+                            + (farlands$target.getLongX() + 0.5) + " "
+                            + (farlands$target.getLongY() + 2) + " "
+                            + (farlands$target.getLongZ() + 0.5));
+                        System.out.println("[AUTOTEST] moved next to target");
+                        farlands$phase = 4;
                     }
+                    farlands$ticks = 0;
+                }
+            }
+            case 4 -> {
+                if (farlands$ticks > 30) {
+                    mc.gameMode.destroyBlock(farlands$target);
+                    farlands$phase = 2;
                     farlands$ticks = 0;
                 }
             }
@@ -89,5 +108,16 @@ public class ClientAutoTestMixin {
             default -> {
             }
         }
+    }
+
+    private static boolean farlands$chunkReady(Minecraft mc) {
+        if (mc.level == null) {
+            return false;
+        }
+        var src = mc.level.getChunkSource();
+        return src.getChunk(134217727, 0,
+                net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false) != null
+            && src.getChunk(134217728, 0,
+                net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false) != null;
     }
 }
