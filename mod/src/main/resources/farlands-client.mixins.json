@@ -17,6 +17,7 @@
         "RenderSectionWideOriginMixin",
         "GlobalSettingsUniformGrabMixin",
         "LevelRendererCamWrapMixin",
+        "LevelExtractorFrustumResetMixin",
         "ParticlePosMixin",
         "MinecraftServerRelocateMixin",
         "MinecraftClientRelocateMixin",
