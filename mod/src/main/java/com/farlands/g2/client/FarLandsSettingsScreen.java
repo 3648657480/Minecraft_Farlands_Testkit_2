@@ -31,14 +31,6 @@ public class FarLandsSettingsScreen extends Screen {
     };
 
     private static final java.util.List<FarLandsOption> OPTIONS = java.util.List.of(
-        new FarLandsOption("epoch_x", "epoch X（创建前）", "Epoch X (pre-creation)",
-            "真实坐标原点 X（精确整数，创建前设定，容忍到 1e1000）",
-            "Real origin X (exact integer, set before creation)",
-            FarLandsOption.Type.TEXT, FarLandsOption.Scope.WORLD, "0"),
-        new FarLandsOption("epoch_z", "epoch Z（创建前）", "Epoch Z (pre-creation)",
-            "真实坐标原点 Z（精确整数，创建前设定）",
-            "Real origin Z (exact integer, set before creation)",
-            FarLandsOption.Type.TEXT, FarLandsOption.Scope.WORLD, "0"),
         new FarLandsOption("auto_relocate", "自动重定位", "Auto relocate",
             "接近窗口边缘时自动重定位（无缝继续）",
             "Auto-relocate near the window edge",

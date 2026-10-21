@@ -90,8 +90,8 @@ public final class FarLandsPatcher {
         if (continuity && !wide) {
             throw new IllegalArgumentException("farlands.continuity 依赖 farlands.wide（B 线容器宽化）");
         }
-        if (epoch && !wide) {
-            throw new IllegalArgumentException("farlands.epoch 依赖 farlands.wide（B 线容器宽化）");
+        if (epoch) {
+            throw new IllegalArgumentException("epoch 已送终：请移除 -Dfarlands.epoch=true");
         }
         p.register(continuity ? FunctionContextRealPatch.global() : FunctionContextRealPatch.noiseOnly());
         p.register(new Vec3iPatch());
