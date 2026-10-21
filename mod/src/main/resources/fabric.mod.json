@@ -1,4 +1,4 @@
-{
+﻿{
     "schemaVersion": 1,
     "id": "farlands-g2",
     "version": "${version}",
@@ -16,7 +16,6 @@
     },
     "mixins": [
         "farlands-core.mixins.json",
-        "farlands-epoch.mixins.json",
         "farlands-world.mixins.json",
         "farlands-entity.mixins.json",
         "farlands-stability.mixins.json",
