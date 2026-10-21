@@ -12,6 +12,7 @@
         "ChunkAccessBiomeTraceMixin",
         "SurfaceBiomeWindowMixin",
         "BiomeDecorationWindowMixin",
+        "RegionFileShaMixin",
         "WorldBorderDisabledMixin",
         "LevelValidBoundsWideMixin",
         "PathNavigationFarGuardMixin",
