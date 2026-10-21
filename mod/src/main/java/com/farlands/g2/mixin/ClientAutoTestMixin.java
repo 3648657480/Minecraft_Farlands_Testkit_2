@@ -47,13 +47,17 @@ public class ClientAutoTestMixin {
             case 0 -> {
                 if (farlands$ticks > 100) {
                     mc.player.connection.sendCommand("gamemode creative");
-                    mc.player.connection.sendCommand("tp @s 2147483647.0 70 0.5");
+                    mc.player.connection.sendCommand("tp @s 2147483648.0 70 0.5");
                     farlands$phase = 1;
                     farlands$ticks = 0;
-                    System.out.println("[AUTOTEST] teleport sent pos=" + mc.player.position());
+                    System.out.println("[AUTOTEST] teleport sent pos=" + mc.player.position()
+                        + " level=" + mc.level.dimension().identifier());
                 }
             }
             case 1 -> {
+                if (farlands$ticks % 200 == 0) {
+                    System.out.println("[AUTOTEST] wait ticks=" + farlands$ticks + " pos=" + mc.player.position());
+                }
                 boolean ready = farlands$chunkReady(mc);
                 if (farlands$ticks > 1200 && (ready || farlands$ticks > 6000)) {
                     if (!farlands$shot) {
