@@ -14,6 +14,7 @@
         "LevelTicksProbeMixin",
         "ChunkGenerationTaskNullMixin",
         "GenerationBumpDiagMixin",
+        "FarChunkDiagMixin",
         "ChunkMapReleaseNullMixin",
         "SurfaceBiomeWindowMixin",
         "BiomeDecorationWindowMixin",
