@@ -84,10 +84,12 @@ public class ClientAutoTestMixin {
                         System.out.println("[AUTOTEST] BREAK_SKIP_AIR");
                         farlands$phase = 3;
                     } else {
-                        mc.player.connection.sendCommand("tp @s "
+                        String cmd = "tp @s "
                             + (farlands$target.getLongX() + 0.5) + " "
                             + (farlands$target.getLongY() + 2) + " "
-                            + (farlands$target.getLongZ() + 0.5));
+                            + (farlands$target.getLongZ() + 0.5) + " 0 70";
+                        System.out.println("[AUTOTEST] " + cmd);
+                        mc.player.connection.sendCommand(cmd);
                         System.out.println("[AUTOTEST] moved next to target");
                         farlands$phase = 4;
                     }
@@ -95,6 +97,10 @@ public class ClientAutoTestMixin {
                 }
             }
             case 4 -> {
+                if (farlands$ticks == 25) {
+                    // Capture the selection outline before the block disappears.
+                    Screenshot.grab(mc, false);
+                }
                 if (farlands$ticks > 30) {
                     net.minecraft.core.BlockPos side = farlands$target.offset(0, 0, 1);
                     boolean direct = mc.level.setBlock(side, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
@@ -112,6 +118,20 @@ public class ClientAutoTestMixin {
                     BlockState after = mc.level.getBlockState(farlands$target);
                     System.out.println("[AUTOTEST] after=" + after
                         + (after.isAir() ? " BREAK_OK" : " BREAK_FAIL"));
+                    farlands$phase = 5;
+                    farlands$ticks = 0;
+                }
+            }
+            case 5 -> {
+                // Vantage shot for the seam: stand east of block 2^31, look west
+                // across it from above, let the world settle, then capture.
+                if (farlands$ticks == 40) {
+                    mc.player.connection.sendCommand("tp @s 2147483730 100 0.5 90 25");
+                    System.out.println("[AUTOTEST] vantage tp sent");
+                }
+                if (farlands$ticks > 460) {
+                    Screenshot.grab(mc, false);
+                    System.out.println("[AUTOTEST] vantage screenshot pos=" + mc.player.position());
                     farlands$phase = 3;
                 }
             }

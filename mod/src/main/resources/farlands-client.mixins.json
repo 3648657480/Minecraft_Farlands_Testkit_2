@@ -19,6 +19,8 @@
         "LevelRendererCamWrapMixin",
         "LevelExtractorFrustumResetMixin",
         "LevelExtractorDirtyMixin",
+        "RenderDiagMixin",
+        "BlockOutlineWideMixin",
         "SectionRenderSortingWideMixin",
         "EntityShadowFarSkipMixin",
         "ParticlePosMixin",
