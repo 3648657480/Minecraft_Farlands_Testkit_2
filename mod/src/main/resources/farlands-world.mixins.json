@@ -14,6 +14,8 @@
         "BiomeDecorationWindowMixin",
         "RegionFileShaMixin",
         "SerializableChunkDataPositionMixin",
+        "ConstantLightValueMixin",
+        "ConstantRawBrightnessMixin",
         "WorldBorderDisabledMixin",
         "LevelValidBoundsWideMixin",
         "PathNavigationFarGuardMixin",
