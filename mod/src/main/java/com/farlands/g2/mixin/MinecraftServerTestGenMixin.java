@@ -339,6 +339,11 @@ public abstract class MinecraftServerTestGenMixin {
                     .append(" b(8,100,8)=").append(chunk.getBlockState(
                         new net.minecraft.core.BlockPos(cxL * 16 + 8, 100, czL * 16 + 8)));
                 System.out.println(sb);
+                net.minecraft.core.SectionPos sp = net.minecraft.core.SectionPos.of(chunk.getPos(), 0);
+                long sx = sp.wideSection().x().limb(0);
+                long sz = sp.wideSection().z().limb(0);
+                System.out.println("[FarLands-Test] section2560 x=" + sx + " z=" + sz
+                    + " expect=" + cxL + "," + czL + " ok=" + (sx == cxL && sz == czL));
                 System.out.flush();
             }
             if (FarConfig.testgenStop()) {

@@ -37,6 +37,8 @@ public final class SectionPosPatch implements ClassPatch {
     private static final String TARGET = "net/minecraft/core/SectionPos";
     private static final String BLOCKPOS = "net/minecraft/core/BlockPos";
     private static final String VEC3I = "net/minecraft/core/Vec3i";
+    private static final String CHUNKPOS = "net/minecraft/world/level/ChunkPos";
+    private static final String WIDE_KEY = "com/scalarwide/mc/WideSectionKey2560";
     private static final long X_MASK = 0x1FFFFFFFL; // 29 bits
     private static final long Y_MASK = 0x3FL;       // 6 bits
     private static final int X_SHIFT = 35;
@@ -107,6 +109,10 @@ public final class SectionPosPatch implements ClassPatch {
         rewrite(node, "asLong", "(Lnet/minecraft/core/BlockPos;)J", asLongBlockPos());
         rewrite(node, "of", "(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/core/SectionPos;",
             ofBlockPos());
+        // of(ChunkPos, sectionY): chunkPos.x()/z() are int views; build the
+        // 2560-bit key from xLong()/zLong() so section 2^49 keeps its identity.
+        rewrite(node, "of", "(Lnet/minecraft/world/level/ChunkPos;I)Lnet/minecraft/core/SectionPos;",
+            ofChunkPos());
 
         // blockToSectionCoord(double) and posToSectionCoord(double):
         // vanilla uses Mth.floor(d) which casts to int via (int)Math.floor(d).
@@ -186,6 +192,23 @@ public final class SectionPosPatch implements ClassPatch {
             il.add(new InsnNode(Opcodes.L2I));
         }
         il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TARGET, "<init>", "(III)V", false));
+        il.add(new InsnNode(Opcodes.ARETURN));
+        return il;
+    }
+
+    /** {@code SectionPos.of(WideSectionKey2560.of(chunkPos.xLong(), y, chunkPos.zLong()))}. */
+    private static InsnList ofChunkPos() {
+        InsnList il = new InsnList();
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNKPOS, "xLong", "()J", false));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 1));
+        il.add(new InsnNode(Opcodes.I2L));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, CHUNKPOS, "zLong", "()J", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, WIDE_KEY, "of",
+            "(JJJ)Lcom/scalarwide/mc/WideSectionKey2560;", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, TARGET, "of",
+            "(Lcom/scalarwide/mc/WideSectionKey2560;)Lnet/minecraft/core/SectionPos;", false));
         il.add(new InsnNode(Opcodes.ARETURN));
         return il;
     }
