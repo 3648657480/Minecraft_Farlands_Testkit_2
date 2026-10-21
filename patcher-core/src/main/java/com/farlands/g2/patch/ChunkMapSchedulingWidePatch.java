@@ -428,6 +428,10 @@ public final class ChunkMapSchedulingWidePatch implements ClassPatch {
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new InsnNode(Opcodes.ICONST_1));
         il.add(new FieldInsnNode(Opcodes.PUTFIELD, TARGET, "modified", modified));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 3));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g2/runtime/WideKeyCheck", "check",
+            "(Lnet/minecraft/server/level/ChunkHolder;Lcom/scalarwide/mc/WideChunkPos;)V", false));
         il.add(ret);
         il.add(new VarInsnNode(Opcodes.ALOAD, 3));
         il.add(new InsnNode(Opcodes.ARETURN));

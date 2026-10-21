@@ -12,6 +12,7 @@
         "ChunkAccessBiomeTraceMixin",
         "SavedTickChunkAnchorMixin",
         "LevelTicksProbeMixin",
+        "ChunkGenerationTaskNullMixin",
         "ChunkMapReleaseNullMixin",
         "SurfaceBiomeWindowMixin",
         "BiomeDecorationWindowMixin",
