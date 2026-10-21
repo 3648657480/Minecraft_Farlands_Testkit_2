@@ -8,6 +8,7 @@
         "LevelGetChunkAtWideMixin",
         "LevelGetBlockStateWideMixin",
         "ServerTickMixin",
+        "GenerationTaskTraceMixin",
         "WorldBorderDisabledMixin",
         "LevelValidBoundsWideMixin",
         "PathNavigationFarGuardMixin",
