@@ -11,6 +11,7 @@
         "GenerationTaskTraceMixin",
         "ChunkAccessBiomeTraceMixin",
         "SurfaceBiomeWindowMixin",
+        "BiomeDecorationWindowMixin",
         "WorldBorderDisabledMixin",
         "LevelValidBoundsWideMixin",
         "PathNavigationFarGuardMixin",
