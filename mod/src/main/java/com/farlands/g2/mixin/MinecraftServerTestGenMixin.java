@@ -126,16 +126,14 @@ public abstract class MinecraftServerTestGenMixin {
             double px = Double.parseDouble(parts[0].trim());
             int py = Integer.parseInt(parts[1].trim());
             double pz = Double.parseDouble(parts[2].trim());
-            com.farlands.g2.util.FarProjection.setEpoch(px, pz);
-            int localX = (int) (px - com.farlands.g2.util.FarProjection.epochBlockX());
-            int localZ = (int) (pz - com.farlands.g2.util.FarProjection.epochBlockZ());
+            long localX = (long) Math.floor(px);
+            long localZ = (long) Math.floor(pz);
             level.setRespawnData(new net.minecraft.world.level.storage.LevelData.RespawnData(
                 net.minecraft.core.GlobalPos.of(
                     net.minecraft.world.level.Level.OVERWORLD,
                     new net.minecraft.core.BlockPos(localX, py, localZ)), 0.0f, 0.0f));
             System.out.println("[FarLands-Test] spawn set: real=(" + px + "," + py + "," + pz
-                + ") epoch=(" + com.farlands.g2.util.FarProjection.epochBlockX() + ","
-                + com.farlands.g2.util.FarProjection.epochBlockZ() + ") local=(" + localX + "," + localZ + ")");
+                + ") wide=(" + localX + "," + localZ + ")");
         } catch (Throwable t) {
             System.out.println("[FarLands-Test] spawn set FAILED: " + t);
         }
