@@ -9,6 +9,8 @@
         "LevelGetBlockStateWideMixin",
         "ServerTickMixin",
         "GenerationTaskTraceMixin",
+        "SurfaceBiomeTraceMixin",
+        "ChunkAccessBiomeTraceMixin",
         "WorldBorderDisabledMixin",
         "LevelValidBoundsWideMixin",
         "PathNavigationFarGuardMixin",
