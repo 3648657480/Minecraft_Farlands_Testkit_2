@@ -143,7 +143,7 @@ public final class FarProjection {
      * vanilla.
      */
     public static boolean isEpochActive() {
-        return epochInitialized;
+        return false;
     }
 
     /**

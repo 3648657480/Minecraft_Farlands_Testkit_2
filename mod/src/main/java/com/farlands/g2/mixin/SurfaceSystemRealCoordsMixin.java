@@ -37,12 +37,7 @@ public abstract class SurfaceSystemRealCoordsMixin {
 
     @Unique
     private double farlands$real(NormalNoise noise, double x, double y, double z) {
-        if (!FarProjection.isFarEngine()) {
-            return noise.getValue(x, y, z);
-        }
-        double scale = farlands$scale(noise);
-        return noise.getValue(x + FarProjection.epochBlockX() * scale, y,
-            z + FarProjection.epochBlockZ() * scale);
+        return noise.getValue(x, y, z);
     }
 
     @Unique
