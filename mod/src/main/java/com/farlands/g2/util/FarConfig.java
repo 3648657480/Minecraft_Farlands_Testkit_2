@@ -607,41 +607,6 @@ public final class FarConfig {
         }
     }
 
-    public static void setEpoch(double x, double z) {
-        epochBigX = java.math.BigDecimal.valueOf(x).toBigInteger();
-        epochBigZ = java.math.BigDecimal.valueOf(z).toBigInteger();
-        save();
-    }
-
-    /** Exact epoch setter (BigInteger). */
-    public static void setEpoch(java.math.BigInteger x, java.math.BigInteger z) {
-        epochBigX = x;
-        epochBigZ = z;
-        save();
-    }
-
-    /** Exact epoch (BigInteger). */
-    public static java.math.BigInteger epochBigX() {
-        return epochBigX;
-    }
-
-    /** Exact epoch (BigInteger). */
-    public static java.math.BigInteger epochBigZ() {
-        return epochBigZ;
-    }
-
-    public static boolean hasEpoch() {
-        return epochBigX != null;
-    }
-
-    public static double epochX() {
-        return epochBigX != null ? epochBigX.doubleValue() : Double.NaN;
-    }
-
-    public static double epochZ() {
-        return epochBigZ != null ? epochBigZ.doubleValue() : Double.NaN;
-    }
-
     public static boolean autoRelocate() {
         return autoRelocate;
     }
