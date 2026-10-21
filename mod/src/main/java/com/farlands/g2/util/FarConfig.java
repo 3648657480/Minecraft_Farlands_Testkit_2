@@ -692,17 +692,21 @@ public final class FarConfig {
 
     /** testgen spec "cx,cz,n;cx,cz,n", or null when disabled. */
     public static String testgen() {
-        return testgen;
+        String spec = testgen;
+        if (spec == null || spec.isEmpty()) {
+            spec = System.getProperty("farlands.testgen");
+        }
+        return spec;
     }
 
     /** After testgen: settle, save and halt the game. */
     public static boolean testgenStop() {
-        return testgenStop;
+        return testgenStop || Boolean.getBoolean("farlands.testgen.stop");
     }
 
     /** Settle ticks before save/halt (default 200). */
     public static int testgenSettle() {
-        return testgenSettle;
+        return Integer.getInteger("farlands.testgen.settle", testgenSettle);
     }
 
     /** Run the headless spawn-search path. */

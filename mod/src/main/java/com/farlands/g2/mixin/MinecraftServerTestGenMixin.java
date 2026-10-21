@@ -155,6 +155,8 @@ public abstract class MinecraftServerTestGenMixin {
     @Unique
     private static void runTestGen(MinecraftServer self) {
         String spec = FarConfig.testgen();
+        System.out.println("[FarLands-Test] spec=" + spec + " cwd=" + System.getProperty("user.dir"));
+        System.out.flush();
         if (spec == null || spec.isEmpty()) return;
         ServerLevel level = farlands$testLevel(self);
         System.out.println("[FarLands-Test] dimension=" + level.dimension().identifier());
