@@ -11,7 +11,8 @@ param(
     [int]$BgThreads = 1,
     [string]$Extra = "",
     [string]$Dim = "",
-    [int]$TimeoutMin = 15
+    [int]$TimeoutMin = 15,
+    [switch]$KeepWorld
 )
 
 # F0 experiment rig: generates a fixed chunk set headlessly, saves the world,
@@ -29,7 +30,9 @@ if ($Rig -eq "vanilla") {
 }
 $log = "C:\Users\EASON\AppData\Local\Temp\opencode\exp-$Tag.log"
 Remove-Item $log -ErrorAction SilentlyContinue
-Remove-Item "$runDir\world" -Recurse -Force -ErrorAction SilentlyContinue
+if (-not $KeepWorld) {
+    Remove-Item "$runDir\world" -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 $bgArg = ""
 if ($BgThreads -gt 0) { $bgArg = " -Dmax.bg.threads=$BgThreads" }
@@ -61,10 +64,14 @@ Get-Process -Name java -ErrorAction SilentlyContinue | Where-Object { $_.StartTi
 "DONE: $done"
 if ($crash) { "CRASH: $crash" }
 if (Test-Path "$runDir\world") {
-    New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
-    if (Test-Path "$OutDir\world") { Remove-Item "$OutDir\world" -Recurse -Force }
-    Move-Item "$runDir\world" "$OutDir\world"
-    "WORLD: $OutDir\world"
+    if ($KeepWorld) {
+        "WORLD kept: $runDir\world"
+    } else {
+        New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+        if (Test-Path "$OutDir\world") { Remove-Item "$OutDir\world" -Recurse -Force }
+        Move-Item "$runDir\world" "$OutDir\world"
+        "WORLD: $OutDir\world"
+    }
 } else {
     "NO WORLD PRODUCED"
 }
