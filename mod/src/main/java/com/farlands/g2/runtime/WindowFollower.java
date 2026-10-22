@@ -27,6 +27,7 @@ public final class WindowFollower {
 
     private static final Map<ChunkPos, Integer> NEXT_ATTEMPT = new ConcurrentHashMap<>();
     private static final Set<ChunkPos> IN_FLIGHT = ConcurrentHashMap.newKeySet();
+    private static boolean overridesLoaded;
 
     private WindowFollower() {
     }
@@ -34,6 +35,11 @@ public final class WindowFollower {
     public static void tick(MinecraftServer server) {
         if (!Boolean.getBoolean("farlands.y.follow")) {
             return;
+        }
+        if (!overridesLoaded) {
+            overridesLoaded = true;
+            YBandOverrides.load(server.getWorldPath(
+                net.minecraft.world.level.storage.LevelResource.ROOT).resolve("farlands_bands.txt"));
         }
         int tick = server.getTickCount();
         for (ServerLevel level : server.getAllLevels()) {
@@ -77,6 +83,8 @@ public final class WindowFollower {
         System.out.flush();
         WindowRegenerator.regenerate(chunk, targetSectionY, ok -> {
             IN_FLIGHT.remove(pos);
+            YBandOverrides.save(chunk.getLevel().getServer().getWorldPath(
+                net.minecraft.world.level.storage.LevelResource.ROOT).resolve("farlands_bands.txt"));
             System.out.println("[YFOLLOW] done ok=" + ok + " pos=" + pos
                 + " band=" + windowed.farlands$windowMinSectionY()
                 + ".." + windowed.farlands$windowMaxSectionY()

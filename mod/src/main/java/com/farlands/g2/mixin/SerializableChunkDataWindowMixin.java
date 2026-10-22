@@ -28,9 +28,25 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(SerializableChunkData.class)
 public class SerializableChunkDataWindowMixin {
 
+    @Inject(method = "read", at = @At("HEAD"))
+    private void farlands$publishSavedBand(ServerLevel level, PoiManager poiManager,
+        RegionStorageInfo regionInfo, ChunkPos pos, CallbackInfoReturnable<ProtoChunk> cir) {
+        if (!Boolean.getBoolean("farlands.y.window")) {
+            return;
+        }
+        com.farlands.g2.runtime.SavedBandContext.set(
+            ((SerializableChunkDataAccessor) (Object) this).farlands$minSectionY());
+        if (Boolean.getBoolean("farlands.y.diag")) {
+            System.out.println("[SBCTX] read pos=" + pos + " savedMin="
+                + ((SerializableChunkDataAccessor) (Object) this).farlands$minSectionY());
+            System.out.flush();
+        }
+    }
+
     @Inject(method = "read", at = @At("RETURN"))
     private void farlands$reprimeHeightmaps(ServerLevel level, PoiManager poiManager,
         RegionStorageInfo regionInfo, ChunkPos pos, CallbackInfoReturnable<ProtoChunk> cir) {
+        com.farlands.g2.runtime.SavedBandContext.clear();
         if (!Boolean.getBoolean("farlands.y.window")
             || !Boolean.getBoolean("farlands.y.reprime")) {
             return;

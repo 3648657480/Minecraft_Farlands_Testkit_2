@@ -1,6 +1,11 @@
 package com.farlands.g2.runtime;
 
 import com.scalarwide.mc.WideChunkPos;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -29,5 +34,50 @@ public final class YBandOverrides {
 
     public static void clear(WideChunkPos pos) {
         OVERRIDES.remove(pos);
+    }
+
+    /**
+     * Persist the overrides next to the world so a moved band survives restarts
+     * (without this, a chunk saved at a moved band loads at the default band and
+     * its sections fall outside the window, leaving a hole).
+     */
+    public static void save(Path file) {
+        StringBuilder sb = new StringBuilder();
+        OVERRIDES.forEach((pos, center) -> sb.append(pos.xLong()).append(' ')
+            .append(pos.zLong()).append(' ').append(center).append('\n'));
+        try {
+            Path parent = file.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.writeString(file, sb.toString(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            System.out.println("[YFOLLOW] band override save failed: " + e);
+        }
+    }
+
+    public static void load(Path file) {
+        if (!Files.isRegularFile(file)) {
+            return;
+        }
+        try {
+            List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+            for (String line : lines) {
+                String[] parts = line.trim().split(" ");
+                if (parts.length != 3) {
+                    continue;
+                }
+                try {
+                    OVERRIDES.put(WideChunkPos.of(Long.parseLong(parts[0]), Long.parseLong(parts[1])),
+                        Integer.parseInt(parts[2]));
+                } catch (NumberFormatException ignored) {
+                    // skip malformed line
+                }
+            }
+            System.out.println("[YFOLLOW] loaded " + OVERRIDES.size() + " band overrides");
+            System.out.flush();
+        } catch (IOException e) {
+            System.out.println("[YFOLLOW] band override load failed: " + e);
+        }
     }
 }

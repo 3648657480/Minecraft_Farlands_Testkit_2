@@ -12,6 +12,7 @@
         "NoiseSettingsWindowMixin",
         "PlayerSpawnFinderWindowMixin",
         "SerializableChunkDataWindowMixin",
+        "SerializableChunkDataAccessor",
         "ChunkStepCaptureMixin",
         "ServerTickFollowMixin",
         "LevelGetChunkAtWideMixin",

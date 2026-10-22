@@ -87,8 +87,18 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         }
         String override = System.getProperty("farlands.y.center");
         Integer perChunk = com.farlands.g2.runtime.YBandOverrides.get(chunkPos.widePos());
+        Integer savedMinSection = com.farlands.g2.runtime.SavedBandContext.get();
         if (perChunk != null) {
             center = perChunk;
+        } else if (savedMinSection != null) {
+            // Loaded from disk: keep the band the chunk was saved with, otherwise
+            // every saved section falls outside the window and the chunk is empty.
+            center = savedMinSection + (this.sections.length - 1) / 2;
+            if (Boolean.getBoolean("farlands.y.diag")) {
+                System.out.println("[SBCTX] ctor pos=" + pos + " use savedMin="
+                    + savedMinSection + " center=" + center);
+                System.out.flush();
+            }
         } else if (override != null && !override.isEmpty()) {
             center = Integer.parseInt(override);
         }
