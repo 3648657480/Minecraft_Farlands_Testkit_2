@@ -112,6 +112,14 @@ public final class WindowRegenerator {
                     }
                 }
                 transplant(chunk, proto, centerSectionY);
+                // Single-player: push the regenerated window to the client chunk.
+                try {
+                    com.farlands.g2.client.ClientBandBridge.push(chunk.getPos(), centerSectionY,
+                        ((WindowedChunk) chunk).farlands$windowMinSectionY(),
+                        java.util.Arrays.asList(chunk.getSections()));
+                } catch (Throwable ignored) {
+                    // dedicated server: client classes absent
+                }
                 done.accept(true);
             }));
     }

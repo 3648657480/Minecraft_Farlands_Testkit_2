@@ -26,7 +26,8 @@
         "MinecraftUnlockWarnMixin",
         "TitleScreenMixin",
         "ScreenAccessor",
-        "ViewAreaWindowMixin"
+        "ViewAreaWindowMixin",
+        "ClientBandFollowMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }

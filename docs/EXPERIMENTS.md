@@ -1664,6 +1664,24 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 证据：`exp-struct-scan.log`、`exp-struct-regen.log`、`exp-digest-normal.log`、
   `exp-digest-post.log`。
 
+## 68. P5-Y-F 动态跟随（实现，待用户验证）（2026-10-22）
+
+- 日期：2026-10-22
+- 目标：玩家 Y 变化 → 服务端换带重生成 → 客户端同步新带 → 客户端 ViewArea 跟随。
+- 实现（三段）：
+  1. 服务端：`WindowFollower`（§63）在 `-Dfarlands.y.follow=true` 时换带；
+  2. 单机桥：`ClientBandBridge` —— 服务端把重生成后的窗口段序列化，`Minecraft.execute` 到
+     客户端线程反序列化进客户端 chunk 的宽键 map，`moveWindowTo` 后标脏
+     （`ClientLevel.setSectionDirtyWithNeighbors`）。专用服务器上客户端类不存在，调用点 catch；
+  3. 客户端：`ViewAreaWindowMixin` 的带改为"相机所在 chunk 的窗口带"；`ClientBandFollowMixin`
+     每 tick 检查相机 chunk 的带，变化时重建 ViewArea（`invalidateCompiledGeometry`）。
+- 状态：**已实现、构建通过，未验证**（需用户手动跑）。
+- 已知限制：单机专用（跨进程/联机需要真正的协议段列表，Y-E）；带变化会整块重建 ViewArea
+  （一次性卡顿）。
+- 验证方法：`-Dfarlands.y.window=true -Dfarlands.y.follow=true -Dfarlands.diag.render=true`，
+  进世界后 `/tp` 到 Y≈16000 再回地表，观察 `[YFOLLOW]` 日志与渲染是否切换、是否崩溃。
+- 证据（待补）：客户端日志。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"

@@ -1,63 +1,89 @@
 package com.farlands.g2.mixin;
 
+import com.farlands.g2.runtime.WindowedChunk;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Options;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.color.block.BlockColors;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Y-F: make the client's section grid cover the chunk window instead of the
  * dimension band.
  *
- * <p>{@code ViewArea} is built from {@code ClientLevel.getMinY()/getMaxY()/
- * getMinSectionY()/getMaxSectionY()}. Once chunks are windowed at a band away
- * from the dimension band, those values no longer describe the chunks the client
- * holds, so the view area would contain no sections for them.</p>
- *
- * <p>Enabled by {@code -Dfarlands.y.window=true} together with a fixed
- * {@code -Dfarlands.y.center=<sectionY>} (the same band the chunks are created
- * at); dynamic follow is Y-D's job.</p>
+ * <p>The band is taken from the chunk under the camera (so it follows band
+ * changes, Y-D/Y-F dynamic); if the camera chunk is not loaded yet, the fixed
+ * {@code -Dfarlands.y.center} test band is used, and otherwise the dimension
+ * band is kept.</p>
  */
 @Mixin(LevelRenderer.class)
 public class ViewAreaWindowMixin {
 
     @Unique private static final int HALF = 11;
+    @Unique private static Camera farlands$camera;
+    @Unique private static ClientLevel farlands$level;
 
-    @Unique
-    private static boolean farlands$on() {
-        return Boolean.getBoolean("farlands.y.window")
-            && System.getProperty("farlands.y.center") != null
-            && !System.getProperty("farlands.y.center").isEmpty();
+    @Inject(method = "invalidateCompiledGeometry", at = @At("HEAD"))
+    private void farlands$capture(ClientLevel level, Options options, Camera camera,
+        BlockColors blockColors, CallbackInfo ci) {
+        farlands$camera = camera;
+        farlands$level = level;
     }
 
     @Unique
-    private static int farlands$minSection() {
-        return Integer.getInteger("farlands.y.center") - HALF;
+    private static int[] farlands$band() {
+        if (!Boolean.getBoolean("farlands.y.window")) {
+            return null;
+        }
+        if (farlands$level != null && farlands$camera != null) {
+            var pos = farlands$camera.blockPosition();
+            var chunk = farlands$level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4,
+                ChunkStatus.FULL, false);
+            if (chunk instanceof WindowedChunk windowed) {
+                return new int[] {windowed.farlands$windowMinSectionY(),
+                    windowed.farlands$windowMaxSectionY()};
+            }
+        }
+        String center = System.getProperty("farlands.y.center");
+        if (center != null && !center.isEmpty()) {
+            int min = Integer.parseInt(center) - HALF;
+            return new int[] {min, min + 23};
+        }
+        return null;
     }
 
     @Redirect(method = "invalidateCompiledGeometry",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/ClientLevel;getMinY()I"))
     private int farlands$minY(ClientLevel level) {
-        return farlands$on() ? farlands$minSection() * 16 : level.getMinY();
+        int[] band = farlands$band();
+        return band != null ? band[0] * 16 : level.getMinY();
     }
 
     @Redirect(method = "invalidateCompiledGeometry",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/ClientLevel;getMaxY()I"))
     private int farlands$maxY(ClientLevel level) {
-        return farlands$on() ? (farlands$minSection() + 23) * 16 + 15 : level.getMaxY();
+        int[] band = farlands$band();
+        return band != null ? band[1] * 16 + 15 : level.getMaxY();
     }
 
     @Redirect(method = "invalidateCompiledGeometry",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/ClientLevel;getMinSectionY()I"))
     private int farlands$minSectionY(ClientLevel level) {
-        return farlands$on() ? farlands$minSection() : level.getMinSectionY();
+        int[] band = farlands$band();
+        return band != null ? band[0] : level.getMinSectionY();
     }
 
     @Redirect(method = "invalidateCompiledGeometry",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/ClientLevel;getMaxSectionY()I"))
     private int farlands$maxSectionY(ClientLevel level) {
-        return farlands$on() ? farlands$minSection() + 23 : level.getMaxSectionY();
+        int[] band = farlands$band();
+        return band != null ? band[1] : level.getMaxSectionY();
     }
 }
