@@ -1734,6 +1734,22 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 验证（同带 sy=7）：`unsafe=0`、无 `stage failed`、`b49=gravel b60=water topY=62`。
 - 证据：`exp-unsafe-fix.log`。
 
+## 71. P5：客户端卡死（F3 诊断跨线程读服务端）根因与修复（2026-10-22）
+
+- 现象（用户手动）：换带测试中客户端卡死；抓 jcmd 线程转储（活体）。
+- 转储关键栈：
+  - `Render thread`：`F3Helper.extraLines` → `Level.getBlockState` → `ServerChunkCache.getChunk`
+    → `CompletableFuture.join`（停在等待服务端）；
+  - `Server thread`：`OreFeature.doPlace` → `BulkSectionAccess.getSection` →
+    `LevelChunkSection.acquire` → `ThreadingDetector.checkAndLock` → `Semaphore.acquire`
+    （停在等段锁）。
+- 根因：`F3Helper` 在**渲染线程**上对 `ServerLevel` 调 `getBlockState`。渲染线程先持有段锁，
+  随后 `getChunk().join()` 等服务端；服务端又在 `ThreadingDetector` 等这把段锁 → 互等死锁。
+  这是诊断代码的问题，不是换带逻辑本身。
+- 修复：删除 F3Helper 里的服务端方块读取（"Feet state" 探测），保留纯噪声计算。
+- 状态：构建通过，待用户复测。
+- 证据：`%TEMP%\hang-dump.txt`（jcmd Thread.print，PID 36032）。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"

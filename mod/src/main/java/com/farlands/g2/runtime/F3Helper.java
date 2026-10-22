@@ -90,10 +90,9 @@ public final class F3Helper {
                     router.temperature().compute(ctx), router.vegetation().compute(ctx), router.ridges().compute(ctx)));
                 out.add(String.format(Locale.ROOT, "Final density %.4f  Prelim surface %.4f",
                     router.finalDensity().compute(ctx), router.preliminarySurfaceLevel().compute(ctx)));
-                // probe: what the filler actually placed at the feet
-                net.minecraft.core.BlockPos feet = new net.minecraft.core.BlockPos(bx, by, bz);
-                out.add(String.format(Locale.ROOT, "Feet state: %s  above: %s",
-                    sl.getBlockState(feet).getBlock(), sl.getBlockState(feet.above()).getBlock()));
+                // No block reads here: this runs on the render thread, and touching the
+                // server level from it deadlocks with the server's chunk writes
+                // (render thread holds a section lock, then joins the server thread).
             } catch (Throwable t) {
                 out.add("Noise sampling unavailable: " + t.getClass().getSimpleName());
             }
