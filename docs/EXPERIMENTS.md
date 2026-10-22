@@ -1470,6 +1470,36 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   2 条 `Empty height range` 警告（feature 高度 provider，未归因）。
 - 证据：`exp-yb-hang.log`（线程转储 `%TEMP%\yb-hang-dump.txt`）、`exp-yb-high2.log`。
 
+## 57. P5-Y-C：运行期搬窗与数据保留（2026-10-22）
+
+- 日期：2026-10-22
+- 假设：`farlands$moveWindowTo(sectionY)` 在运行期可用；窗口外的读是空气；
+  搬回原窗口后，原来的段从宽键 map 重新挂回数组。
+- 参数：种子 12345；`-TestGen 0,0`；Settle=100；`-Dfarlands.y.window=true`
+  `-Dfarlands.testgen.windowmove=true`（默认带 −64…319，搬到 1000 再搬回）。
+- 预期：`before=water`，`atOld=air`，`atNew=air`，`back=water`，`minY` 回到 −64。
+- 实测：`[WMOVE] oldCenter=7 moveTo=1000 before=water atOld=air atNew=air back=water minY=-64`；
+  `gen OK` 指纹不变，`DONE saved`。
+- 结论：**在本实验条件下**，窗口可在运行期搬移，窗口外读为空气，搬回后原段恢复
+  （宽键 map 的保留语义成立）。
+- 遗留：搬到新带后**不会触发生成**（新带全空气）；玩家驱动的滑窗需要"按窗口重新生成"，
+  这是下一道设计关口（参考实现的 `SectionStage`/`SectionLifecycle` 流水线）。
+- 证据：`exp-yc-wmove.log`。
+
+## 58. P5-Y-E：高带存档→重载（2026-10-22）
+
+- 日期：2026-10-22
+- 假设：窗口带在 1000 的 chunk 保存后，重载能恢复同一窗口与同一内容。
+- 参数：种子 12345；`-TestGen 0,0`；Settle=100；`-KeepWorld`；
+  `-Dfarlands.y.window=true -Dfarlands.y.center=1000`；连续两次运行（第一次新建，第二次重载）。
+- 预期：两次 `gen OK` 指纹一致。
+- 实测：第一次 `topY=15823 wgHash surf=floor=24177343d059 timeMs=1405`，`DONE saved`；
+  第二次 `topY=15823 wgHash surf=floor=24177343d059 timeMs=148`，`DONE saved`。
+  指纹逐位一致；`timeMs` 从 1405 降到 148（走存档读取）。
+- 结论：**在本实验条件下**，高带窗口 chunk 的保存→重载语义成立（单区块、空带）。
+- 遗留：多区块/相邻 chunk 的段同步；低/高带混合世界的重载；网络包段列表。
+- 证据：`exp-ye-save.log`、`exp-ye-reload.log`。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"

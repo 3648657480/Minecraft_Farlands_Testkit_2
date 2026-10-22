@@ -356,6 +356,27 @@ public abstract class MinecraftServerTestGenMixin {
                         + tickPos.getLongX() + "," + tickPos.getLongY() + "," + tickPos.getLongZ()
                         + " intView=" + tickPos.getX() + " block=" + tickState.getBlock());
                 }
+                // Y-C test: move the chunk's vertical window at runtime and prove
+                // (a) reads outside the window are air, (b) moving back re-attaches
+                // the original sections from the wide-keyed map.
+                if (Boolean.getBoolean("farlands.testgen.windowmove")
+                    && chunk instanceof com.farlands.g2.runtime.WindowedChunk wc) {
+                    int moveSy = Integer.getInteger("farlands.testgen.windowmove.sy", 1000);
+                    net.minecraft.core.BlockPos probe =
+                        new net.minecraft.core.BlockPos(cxL * 16 + 8, 60, czL * 16 + 8);
+                    net.minecraft.core.BlockPos probeNew =
+                        new net.minecraft.core.BlockPos(cxL * 16 + 8, moveSy * 16 + 8, czL * 16 + 8);
+                    String before = chunk.getBlockState(probe).toString();
+                    int oldCenter = wc.farlands$windowMinSectionY() + (chunk.getSections().length - 1) / 2;
+                    wc.farlands$moveWindowTo(moveSy);
+                    String atOld = chunk.getBlockState(probe).toString();
+                    String atNew = chunk.getBlockState(probeNew).toString();
+                    wc.farlands$moveWindowTo(oldCenter);
+                    String back = chunk.getBlockState(probe).toString();
+                    System.out.println("[WMOVE] oldCenter=" + oldCenter + " moveTo=" + moveSy
+                        + " before=" + before + " atOld=" + atOld + " atNew=" + atNew
+                        + " back=" + back + " minY=" + chunk.getMinY());
+                }
                 System.out.flush();
             }
             if (FarConfig.testgenStop()) {
