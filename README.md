@@ -58,22 +58,18 @@ Produces `patcher-cli/build/libs/patcher-cli-1.0.0.jar` and
 
 ## Install
 
-1. Patch your own client jar with `patcher-cli-1.0.0.jar`; use the fork jar as the version jar (back up the original).
-2. Put `farlands-g2-mod-1.0.0.jar` into `mods/` and launch.
-3. Set epoch and terrain options on the FarLands tabs when creating a world.
+1. Patch your own client jar with `patcher-cli-0.1.0.jar`; use the fork jar as the version jar (back up the original).
+2. Put `farlands-g2-mod-0.1.0.jar` into `mods/` and launch.
+3. Terrain/test options are set on the create-world FarLands tabs, in the global
+   template `config/farlands-g2.properties`, or per world in `farlands.properties`.
    Full walkthrough: [docs/USAGE.en.md](docs/USAGE.en.md).
 
 ## In-game
 
-```
-/realtp <x> <y> <z>                teleport yourself using real coordinates
-/realtp <targets> <x> <y> <z>      teleport entities (@p/@e/...; command blocks OK)
-```
-
-Out-of-window targets trigger an archive relocation: the current epoch's chunks
-move to `world/farlands_epochs/`, the target epoch's archive is restored if it
-exists, and the middle is simply never generated. The player lands at local
-origin of the new epoch - same real coordinates, seamless terrain.
+There is no epoch/local-domain teleport any more: the whole epoch route
+(`/realtp`, archive relocation, `epoch_x/epoch_z`) was removed on 2026-10-22 -
+see [docs/TOMBSTONE.md](docs/TOMBSTONE.md) T1. The engine runs at real
+coordinates; use vanilla teleport with real values.
 
 ## Distance phenomena
 
@@ -91,6 +87,8 @@ the red lines in [AGENTS.md](AGENTS.md) (R10).
 - [docs/ROADMAP.md](docs/ROADMAP.md) - milestones and lessons
 - [docs/WORKFLOW.md](docs/WORKFLOW.md) - build/test/deploy workflow
 - [AGENTS.md](AGENTS.md) - binding red lines (R7-R10) and the five iron rules
+- [docs/TOMBSTONE.md](docs/TOMBSTONE.md) - retired routes (do not revive; see the exhumation procedure)
+- [CONTRIBUTING.md](CONTRIBUTING.md) - review / bug-report protocol (what evidence a report must carry)
 - [docs/archive/](docs/archive/) - historical design notes (E line, wide containers)
 
 ## License

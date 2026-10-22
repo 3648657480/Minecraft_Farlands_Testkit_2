@@ -6,7 +6,7 @@
 Minecraft 26.2 边境之地工具集（G2）：**放弃 epoch / local 域路线**，改走**全链路宽化**
 （int → long/BigInteger 容器 + 128 位存储 key），让**真实的距离现象**在每一层都发生
 ——地形采样、实体、渲染、碰撞、tick——不缩放、不假坐标。基线继承自 G1（epoch 路线）；
-宽化推进的同时逐步移除 epoch 代码。
+**epoch 代码已于 2026-10-22 移除**（见 [docs/TOMBSTONE.md](docs/TOMBSTONE.md) T1）。
 
 **玩家指南**：[中文](docs/USAGE.md) | [English](docs/USAGE.en.md)
 
@@ -21,16 +21,11 @@ Minecraft 26.2 边境之地工具集（G2）：**放弃 epoch / local 域路线*
 ## 功能
 
 - **2^31 边界外可玩**：地形连贯、AABB/选取/挖掘/放置正常（E4）
-- **任意距离传送**：`/realtp` 真实坐标（命令方块可用），归档式重定位——
-  当前纪元归档、目标纪元恢复、中途从不生成（E5）
-- **BigInteger 精确坐标**：纪元精确存储、任意精度字符串解析
-  （`/realtp @p 1e1000 100 0` 有效）
-- **F3 真实坐标显示**：XYZ / Block / Chunk 显示真实坐标，超 double 精度自动切精确
-  BigInteger 值；另有 `Local (in-epoch)`、`Epoch ... Laps (2^31)`、`Real double ULP`
-  （量化步长）行；噪声读数改为真实坐标处采样
-- **世界创建时配置**：创建世界界面的三个 FarLands 标签页（FarLands / 地形 / 测试）
-  在生成任何地形前设定纪元、地形策略与无头测试工具键；新世界继承全局模板
-  （见 [配置指南](docs/CONFIG.md)）
+- **真实坐标引擎**：全局身份是宽坐标（`WideChunkPos` 2048 位 / `WideSectionKey2560` 2560 位），
+  int/long 视图只是有损桥；epoch / local 域路线已移除
+- **F3 显示真实坐标**：XYZ / Block / Chunk 为真实坐标；噪声读数在真实坐标处采样
+- **世界创建时配置**：创建世界界面的地形 / 测试标签页设定地形策略与无头测试工具键；
+  新世界继承全局模板（见 [配置指南](docs/CONFIG.md)）
 - **流体 tick 限流**：压力测试发现的递归流体 tick 爆炸守卫
 
 ## 环境要求
@@ -44,26 +39,20 @@ Minecraft 26.2 边境之地工具集（G2）：**放弃 epoch / local 域路线*
 gradlew clean build
 ```
 
-产物：`patcher-cli/build/libs/patcher-cli-1.0.0.jar` 与
-`mod/build/libs/farlands-g2-mod-1.0.0.jar`。
+产物：`patcher-cli/build/libs/patcher-cli-0.1.0.jar` 与
+`mod/build/libs/farlands-g2-mod-0.1.0.jar`。
 
 ## 安装
 
-1. 用 `patcher-cli-1.0.0.jar` 给你的客户端 jar 打补丁；用 fork jar 作为版本 jar（备份原版）。
-2. 把 `farlands-g2-mod-1.0.0.jar` 放进 `mods/` 并启动。
-3. 创建世界时在 FarLands 标签页设定纪元与地形选项。
-   完整流程见 [docs/USAGE.md](docs/USAGE.md)。
+1. 用 `patcher-cli-0.1.0.jar` 给你的客户端 jar 打补丁；用 fork jar 作为版本 jar（备份原版）。
+2. 把 `farlands-g2-mod-0.1.0.jar` 放进 `mods/` 并启动。
+3. 创建世界时在地形 / 测试标签页设定选项，或改 `config/farlands-g2.properties` 与
+   世界内 `farlands.properties`。完整流程见 [docs/USAGE.md](docs/USAGE.md)。
 
 ## 游戏内
 
-```
-/realtp <x> <y> <z>                用真实坐标传送自己
-/realtp <targets> <x> <y> <z>      传送实体（@p/@e/...；命令方块可用）
-```
-
-超出窗口的目标会触发归档式重定位：当前纪元区块移到
-`world/farlands_epochs/`，目标纪元归档存在则恢复，中途从不生成。
-玩家落在新纪元的 local 原点——真实坐标不变，地形无缝。
+epoch 路线的传送（`/realtp`）与归档重定位已于 2026-10-22 移除
+（见 [docs/TOMBSTONE.md](docs/TOMBSTONE.md) T1）。引擎跑真实坐标，直接用原版 `tp`。
 
 ## 距离现象
 
@@ -80,6 +69,8 @@ gradlew clean build
 - [docs/ROADMAP.md](docs/ROADMAP.md) - 里程碑与教训
 - [docs/WORKFLOW.md](docs/WORKFLOW.md) - 构建/测试/部署工作流
 - [AGENTS.md](AGENTS.md) - 约束性红线（R7-R10）与五条铁律
+- [docs/TOMBSTONE.md](docs/TOMBSTONE.md) - 已废弃路线登记（不要复活；复活走"挖出"流程）
+- [CONTRIBUTING.md](CONTRIBUTING.md) - 评审/漏洞报告协议（报告必须带什么证据）
 - [docs/archive/](docs/archive/) - 历史设计文档（E 线、宽化容器）
 
 ## 许可
