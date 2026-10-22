@@ -56,16 +56,39 @@ public final class WindowRegenerator {
         ChunkGenerator generator = level.getChunkSource().getGenerator();
 
         WorldGenRegion region = null;
+        StaticCache2D<GenerationChunkHolder> cache = null;
         ChunkStep surfaceStep = StageSteps.get(ChunkStatus.SURFACE);
         if (surfaceStep != null) {
             ServerChunkCache cacheSource = (ServerChunkCache) level.getChunkSource();
-            StaticCache2D<GenerationChunkHolder> cache = StaticCache2D.create(pos.x(), pos.z(), 8,
+            cache = StaticCache2D.create(pos.x(), pos.z(), 8,
                 (cx, cz) -> cacheSource.chunkMap.farlands$getUpdatingChunkW(
                     new ChunkPos(cx, cz).widePos()));
             region = new WorldGenRegion(level, cache, surfaceStep, proto);
         }
         final WorldGenRegion genRegion = region;
         Blender blender = genRegion == null ? Blender.empty() : Blender.of(genRegion);
+
+        // Structures first (vanilla order): starts -> references, then biomes/noise.
+        ChunkStep startsStep = StageSteps.get(ChunkStatus.STRUCTURE_STARTS);
+        ChunkStep referencesStep = StageSteps.get(ChunkStatus.STRUCTURE_REFERENCES);
+        if (startsStep != null && cache != null) {
+            try {
+                if (level.getServer().getWorldGenSettings().options().generateStructures()) {
+                    generator.createStructures(level.registryAccess(),
+                        level.getChunkSource().getGeneratorState(), structures, proto,
+                        level.getStructureManager(), level.dimension());
+                }
+                level.onStructureStartsAvailable(proto);
+                if (referencesStep != null) {
+                    WorldGenRegion refRegion = new WorldGenRegion(level, cache, referencesStep, proto);
+                    generator.createReferences(refRegion,
+                        structures.forWorldGenRegion(refRegion), proto);
+                }
+            } catch (Throwable t) {
+                System.out.println("[REGEN] structure stage failed: " + t);
+                System.out.flush();
+            }
+        }
 
         generator.createBiomes(randomState, blender, structures, proto)
             .thenCompose(biomes -> generator.fillFromNoise(blender, randomState, structures, biomes))
@@ -109,5 +132,10 @@ public final class WindowRegenerator {
             Heightmap.Types.MOTION_BLOCKING,
             Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
             Heightmap.Types.OCEAN_FLOOR));
+        // Vanilla runs this when the chunk becomes ticking (fluid ticks, neighbour
+        // shape updates); without it the regenerated content differs from vanilla.
+        if (chunk.getLevel() instanceof ServerLevel level) {
+            chunk.postProcessGeneration(level);
+        }
     }
 }

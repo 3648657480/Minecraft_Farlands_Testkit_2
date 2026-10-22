@@ -344,11 +344,31 @@ public abstract class MinecraftServerTestGenMixin {
                 long sz = sp.wideSection().z().limb(0);
                 System.out.println("[FarLands-Test] section2560 x=" + sx + " z=" + sz
                     + " expect=" + cxL + "," + czL + " ok=" + (sx == cxL && sz == czL));
+                // Structure probe: scan the generated n x n area for non-empty starts.
+                if (Boolean.getBoolean("farlands.testgen.structscan")) {
+                    int hits = 0;
+                    for (int dx = 0; dx < n; dx++) {
+                        for (int dz = 0; dz < n; dz++) {
+                            net.minecraft.world.level.chunk.ChunkAccess sc =
+                                level.getChunk((int) (cxL + dx), (int) (czL + dz));
+                            int count = sc.getAllStarts().size();
+                            if (count > 0) {
+                                hits++;
+                                System.out.println("[STRUCT] chunk=" + (cxL + dx) + "," + (czL + dz)
+                                    + " starts=" + count);
+                            }
+                        }
+                    }
+                    System.out.println("[STRUCT] hits=" + hits + " area=" + n + "x" + n);
+                    System.out.flush();
+                }
                 // Y-D/B probe: regenerate the loaded chunk's window in place.
                 if (Boolean.getBoolean("farlands.testgen.regen")
                     && chunk instanceof net.minecraft.world.level.chunk.LevelChunk levelChunk) {
                     int regenSy = Integer.getInteger("farlands.testgen.regen.sy", 1000);
-                    System.out.println("[REGEN] before minY=" + chunk.getMinY() + " target=" + regenSy);
+                    long beforeDigest = farlands$digest(levelChunk);
+                    System.out.println("[REGEN] before minY=" + chunk.getMinY() + " target=" + regenSy
+                        + " starts=" + levelChunk.getAllStarts().size() + " digest=" + beforeDigest);
                     com.farlands.g2.runtime.WindowRegenerator.regenerate(levelChunk, regenSy, ok -> {
                         net.minecraft.world.level.ChunkPos rp = levelChunk.getPos();
                         net.minecraft.core.BlockPos probe60 = new net.minecraft.core.BlockPos(
@@ -359,6 +379,9 @@ public abstract class MinecraftServerTestGenMixin {
                             + " topY=" + levelChunk.getHeight(Heightmap.Types.WORLD_SURFACE, 8, 8)
                             + " b49=" + levelChunk.getBlockState(probe49)
                             + " b60=" + levelChunk.getBlockState(probe60)
+                            + " starts=" + levelChunk.getAllStarts().size()
+                            + " digest=" + farlands$digest(levelChunk)
+                            + " equal=" + (farlands$digest(levelChunk) == beforeDigest)
                             + " sections=" + levelChunk.getSections().length);
                         System.out.flush();
                     });
@@ -472,5 +495,24 @@ public abstract class MinecraftServerTestGenMixin {
             hex.append(Character.forDigit((b >> 4) & 0xF, 16)).append(Character.forDigit(b & 0xF, 16));
         }
         return hex.toString();
+    }
+
+    /** Sampled block-state digest of a chunk's window (for regeneration comparisons). */
+    @Unique
+    private static long farlands$digest(net.minecraft.world.level.chunk.LevelChunk chunk) {
+        long h = 1125899906842597L;
+        int minY = chunk.getMinY();
+        int maxY = chunk.getMaxY();
+        int baseX = chunk.getPos().getMinBlockX();
+        int baseZ = chunk.getPos().getMinBlockZ();
+        for (int y = minY; y <= maxY; y += 3) {
+            for (int x = 0; x < 16; x += 4) {
+                for (int z = 0; z < 16; z += 4) {
+                    h = 31L * h + chunk.getBlockState(
+                        new net.minecraft.core.BlockPos(baseX + x, y, baseZ + z)).toString().hashCode();
+                }
+            }
+        }
+        return h;
     }
 }

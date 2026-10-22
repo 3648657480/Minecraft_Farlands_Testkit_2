@@ -1642,6 +1642,28 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 遗留：动态跟随下的 ViewArea 更新；读档懒重算的首次查询开销（每区块一次）未量化。
 - 证据：`exp-ye-lazy-a.log`、`exp-ye-lazy-b.log`。
 
+## 67. P5/B 结构阶段接入 + 内容比对仪器失效（2026-10-22）
+
+- 日期：2026-10-22
+- 接入（vanilla 顺序）：`structure_starts` → `structure_references` → biomes → noise → surface →
+  carvers → features；`createStructures` 需要 `WorldGenContext`/`GeneratorState`，
+  `createReferences` 需要 `WorldGenRegion`（步骤从 `StageSteps` 捕获）。
+- 结构定位：11×11 区块扫描（`-Dfarlands.testgen.structscan`）找到 `(1,0)` 与 `(7,5)` 各 1 个
+  structure start。
+- 同带重生成（(1,0)，sy=7）：`before starts=1` → `done starts=1`，`topY=62`，无异常。
+- **内容比对不可用**：采样 digest（y 步长 3、x/z 步长 4、`BlockState.toString().hashCode()`）在
+  `(0,0)` 的两次**同配置**运行之间就不一致（before digest `2046000542670466461` vs
+  `-1150119364858243665`），说明该区块的方块内容本身跨运行不稳定；因此 digest 不能用来判断
+  "重生成是否逐位复现"。与 §7.1 的远域指纹不可复现是同一类问题。
+- 附带：`WindowRegenerator` 在移植后补调 `LevelChunk.postProcessGeneration(level)`（流体 tick /
+  邻接形状更新），与 vanilla 的 ticking 转换对齐。
+- 结论（仅限本实验条件）：结构 starts 在重生成后可复现（1→1）；**内容逐位复现未建立**，
+  现有 digest 仪器无效。
+- 遗留：需要一个确定性内容判据（例如只比 structure start 的 bounding box/pieces，或固定
+  feature 的 RNG 序列），再做严格验收。
+- 证据：`exp-struct-scan.log`、`exp-struct-regen.log`、`exp-digest-normal.log`、
+  `exp-digest-post.log`。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"
