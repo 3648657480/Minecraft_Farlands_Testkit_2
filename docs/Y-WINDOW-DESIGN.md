@@ -134,6 +134,10 @@ A 的待验证点：
 
 状态：**设计记录，未实现**。Y-C 的搬窗与 Y-E 的重载已分别验证（§57/§58）。
 
+> 2026-10-22 晚更新：B 的**噪声阶段原型已通**（EXPERIMENTS §61）：原地建 detached ProtoChunk →
+> 异步 `fillFromNoise` → 主线程移植段 → 搬窗，实测 minY 从 −64 换到 15824 且新带生成了地形。
+> 下一步是 surface / carver / feature（需要捕获 `ChunkStep` 构造 `WorldGenRegion`）。
+
 ### 12.1 A 的 API 侦察（2026-10-22）
 
 | 入口 | 可见性 | 用途/限制 |
