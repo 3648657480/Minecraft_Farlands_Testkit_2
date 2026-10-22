@@ -1697,6 +1697,15 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 状态：修复后构建通过，**待用户复测**。
 - 证据：`mod/run/logs/latest.log`（21:59 崩溃段）。
 
+### 68.2 修复后复测：不崩，但日志无 [YFOLLOW]（2026-10-22）
+
+- 现象（用户手动）：tp 16000 不再崩溃；但 `latest.log` 里搜不到 `[YFOLLOW]`。
+- 原因：`[YFOLLOW]` 当时只在 `-Dfarlands.y.diag=true` 下打印，而用户启动只带了
+  `-Dfarlands.diag.render=true`。**不是没触发，是没打印**。
+- 修正：`[YFOLLOW] trigger` / `[YFOLLOW] done` 改为无条件打印（每次换带两行）；
+  客户端桥加 `[YBRIDGE] applied pos=… band=…`。
+- 状态：构建通过，待用户重跑确认日志。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"

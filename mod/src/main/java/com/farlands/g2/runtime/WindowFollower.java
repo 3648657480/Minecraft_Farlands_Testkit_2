@@ -72,15 +72,16 @@ public final class WindowFollower {
             return false;
         }
         NEXT_ATTEMPT.put(pos, tick + COOLDOWN_TICKS);
+        System.out.println("[YFOLLOW] trigger pos=" + pos + " target=" + targetSectionY
+            + " window=" + min + ".." + max);
+        System.out.flush();
         WindowRegenerator.regenerate(chunk, targetSectionY, ok -> {
             IN_FLIGHT.remove(pos);
-            if (ok && Boolean.getBoolean("farlands.y.diag")) {
-                System.out.println("[YFOLLOW] regenerated pos=" + pos
-                    + " band=" + windowed.farlands$windowMinSectionY()
-                    + ".." + windowed.farlands$windowMaxSectionY()
-                    + " sections=" + chunk.getSections().length);
-                System.out.flush();
-            }
+            System.out.println("[YFOLLOW] done ok=" + ok + " pos=" + pos
+                + " band=" + windowed.farlands$windowMinSectionY()
+                + ".." + windowed.farlands$windowMaxSectionY()
+                + " sections=" + chunk.getSections().length);
+            System.out.flush();
         });
         return true;
     }

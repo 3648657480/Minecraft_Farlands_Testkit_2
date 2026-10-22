@@ -59,5 +59,8 @@ public final class ClientBandBridge {
         for (int i = 0; i < levelChunk.getSections().length; i++) {
             mc.level.setSectionDirtyWithNeighbors(pos.x(), minSy + i, pos.z());
         }
+        System.out.println("[YBRIDGE] applied pos=" + pos + " band=" + minSy
+            + ".." + windowed.farlands$windowMaxSectionY());
+        System.out.flush();
     }
 }
