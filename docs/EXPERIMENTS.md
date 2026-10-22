@@ -1409,6 +1409,20 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   `VerticalBounds` 供 Y-B 使用；Y-A 合并进 Y-B（见 `docs/Y-WINDOW-DESIGN.md` §10）。
 - 证据：`exp-ya-bounds-normal.log`。
 
+## 54. P5-Y-B 步 1：宽 section 键镜像（flag on）（2026-10-22）
+
+- 日期：2026-10-22
+- 假设：把每个 section 同时登记到 `Map<WideSectionKey2560, LevelChunkSection>`
+  （key = `of(chunkPos.xLong, sy, chunkPos.zLong)`），`getSection` 走 map，正常域行为不变。
+- 参数：种子 12345；`(0,0)` 1×1 与 chunk `2147483648,0` 1×1；Settle=100；
+  `-Dfarlands.y.window=true`；PATCH_REVISION=95。
+- 预期：两处 `DONE saved`，指纹分别 `8936c275d063` / `493417264d67` 不变。
+- 实测：`(0,0)` `DONE` + `floor=8936c275d063`；2^31 `DONE` + `floor=493417264d67`。
+- 结论：**在本实验条件下**，宽 key 构造在正常域与 chunk 2^31 都成立；map 路由不改变生成结果。
+- 遗留：map 与 `sections` 数组的同步只覆盖构造期；网络/读档替换数组条目时会分叉
+  （Y-C 滑窗之前必须处理）。默认关闭（flag on 才走 map）。
+- 证据：`exp-yb-window-normal.log`、`exp-yb-window-2p31.log`。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"
