@@ -33,14 +33,12 @@ public class G2JarProcessor implements MinecraftJarProcessor<G2JarProcessor.Spec
 
         private final boolean wide;
         private final boolean continuity;
-        private final boolean epoch;
         private final boolean unlock;
         private final int patchRevision;
 
-        public Spec(boolean wide, boolean continuity, boolean epoch, boolean unlock, int patchRevision) {
+        public Spec(boolean wide, boolean continuity, boolean unlock, int patchRevision) {
             this.wide = wide;
             this.continuity = continuity;
-            this.epoch = epoch;
             this.unlock = unlock;
             this.patchRevision = patchRevision;
         }
@@ -53,19 +51,19 @@ public class G2JarProcessor implements MinecraftJarProcessor<G2JarProcessor.Spec
             if (!(other instanceof Spec s)) {
                 return false;
             }
-            return wide == s.wide && continuity == s.continuity && epoch == s.epoch
+            return wide == s.wide && continuity == s.continuity
                 && unlock == s.unlock && patchRevision == s.patchRevision;
         }
 
         @Override
         public int hashCode() {
-            return ((wide ? 1 : 0) | (continuity ? 2 : 0) | (epoch ? 4 : 0) | (unlock ? 8 : 0))
+            return ((wide ? 1 : 0) | (continuity ? 2 : 0) | (unlock ? 4 : 0))
                 * 31 + patchRevision;
         }
 
         @Override
         public String toString() {
-            return "wide=" + wide + " continuity=" + continuity + " epoch=" + epoch
+            return "wide=" + wide + " continuity=" + continuity
                 + " unlock=" + unlock + " patchRevision=" + patchRevision;
         }
     }
@@ -80,7 +78,6 @@ public class G2JarProcessor implements MinecraftJarProcessor<G2JarProcessor.Spec
         return new Spec(
             FarLandsPatcher.flag("farlands.wide", true),
             FarLandsPatcher.flag("farlands.continuity", true),
-            FarLandsPatcher.flag("farlands.epoch", false),
             FarLandsPatcher.unlockEnabled(),
             FarLandsPatcher.PATCH_REVISION);
     }
@@ -89,7 +86,7 @@ public class G2JarProcessor implements MinecraftJarProcessor<G2JarProcessor.Spec
     public void processJar(Path jar, Spec spec, ProcessorContext context) throws IOException {
         Path tmp = jar.resolveSibling(jar.getFileName() + ".g1tmp");
         Files.deleteIfExists(tmp);
-        FarLandsPatcher patcher = FarLandsPatcher.createDefault(spec.wide, spec.continuity, spec.epoch, spec.unlock);
+        FarLandsPatcher patcher = FarLandsPatcher.createDefault(spec.wide, spec.continuity, spec.unlock);
         FarLandsPatcher.PatchReport report = patcher.patchJar(jar, tmp);
         Files.move(tmp, jar, StandardCopyOption.REPLACE_EXISTING);
         System.out.println("[FarLands-G2] " + report);
