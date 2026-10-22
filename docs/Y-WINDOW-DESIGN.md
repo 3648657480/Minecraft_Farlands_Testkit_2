@@ -99,9 +99,10 @@ ChunkAccess
 | Y-F | 渲染只收集窗口内 Y | 客户端 2^31 目视 |
 
 **当前状态**：Y-A 单独开界已证伪（EXPERIMENTS §53）；`VerticalBounds` 保留供 Y-B 使用，
-`LevelHeightAccessorMixin` 已删除。**Y-B 步 1 已落**（EXPERIMENTS §54）：每段镜像登记到
+`LevelHeightAccessorMixin` 已删除。**Y-B 步 1 已落**（§54）：每段镜像登记到
 `Map<WideSectionKey2560,…>`，`getSection` 走 map，`-Dfarlands.y.window=true` 下 `(0,0)` 与 2^31
-指纹均不变。步 2 = 滑窗 + 窗口化 `LevelHeightAccessor` + `VerticalBounds` 界一起落地。
+指纹均不变。**Y-B 步 2 部分落地**（§55）：窗口锚点可搬移（`-Dfarlands.y.center=<sectionY>`），
+默认带指纹不变；1.6 万高度可生成/保存；2^31 带挂起（未归因）。滑窗、网络/读档同步未做。
 
 ## 11. 未决问题
 

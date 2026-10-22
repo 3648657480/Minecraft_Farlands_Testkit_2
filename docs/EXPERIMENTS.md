@@ -1423,6 +1423,33 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   （Y-C 滑窗之前必须处理）。默认关闭（flag on 才走 map）。
 - 证据：`exp-yb-window-normal.log`、`exp-yb-window-2p31.log`。
 
+## 55. P5-Y-B 步 2：窗口可搬移（1.6 万成功；2^31 卡住）（2026-10-22）
+
+- 日期：2026-10-22
+- 假设：chunk 段窗口的锚点可以从维度带搬到任意 section Y；`getMinY` 跟随窗口，
+  `isInside/isOutsideBuildHeight` 走 `VerticalBounds`，噪声设置对窗口带 rebase。
+- 参数：种子 12345；`-TestGen 0,0`；Settle=100；`-Dfarlands.y.window=true`；
+  `-Dfarlands.y.center` = 空 / 1000 / 134217714。
+- 预期：默认带指纹不变；窗口搬移后生成不崩（不预先假定地形内容）。
+- 实测：
+  1. 默认带：`DONE`，`floor=8936c275d063` 不变。
+  2. 首次搬移（center=1000）崩：`Parent chunk missing`。追到 biomes 步被吞掉的
+     `NegativeArraySizeException: -1937` at `NoiseChunk$NoiseInterpolator.allocateSlice`；
+     根因 `NoiseSettings.clampToHeightAccessor` 在窗口与维度带不相交时算出负高度
+     （`min(320, chunkMax+1) - max(-64, chunkMin) = -15504`）。
+     修复：`NoiseSettingsWindowMixin` —— 对 `WindowedChunk` 且交集为负时，
+     直接用窗口带 `new NoiseSettings(chunkMin, chunkHeight, sizeH, sizeV)`。
+  3. center=1000 复测：`gen OK`，`topY=15823`，`wgHash surf=floor=24177343d059`，
+     `sections=0`（全空气，符合该高度的密度），`DONE saved`。
+  4. center=134217714（Y≈2^31）：**卡住**。最后输出 genTask + 两条
+     `Empty height range: [8 above bottom-N absolute]` 警告，无 `gen OK`、无异常；
+     watchdog 只打堆、无 STACK。6 分钟超时后人工停止。
+- 结论：**在本实验条件下**，窗口化生成机制在 1.6 万高度成立（可生成、可保存）；
+  2^31 带会挂起，原因未归因（疑似 height/heightmap 的 int 边界或 feature 高度范围循环）。
+- 遗留：2^31 挂起根因；滑窗（窗口只在构造期设定一次）；网络/读档同步；默认 flag off。
+- 证据：`exp-yb2-normal.log`、`exp-yb2-normal2.log`、`exp-yb2-mid*.log`、
+  `exp-yb2-noisefix-mid.log`、`exp-yb2-noisefix-high.log`、`exp-yb2-step-miss.log`。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"

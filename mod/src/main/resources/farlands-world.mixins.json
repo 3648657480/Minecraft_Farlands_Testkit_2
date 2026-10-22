@@ -6,6 +6,10 @@
     "mixins": [
         "LevelMixin",
         "ChunkAccessWindowMixin",
+        "LevelHeightAccessorBoundsMixin",
+        "ChunkMapStepDiagMixin",
+        "ChunkBiomesDiagMixin",
+        "NoiseSettingsWindowMixin",
         "LevelGetChunkAtWideMixin",
         "LevelGetBlockStateWideMixin",
         "ServerTickMixin",

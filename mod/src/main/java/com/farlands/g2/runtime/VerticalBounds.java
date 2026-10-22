@@ -23,6 +23,10 @@ public final class VerticalBounds {
     public static final int MAX_SECTION = 134_217_727;
     public static final int MIN_SECTION = ~MAX_SECTION;
 
+    /** Sections whose blocks all stay inside the playable block range. */
+    public static final int MAX_PLAYABLE_SECTION = MAX_SECTION - 1;
+    public static final int MIN_PLAYABLE_SECTION = ~MAX_PLAYABLE_SECTION;
+
     private VerticalBounds() {
     }
 
