@@ -350,8 +350,15 @@ public abstract class MinecraftServerTestGenMixin {
                     int regenSy = Integer.getInteger("farlands.testgen.regen.sy", 1000);
                     System.out.println("[REGEN] before minY=" + chunk.getMinY() + " target=" + regenSy);
                     com.farlands.g2.runtime.WindowRegenerator.regenerate(levelChunk, regenSy, ok -> {
+                        net.minecraft.world.level.ChunkPos rp = levelChunk.getPos();
+                        net.minecraft.core.BlockPos probe60 = new net.minecraft.core.BlockPos(
+                            rp.getMinBlockX() + 8, 60, rp.getMinBlockZ() + 8);
+                        net.minecraft.core.BlockPos probe49 = new net.minecraft.core.BlockPos(
+                            rp.getMinBlockX() + 8, 49, rp.getMinBlockZ() + 8);
                         System.out.println("[REGEN] done ok=" + ok + " minY=" + levelChunk.getMinY()
                             + " topY=" + levelChunk.getHeight(Heightmap.Types.WORLD_SURFACE, 8, 8)
+                            + " b49=" + levelChunk.getBlockState(probe49)
+                            + " b60=" + levelChunk.getBlockState(probe60)
                             + " sections=" + levelChunk.getSections().length);
                         System.out.flush();
                     });

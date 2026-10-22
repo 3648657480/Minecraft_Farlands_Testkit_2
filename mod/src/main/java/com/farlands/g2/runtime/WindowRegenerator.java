@@ -4,14 +4,21 @@ import com.scalarwide.mc.WideSectionKey2560;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.function.Consumer;
+import net.minecraft.server.level.GenerationChunkHolder;
+import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.WorldGenRegion;
+import net.minecraft.util.StaticCache2D;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.StructureManager;
 import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.ProtoChunk;
 import net.minecraft.world.level.chunk.UpgradeData;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
+import net.minecraft.world.level.chunk.status.ChunkStep;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.blending.Blender;
@@ -20,15 +27,15 @@ import net.minecraft.world.level.levelgen.blending.Blender;
  * Y-B/B-step: regenerate one chunk's vertical window <b>in place</b>.
  *
  * <p>Instead of unloading the chunk (ticket/tracker churn, EXPERIMENTS §60), a
- * detached {@link ProtoChunk} is created at the target band, terrain noise is
- * run for it, and its sections are transplanted into the live chunk's
- * wide-keyed section map; the window is then rebuilt and the runtime heightmaps
- * re-primed.</p>
+ * detached {@link ProtoChunk} is created at the target band and the vanilla
+ * generation stages are run for it: biomes → noise → surface → carvers →
+ * features. Its sections are then transplanted into the live chunk's wide-keyed
+ * section map, the window is rebuilt and the runtime heightmaps re-primed.</p>
  *
- * <p>The noise future may be completed by the main-thread executor, so this is
- * asynchronous: the callback runs on the server thread after the transplant.</p>
- *
- * <p>Prototype scope: noise only (no surface rules / carvers / features yet).</p>
+ * <p>The steps run off the main thread where vanilla does, so this is
+ * asynchronous; the callback runs on the server thread after the transplant.
+ * Surface/carvers/features need a {@link WorldGenRegion}, whose {@link ChunkStep}
+ * is captured from a normal generation run ({@link StageSteps}).</p>
  */
 public final class WindowRegenerator {
 
@@ -46,17 +53,42 @@ public final class WindowRegenerator {
             level.palettedContainerFactory(), null);
         RandomState randomState = level.getChunkSource().randomState();
         StructureManager structures = level.structureManager();
-        level.getChunkSource().getGenerator()
-            .fillFromNoise(Blender.empty(), randomState, structures, proto)
+        ChunkGenerator generator = level.getChunkSource().getGenerator();
+
+        WorldGenRegion region = null;
+        ChunkStep surfaceStep = StageSteps.get(ChunkStatus.SURFACE);
+        if (surfaceStep != null) {
+            ServerChunkCache cacheSource = (ServerChunkCache) level.getChunkSource();
+            StaticCache2D<GenerationChunkHolder> cache = StaticCache2D.create(pos.x(), pos.z(), 8,
+                (cx, cz) -> cacheSource.chunkMap.farlands$getUpdatingChunkW(
+                    new ChunkPos(cx, cz).widePos()));
+            region = new WorldGenRegion(level, cache, surfaceStep, proto);
+        }
+        final WorldGenRegion genRegion = region;
+        Blender blender = genRegion == null ? Blender.empty() : Blender.of(genRegion);
+
+        generator.createBiomes(randomState, blender, structures, proto)
+            .thenCompose(biomes -> generator.fillFromNoise(blender, randomState, structures, biomes))
             .whenComplete((filled, error) -> level.getServer().execute(() -> {
                 if (error != null) {
                     YBandOverrides.clear(pos.widePos());
-                    System.out.println("[REGEN] fillFromNoise failed: " + error);
+                    System.out.println("[REGEN] pipeline failed: " + error);
                     System.out.flush();
                     done.accept(false);
                     return;
                 }
-                transplant(chunk, (ChunkAccess) filled, centerSectionY);
+                if (genRegion != null) {
+                    try {
+                        generator.buildSurface(genRegion, structures, randomState, proto);
+                        generator.applyCarvers(genRegion, level.getSeed(), randomState,
+                            level.getBiomeManager(), structures, proto);
+                        generator.applyBiomeDecoration(genRegion, proto, structures);
+                    } catch (Throwable t) {
+                        System.out.println("[REGEN] surface/feature stage failed: " + t);
+                        System.out.flush();
+                    }
+                }
+                transplant(chunk, proto, centerSectionY);
                 done.accept(true);
             }));
     }

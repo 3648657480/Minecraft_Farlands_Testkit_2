@@ -1555,6 +1555,25 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   applyBiomeDecoration`；同带重生成与原始生成的内容比对待做。
 - 证据：`exp-yd-regen-b3.log`、`exp-yd-regen-b2.log`（死锁）。
 
+## 62. P5-B 原型（续）：完整流水线 + 换带内容一致性（2026-10-22）
+
+- 日期：2026-10-22
+- 接入：`createBiomes → fillFromNoise → buildSurface → applyCarvers → applyBiomeDecoration`；
+  `WorldGenRegion` 用捕获的真实 `ChunkStep`（`ChunkStepCaptureMixin`），`StaticCache2D` 半径
+  **8**（半径 1 时 surface 报 `out of range (-8,-8) from StaticCache2D[-1,-1,2,2]`）。
+- 参数：种子 12345；`-TestGen 0,0`；Settle=200；`-Dfarlands.y.window=true
+  -Dfarlands.testgen.regen=true`；目标 `regen.sy` = 7（同带）/ 0（换带）。
+- 实测：
+  - 同带重生成（sy=7）：`done ok=true minY=-64 topY=62 b49=gravel b60=water sections=24`
+    —— 与原生成（`floorWG=49`、水面 62）一致；
+  - 换带（sy=0 → 窗口 −176…207）：`done ok=true minY=-176 topY=62
+    b49=gravel b60=water` —— **绝对坐标上的内容不变**。
+- 结论：**在本实验条件下**，原地换带重生成在"生物群系 + 噪声 + 地表 + 雕刻 + 特征"全流程下成立，
+  且生成结果与窗口位置无关（按绝对坐标生成）。
+- 遗留：结构（structure starts/references）未纳入；光照/实体/POI 未迁移；每次换带整窗重生成的
+  性能未测；ticket/调度未接（目前由 testgen 钩子触发）。
+- 证据：`exp-yd-regen-same2.log`、`exp-yd-regen-shift2.log`、`exp-yd-regen-same.log`（半径 1 失败）。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"
