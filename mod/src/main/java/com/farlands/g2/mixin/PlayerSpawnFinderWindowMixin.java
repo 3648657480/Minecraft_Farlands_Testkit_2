@@ -31,6 +31,9 @@ public class PlayerSpawnFinderWindowMixin {
             return;
         }
         int sectionY = Integer.parseInt(center);
+        if (!farlands$disjoint(level, sectionY)) {
+            return; // window overlaps the dimension band: vanilla spawn search is correct
+        }
         cir.setReturnValue(new BlockPos(chunkPos.getMinBlockX() + 8, sectionY * 16, chunkPos.getMinBlockZ() + 8));
     }
 
@@ -42,6 +45,21 @@ public class PlayerSpawnFinderWindowMixin {
             return;
         }
         int sectionY = Integer.parseInt(center);
+        if (!farlands$disjoint(level, sectionY)) {
+            return;
+        }
         cir.setReturnValue(new BlockPos(x, sectionY * 16, z));
+    }
+
+    /**
+     * True when the window band and the dimension band do not overlap. Only then
+     * does the vanilla spawn scan (heightmap top down to {@code level.getMinY()})
+     * become pathologically long and need the fallback.
+     */
+    private static boolean farlands$disjoint(ServerLevel level, int centerSectionY) {
+        int windowHalf = 11;
+        int windowMinY = (centerSectionY - windowHalf) * 16;
+        int windowMaxY = (centerSectionY + windowHalf + 1) * 16 + 15;
+        return windowMaxY < level.getMinY() || windowMinY > level.getMaxY();
     }
 }

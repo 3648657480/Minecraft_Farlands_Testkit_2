@@ -1608,6 +1608,24 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 遗留：客户端渲染窗口验证；`ViewArea` 的 minY/maxY 与其余消费者的兼容性。
 - 证据：`mod/run/logs/latest.log`（21:22–21:24）、`client-yf*.log`。
 
+## 65. P5-Y-F：客户端窗口渲染验证 + 出生点让步收紧（2026-10-22）
+
+- 日期：2026-10-22
+- 条件：用户手动跑 dev 客户端，`-Dfarlands.y.window=true -Dfarlands.y.center=0
+  -Dfarlands.diag.render=true`；窗口带 −176…207。
+- 实测（日志）：
+  - 出生点在 y=0（在石头里）——这是 `PlayerSpawnFinderWindowMixin` 的测试兜底（固定返回带底部）；
+  - `/tp` 回地表后目视正常；
+  - RDIAG：`visible=6935/6935 uncompiled=2567 queue=0
+    player=2.47,0.36 camSection=origin=0 mesh=compiled`。
+- 结论：**在本实验条件下**，客户端按窗口带渲染成立（band 0 的地形正常显示，view area 覆盖全部
+  section，相机 section 已编译）。
+- 修正（本轮）：`PlayerSpawnFinderWindowMixin` 只在窗口与维度带**不相交**时才给兜底出生点；
+  band 0 与 −64…319 重叠，因此回到 vanilla 出生搜索（应落在地表）。
+- 遗留：动态跟随下的 ViewArea 更新（当前只支持固定带）；`uncompiled=2567` 是外环积压；
+  网络段列表未单独测。
+- 证据：`mod/run/logs/latest.log`（21:28 RDIAG）、用户目视。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"
