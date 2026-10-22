@@ -1590,6 +1590,24 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   结构/实体/POI 未迁移；冷却/边距参数未调优。
 - 证据：`exp-yd-follow.log`。
 
+## 64. P5-Y-F：客户端渲染窗口（实现已落，验证受阻）（2026-10-22）
+
+- 日期：2026-10-22
+- 实现：`ViewAreaWindowMixin` —— `LevelRenderer.invalidateCompiledGeometry` 里构造 `ViewArea` 时，
+  把 `ClientLevel.getMinY/getMaxY/getMinSectionY/getMaxSectionY` 重定向为窗口带
+  （`-Dfarlands.y.window=true` + `-Dfarlands.y.center=<sectionY>` 时生效；默认关闭）。
+- 验证尝试：dev 客户端 `--quickPlaySingleplayer test7`（两次）与 `test0`，
+  带 `-Dfarlands.y.window=true -Dfarlands.y.center=0`。
+- 实测：客户端启动到标题界面后**没有进入世界**（无 `Joining`/`Started serving`/`RDIAG`）；
+  `mod/run/saves` 里只剩 `test0`（`test7` 已不存在），`test0` 的 quickPlay 同样未进入。
+  因此 **Y-F 的渲染效果未验证**，`ViewAreaWindowMixin` 仅"已实现、默认关闭"。
+- 附带修正：`SerializableChunkDataWindowMixin` 的加载期 heightmap 重算改为独立开关
+  `-Dfarlands.y.reprime=true`（原先每次读档都重算 4 张 heightmap，代价大；但本轮没有拿到
+  "读档慢"的实测证据，因为客户端根本没进世界）。
+- 结论：本轮**没有** Y-F 的结论；需先恢复可 quickPlay 的测试世界或改用其他进入方式。
+- 遗留：客户端渲染窗口验证；`ViewArea` 的 minY/maxY 与其余消费者的兼容性。
+- 证据：`mod/run/logs/latest.log`（21:22–21:24）、`client-yf*.log`。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"

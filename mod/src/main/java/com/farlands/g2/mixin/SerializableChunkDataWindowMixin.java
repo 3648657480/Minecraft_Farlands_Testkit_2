@@ -31,7 +31,8 @@ public class SerializableChunkDataWindowMixin {
     @Inject(method = "read", at = @At("RETURN"))
     private void farlands$reprimeHeightmaps(ServerLevel level, PoiManager poiManager,
         RegionStorageInfo regionInfo, ChunkPos pos, CallbackInfoReturnable<ProtoChunk> cir) {
-        if (!Boolean.getBoolean("farlands.y.window")) {
+        if (!Boolean.getBoolean("farlands.y.window")
+            || !Boolean.getBoolean("farlands.y.reprime")) {
             return;
         }
         ProtoChunk chunk = cir.getReturnValue();

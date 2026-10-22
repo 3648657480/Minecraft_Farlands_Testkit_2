@@ -25,7 +25,8 @@
         "ParticlePosMixin",
         "MinecraftUnlockWarnMixin",
         "TitleScreenMixin",
-        "ScreenAccessor"
+        "ScreenAccessor",
+        "ViewAreaWindowMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }
