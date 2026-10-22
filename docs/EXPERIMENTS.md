@@ -1276,3 +1276,45 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 证据：`logs/m2-w4-20261014/w5-seam2-scan/`、`w5-seam2-r72/`、`w5-seam2-r73/`、
   `w5-seam2-r74/`、`w5-m1-rev72/`、`w5-m1-rev74/`、`w5-far-2p49-r73/`；`exp-w5-*.log`；
   客户端 `latest.log`（145MB 风暴）。
+
+## 48. P0.5：2^31 生成中止的定位与修复（Level.getChunkAt 的 int 截断）（2026-10-22）
+
+- 日期：2026-10-22
+- 假设：`Level.getChunkAt(BlockPos)` 的 far 分支用 `SectionPos.blockToSectionCoord(long)`（返回 int）
+  求 section，chunk +2^31（block 2^35）被截断成 -2^31；headless 无玩家时直接
+  `Level.getChunk(-2^31, …)`，经 `ChunkMap.updateChunkScheduling(long)` 建出 int 视图 holder；
+  该 holder 的 light 步 `startedWork=null`，worker 抛
+  `Unexpected last startedWork status`，随后 save 阻塞 → Watchdog 60 s 强制关闭。
+- 参数：种子 12345；坐标 `2147483648,0`（1×1）、`2147483648,0,3`（3×3）；
+  wide=true continuity=true epoch=false；`-Dmax.bg.threads=1`；Settle=100；
+  PATCH_REVISION=95（patcher 未改，仅 mod 侧）。
+- 版本标记：`[FarLands-G2] 0.1.0 wide build (real coordinates)`；mod jar 2026-10-22 15:39 重建。
+- 预期（诊断）：`[CHUNKAT]` 的栈里出现
+  `postProcessGeneration → FlowingFluid → getBlockState → Level.handler$farlands$wide(getChunkAt)`。
+- 实测（诊断，rev95）：
+  - `[CHUNKAT] block=34359738382,7 trueSection=2147483648,0 intSection=-2147483648,0`，栈同上；
+  - `[GBUMP] holder=… pos=-2147483648,0 wide=-2147483648,0 want=light
+    parent=initialize_light prev=null`；
+  - 同 run：`genTask far pos=-2147483648,0 target=full
+    src=ServerChunkCache.getChunkFutureMainThread ← getChunk`；
+  - 修复版里 `[CHUNKAT]` 只出现在 `gen OK` **之后**（日志第 644 行 vs 640 行），
+    说明该路径不介入生成期。
+- 预期（修复）：1×1/3×3 均 `DONE saved`；无 light 异常；无负宽坐标生成任务；
+  `(0,0)` 与 2^49 指纹逐位不变。
+- 实测（修复）：
+  - 1×1 `DONE saved`；3×3 `DONE saved` ×2；负宽 genTask=0、异常=0；
+  - `(0,0)` `surf=b9216bad2029 floor=8936c275d063 biome=4bf4e2ea5526` 不变；
+  - 2^49 3×3 `floor=cafe10ee90c9` 不变。
+- 结论：**在本实验条件下**，2^31 生成中止的直接原因是 far `getChunkAt` 经 int 截断请求了
+  负侧别名 chunk；改用宽 `ChunkPos`（`ServerChunkCache.farlands$getChunkWide`）后不再复现。
+- 2^31 内容抖动（独立问题，沿用 §7.1）：修复前后同构建多次运行的 gen 指纹/内容不一致——
+  `493417264d67`（水，topY=62，sections=8）×4、`603aa23efe90`（水，62，8）×1、
+  `d3832d89c2fd`（水，62，8）×1、`0603b4c84bf6`（水，62，9）×1、
+  `b975114b514e`（packed_ice，topY=65，sections=9）×1。修复后仍完整复现 `493417264d67`，
+  且 `[CHUNKAT]` 在 `gen OK` 之后才出现 → 该抖动不是本修复引入。
+  **2^31 的 WG 指纹不能用作等值判据**；P0.5 判据改为"不崩 + 正常域指纹逐位不变"。
+- 遗留：`getChunk(int,int)` 的其他 int 消费者未迁移（D3/D6）；section ≥ 2^32 时 `getChunkAt`
+  的 int 阈值仍会退化（未测域）；2^31 内容抖动的机制未归因（单独立项测量）。
+- 证据：`exp-p05a-chunkat-2p31.log`、`exp-p05b-fix-2p31-1x1.log`、`exp-p05b-fix-2p31-3x3.log`、
+  `exp-p05b-rep-2p31-3x3.log`、`exp-p05b-rep2-2p31-3x3.log`、`exp-p05b-reg-normal2.log`、
+  `exp-p05b-reg-2p49.log`；世界目录 `C:\Project-G2-aux\logs\p05b-*`。

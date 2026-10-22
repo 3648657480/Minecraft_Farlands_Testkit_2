@@ -3,6 +3,7 @@ package com.farlands.g2.mixin;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
@@ -21,11 +22,22 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * int value (packets, raycast mutable positions), recover the section nearest
  * to the acting player so east of the seam maps to the positive chunk the
  * server actually sends.
+ *
+ * <p>Far-domain server lookups (block 2^35 / chunk 2^31) must not go through
+ * {@code getChunk(int,int)}: {@code blockToSectionCoord(long)} truncates the
+ * section to int, so +2^31 becomes -2^31 and the lookup requests the negative
+ * alias. During post-processing this created a "ghost" holder whose light step
+ * failed ({@code startedWork=null}). When the BlockPos carries true wide
+ * coordinates and we are on a ServerLevel, resolve the wide ChunkPos through
+ * {@code ServerChunkCache.farlands$getChunkWide}; the int-only (packet) path
+ * keeps the player-nearest recovery below.</p>
  */
 @Mixin(Level.class)
 public class LevelGetChunkAtWideMixin {
 
     @Unique private static final boolean farlands$traceEnabled = Boolean.getBoolean("farlands.trace.seam");
+    @Unique private static final boolean farlands$chunkatDiag = Boolean.getBoolean("farlands.diag.chunkat");
+    @Unique private static int farlands$chunkatLogged;
 
     @Unique
     private static long farlands$circular(long d) {
@@ -39,11 +51,36 @@ public class LevelGetChunkAtWideMixin {
     @Inject(method = "getChunkAt", at = @At("HEAD"), cancellable = true)
     private void farlands$wide(BlockPos pos, CallbackInfoReturnable<LevelChunk> cir) {
         Level self = (Level) (Object) this;
+        long trueSectionX = pos.getLongX() >> 4;
+        long trueSectionZ = pos.getLongZ() >> 4;
         int sx = SectionPos.blockToSectionCoord(pos.getLongX());
         int sz = SectionPos.blockToSectionCoord(pos.getLongZ());
+        if (farlands$chunkatDiag) {
+            if ((trueSectionX != (long) sx || trueSectionZ != (long) sz) && farlands$chunkatLogged < 8) {
+                farlands$chunkatLogged++;
+                System.out.println("[CHUNKAT] block=" + pos.getLongX() + "," + pos.getLongZ()
+                    + " trueSection=" + trueSectionX + "," + trueSectionZ
+                    + " intSection=" + sx + "," + sz
+                    + " intView=" + pos.getX() + "," + pos.getZ());
+                new Throwable("chunkat overflow").printStackTrace(System.out);
+                System.out.flush();
+            }
+        }
         if (Math.abs((long) sx) < 134_217_000L && Math.abs((long) sz) < 134_217_000L) {
             cir.setReturnValue(self.getChunk(sx, sz));
             return;
+        }
+        // True-wide BlockPos on the server: resolve the real chunk identity.
+        // getChunk(int,int) can only carry the truncated int view, which at
+        // chunk 2^31 aliases to the negative band and builds a ghost holder.
+        if (self instanceof ServerLevel server
+            && (pos.getLongX() != (long) pos.getX() || pos.getLongZ() != (long) pos.getZ())) {
+            LevelChunk wideChunk = server.getChunkSource()
+                .farlands$getChunkWide(new ChunkPos(trueSectionX, trueSectionZ));
+            if (wideChunk != null) {
+                cir.setReturnValue(wideChunk);
+                return;
+            }
         }
         int rx = sx;
         int rz = sz;
