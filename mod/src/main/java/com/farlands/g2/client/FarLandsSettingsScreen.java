@@ -241,7 +241,7 @@ public class FarLandsSettingsScreen extends Screen {
     }
 
     private static int family(String key) {
-        if (key.startsWith("epoch_") || key.startsWith("auto_relocate") || key.startsWith("relocate_")) {
+        if (key.startsWith("auto_relocate") || key.startsWith("relocate_")) {
             return 0;
         }
         if (key.startsWith("worldgen_")) {

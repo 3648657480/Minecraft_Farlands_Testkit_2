@@ -9,7 +9,6 @@
         "ClientChunkCacheSeamLookupMixin",
         "ClientAutoTestMixin",
         "FrustumMixin",
-        "ViewAreaMixin",
         "OctreeMixin",
         "CameraMixin",
         "RenderSectionFloatingOriginMixin",

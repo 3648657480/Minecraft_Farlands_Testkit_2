@@ -11,7 +11,7 @@ public class G2Mod implements ModInitializer {
         // usable before world creation, not invented when the world starts.
         FarConfig.loadGlobalTemplate(FabricLoader.getInstance().getConfigDir());
         System.out.println("[FarLands-G2] " + FarConfig.buildVersion()
-            + " epoch build (realtp + relocate)");
+            + " wide build (real coordinates)");
         Watchdog.start();
     }
 }

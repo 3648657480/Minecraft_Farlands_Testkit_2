@@ -19,7 +19,7 @@ public final class FarRandom {
         if (!FarProjection.isFarEngine()) {
             return factory.at(x, y, z);
         }
-        long off = FarProjection.epochSeedOffset();
+        long off = FarProjection.generationSeedOffset();
         return factory.at(x + (int) off, y, z + (int) (off >>> 32));
     }
 }

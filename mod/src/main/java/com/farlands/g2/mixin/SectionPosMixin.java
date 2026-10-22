@@ -1,6 +1,5 @@
 package com.farlands.g2.mixin;
 
-import com.farlands.g2.util.FarLandsEpoch;
 import net.minecraft.core.SectionPos;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -22,20 +21,6 @@ public class SectionPosMixin {
         } catch (ReflectiveOperationException e) {
             return 4194304;
         }
-    }
-
-    @Inject(method = "x(J)I", at = @At("RETURN"), cancellable = true)
-    private static void farlands$x(long sectionNode, CallbackInfoReturnable<Integer> cir) {
-        int v = cir.getReturnValue();
-        int corrected = FarLandsEpoch.correctX(v);
-        if (corrected != v) cir.setReturnValue(corrected);
-    }
-
-    @Inject(method = "z(J)I", at = @At("RETURN"), cancellable = true)
-    private static void farlands$z(long sectionNode, CallbackInfoReturnable<Integer> cir) {
-        int v = cir.getReturnValue();
-        int corrected = FarLandsEpoch.correctZ(v);
-        if (corrected != v) cir.setReturnValue(corrected);
     }
 
     @Overwrite

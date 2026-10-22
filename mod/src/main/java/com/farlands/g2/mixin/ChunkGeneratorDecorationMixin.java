@@ -23,6 +23,6 @@ public class ChunkGeneratorDecorationMixin {
         at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/level/levelgen/WorldgenRandom;setDecorationSeed(JII)J"))
     private long farlands$decorationSeed(WorldgenRandom random, long seed, int x, int z) {
-        return random.setDecorationSeed(seed + FarProjection.epochSeedOffset(), x, z);
+        return random.setDecorationSeed(seed + FarProjection.generationSeedOffset(), x, z);
     }
 }

@@ -16,16 +16,13 @@ public final class FarConfig {
     private static boolean lenient;
     private static final java.util.List<String> WARNINGS = new java.util.ArrayList<>();
 
-    // ---- epoch ----
-    private static volatile java.math.BigInteger epochBigX = null;
-    private static volatile java.math.BigInteger epochBigZ = null;
     // ---- relocation ----
     private static volatile boolean autoRelocate = true;
     private static volatile double relocateMargin = 100_000.0;
     // ---- performance ----
     private static volatile int fluidTickLimit = 2000;
     // ---- storage ----
-    private static volatile String archiveDir = "farlands_epochs";
+    private static volatile String archiveDir = "farlands_archive";
     // ---- worldgen (terrain sampling policy) ----
     private static volatile String worldgenSampleMode = "raw";
     private static volatile double worldgenSampleClamp = 1e300;
@@ -53,7 +50,6 @@ public final class FarConfig {
      * per-world file) uses these names.
      */
     private static final String[] KEYS = {
-        "epoch_x", "epoch_z",
         "auto_relocate", "relocate_margin",
         "fluid_tick_limit", "archive_dir",
         "worldgen_sample_mode", "worldgen_sample_clamp", "worldgen_far_threshold",
@@ -65,7 +61,7 @@ public final class FarConfig {
     /**
      * Global-behavior keys: the settings-screen global config (JSON) is
      * authoritative for these even over an existing world's file. All other
-     * keys are world-identity (terrain/epoch) and the world file wins.
+     * keys are world-identity (terrain) and the world file wins.
      */
     private static final String[] GLOBAL_KEYS = {
         "fluid_tick_limit", "debug", "config_mode"
@@ -109,16 +105,13 @@ public final class FarConfig {
     private FarConfig() {
     }
 
-    /** Loads the config for a world; call before the epoch is applied. */
+    /** Loads the config for a world; call before terrain is generated. */
     public static void load(Path worldDir) {
-        // reset cross-world static state first: a previous world's epoch must
-        // never leak into a freshly created one
-        epochBigX = null;
-        epochBigZ = null;
+        // reset cross-world static state first so nothing leaks between worlds
         autoRelocate = true;
         relocateMargin = 100_000.0;
         fluidTickLimit = 2000;
-        archiveDir = "farlands_epochs";
+        archiveDir = "farlands_archive";
         worldgenSampleMode = "raw";
         worldgenSampleClamp = 1e300;
         worldgenFarThreshold = 9007199254740992L;
@@ -131,7 +124,6 @@ public final class FarConfig {
         testgenSettle = 200;
         testspawn = false;
         spawnset = null;
-        FarProjection.resetEpoch();
         file = worldDir.resolve("farlands.properties");
         Properties p = new Properties();
         Properties jsonValues = readGlobalJson();
@@ -186,27 +178,10 @@ public final class FarConfig {
                 }
             }
         }
-        // migrate the legacy epoch file
-        Path legacy = worldDir.resolve("farlands_epoch.txt");
-        if (!p.containsKey("epoch_x") && Files.isRegularFile(legacy)) {
-            try {
-                String[] parts = Files.readString(legacy).trim().split(",");
-                p.setProperty("epoch_x", parts[0].trim());
-                p.setProperty("epoch_z", parts[1].trim());
-            } catch (Exception ignored) {
-            }
-        }
-        // spawnset: JVM flag > world-file key; sets the epoch (and respawn)
+        // spawnset: JVM flag > world-file key (test worlds only)
         String spawnsetSpec = System.getProperty("farlands.spawnset");
         if (spawnsetSpec == null || spawnsetSpec.isEmpty()) {
             spawnsetSpec = p.getProperty("spawnset", "");
-        }
-        if (!spawnsetSpec.isEmpty()) {
-            String[] parts = spawnsetSpec.split(",");
-            if (parts.length >= 3) {
-                p.setProperty("epoch_x", parts[0].trim());
-                p.setProperty("epoch_z", parts[2].trim());
-            }
         }
         override(p, "farlands.auto_relocate", "auto_relocate");
         override(p, "farlands.relocate_margin", "relocate_margin");
@@ -234,14 +209,10 @@ public final class FarConfig {
         WARNINGS.clear();
 
         try {
-            if (p.containsKey("epoch_x")) {
-                epochBigX = new java.math.BigDecimal(p.getProperty("epoch_x").trim()).toBigInteger();
-                epochBigZ = new java.math.BigDecimal(p.getProperty("epoch_z", "0").trim()).toBigInteger();
-            }
             autoRelocate = Boolean.parseBoolean(p.getProperty("auto_relocate", "true"));
             relocateMargin = Double.parseDouble(p.getProperty("relocate_margin", "100000"));
             fluidTickLimit = Integer.parseInt(p.getProperty("fluid_tick_limit", "2000"));
-            archiveDir = p.getProperty("archive_dir", "farlands_epochs").trim();
+            archiveDir = p.getProperty("archive_dir", "farlands_archive").trim();
             worldgenSampleMode = p.getProperty("worldgen_sample_mode", "raw").trim();
             worldgenSampleClamp = Double.parseDouble(p.getProperty("worldgen_sample_clamp", "1e300"));
             worldgenFarThreshold = Long.parseLong(p.getProperty("worldgen_far_threshold", "9007199254740992"));
@@ -305,13 +276,6 @@ public final class FarConfig {
                 + " invalid value(s); affected options reverted to defaults");
             System.out.flush();
         }
-        if (epochBigX == null) {
-            // auto-create: a fresh world gets an epoch at the origin so the
-            // epoch machinery (and /realtp) is live from the start
-            epochBigX = java.math.BigInteger.ZERO;
-            epochBigZ = java.math.BigInteger.ZERO;
-            System.out.println("[FarLands-G2] config auto-created (epoch = origin)");
-        }
         if ((spawnsetSpec != null && !spawnsetSpec.isEmpty()) || fresh) {
             save();
             draft = null;
@@ -336,12 +300,10 @@ public final class FarConfig {
     /** Default value for every key (the seed for the global template). */
     private static Properties defaultsProperties() {
         Properties p = new Properties();
-        p.setProperty("epoch_x", "0");
-        p.setProperty("epoch_z", "0");
         p.setProperty("auto_relocate", "true");
         p.setProperty("relocate_margin", "100000");
         p.setProperty("fluid_tick_limit", "2000");
-        p.setProperty("archive_dir", "farlands_epochs");
+        p.setProperty("archive_dir", "farlands_archive");
         p.setProperty("worldgen_sample_mode", "raw");
         p.setProperty("worldgen_sample_clamp", "1e300");
         p.setProperty("worldgen_far_threshold", "9007199254740992");
@@ -464,7 +426,7 @@ public final class FarConfig {
      * Policy violation: the configuration is invalid.
      *
      * <p>Strict mode (default): reject and abort immediately (fail-fast) -
-     * a wrong epoch or margin can corrupt a world. Lenient mode
+     * a wrong margin can corrupt a world. Lenient mode
      * ({@code config_mode=lenient}): record a warning and let the loader
      * revert the affected scalars to defaults (never silent).</p>
      */
@@ -499,7 +461,7 @@ public final class FarConfig {
         autoRelocate = true;
         relocateMargin = 100000;
         fluidTickLimit = 2000;
-        archiveDir = "farlands_epochs";
+        archiveDir = "farlands_archive";
         worldgenSampleMode = "raw";
         worldgenSampleClamp = 1e300;
         worldgenFarThreshold = 9007199254740992L;
@@ -532,13 +494,6 @@ public final class FarConfig {
             sb.append("#  JVM flags override this file: -Dfarlands.<key>=<value>\n");
             sb.append("# ============================================================\n");
             sb.append('\n');
-            sb.append("# ---- epoch: the world origin (real coordinate, exact) ----\n");
-            sb.append("# (0,0) = world origin. Changing this shifts all generated\n");
-            sb.append("# chunks - prefer /realtp or a fresh world.\n");
-            if (epochBigX != null) {
-                sb.append("epoch_x=").append(epochBigX).append('\n');
-                sb.append("epoch_z=").append(epochBigZ).append('\n');
-            }
             sb.append('\n');
             sb.append("# ---- relocation: what happens near the window edge ----\n");
             sb.append("# true  = walking near the edge re-centers automatically\n");
@@ -553,7 +508,7 @@ public final class FarConfig {
             sb.append("fluid_tick_limit=").append(fluidTickLimit).append('\n');
             sb.append('\n');
             sb.append("# ---- storage ----\n");
-            sb.append("# per-epoch chunk archive directory (relative to the world)\n");
+            sb.append("# chunk archive directory (relative to the world)\n");
             sb.append("archive_dir=").append(archiveDir).append('\n');
             sb.append('\n');
             sb.append("# ---- worldgen: terrain sampling policy at extreme ----\n");
@@ -568,7 +523,7 @@ public final class FarConfig {
             sb.append("worldgen_sample_mode=").append(worldgenSampleMode).append('\n');
             sb.append("# clamp bound (clamp mode only)\n");
             sb.append("worldgen_sample_clamp=").append(worldgenSampleClamp).append('\n');
-            sb.append("# distance (blocks from the epoch) beyond which the far\n");
+            sb.append("# distance (blocks) beyond which the far\n");
             sb.append("# policy applies; 0 = everywhere; default 2^53\n");
             sb.append("worldgen_far_threshold=").append(worldgenFarThreshold).append('\n');
             sb.append('\n');
@@ -595,7 +550,7 @@ public final class FarConfig {
             sb.append("# Format: cx,cz,n;cx,cz,n  (n = n x n region, default 1).\n");
             sb.append("# testgen_stop=true settles, saves and halts the game after.\n");
             sb.append("# testspawn runs the spawn-search path headlessly.\n");
-            sb.append("# spawnset=x,y,z sets the real spawn/epoch. Test worlds only.\n");
+            sb.append("# spawnset=x,y,z sets the real spawn. Test worlds only.\n");
             sb.append("testgen=").append(testgen == null ? "" : testgen).append('\n');
             sb.append("testgen_stop=").append(testgenStop).append('\n');
             sb.append("testgen_settle=").append(testgenSettle).append('\n');
