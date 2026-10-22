@@ -46,10 +46,12 @@ claims.
 
 ## Key facts
 
-- Engine is fully local-domain; real domain = BigInteger (exact) + double
-  (sampling).
-- Fork jar must be identity-patched (wide + continuity + epoch flags) and
-  kept in sync with the mod's patch set. Mismatch = double conversion.
+- Engine runs at **real coordinates**: identity is wide (`WideChunkPos` 2048-bit /
+  `WideSectionKey2560` 2560-bit); int/long views are lossy bridges, never identity.
+- The epoch / local-domain route was **removed on 2026-10-22** and must not be
+  revived (`docs/TOMBSTONE.md`). Fork jar must be identity-patched (wide +
+  continuity flags) and kept in sync with the mod's patch set. Mismatch = double
+  conversion.
 - Config sources: the global template `config/farlands-g2.properties`
   (auto-created at init) and the per-world `farlands.properties` (set on the
   create-world FarLands tabs, or edited outside the game), with
@@ -66,3 +68,4 @@ claims.
 - Config reference + presets: `docs/CONFIG.md` / `docs/CONFIG.en.md`
 - Roadmap and lessons: `docs/ROADMAP.md`
 - Review: `docs/REVIEW.md`
+- Removed routes (do not revive): `docs/TOMBSTONE.md`

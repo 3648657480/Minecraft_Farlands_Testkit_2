@@ -58,10 +58,12 @@ public final class FarLandsPatcher {
     }
 
     /**
-     * G2 engine defaults: wide + continuity ON, epoch OFF. An absent
+     * G2 engine defaults: wide + continuity ON. An absent
      * {@code -Dfarlands.<name>} property takes the default; an explicit
-     * {@code true}/{@code false} overrides it (epoch stays available as a
-     * fallback via {@code -Dfarlands.epoch=true}).
+     * {@code true}/{@code false} overrides it.
+     *
+     * <p>The epoch / local-domain route was removed on 2026-10-22; it has no
+     * consumer and must not be revived. See {@code docs/TOMBSTONE.md}.</p>
      */
     public static boolean flag(String name, boolean defaultValue) {
         String v = System.getProperty(name);

@@ -7,6 +7,9 @@ package com.farlands.g2.util;
  * <p>The E-line epoch is gone: there is no offset applied to the int domain.
  * The only projection left is origin-aware unwrapping for generation threads,
  * which is an identity for normal coordinates.</p>
+ *
+ * <p>Do not reintroduce an epoch / local-domain origin here: it was removed on
+ * 2026-10-22. See {@code docs/TOMBSTONE.md}.</p>
  */
 public final class FarProjection {
 
