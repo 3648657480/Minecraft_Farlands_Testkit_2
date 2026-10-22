@@ -13,6 +13,7 @@
         "SavedTickChunkAnchorMixin",
         "LevelTicksProbeMixin",
         "ChunkGenerationTaskNullMixin",
+        "ProtoChunkWideUnpackMixin",
         "GenerationBumpDiagMixin",
         "FarChunkDiagMixin",
         "ChunkMapReleaseNullMixin",
