@@ -1390,3 +1390,26 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 遗留：块 tick 是 no-op，尚未做"行为可见"的远域 tick（流体/红石）；D2 的保存→重载
   （`invalid location=0`）未在本轮复测。
 - 证据：`exp-p3-tick-2p31.log`、`exp-p3-tick-offset.log`；世界 `C:\Project-G2-aux\logs\p3-tick-*`。
+
+## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
+
+- 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"
+  的参照，不作对错评价。
+- 目标：让 Y 采样进入 ±2^31 量级，同时**保留** `ImprovedNoise` 的 int 饱和与 `x1=x0+1` 回绕
+  （这是穹顶现象的必要条件，改成 long 会使现象消失）。
+- 前提判据（任一不满足则本协议暂停）：
+  1. `NoiseSettings.minY/height` 与 `LevelHeightAccessor` 能表达扩大后的高度；
+  2. `FunctionContext` 的 Y 链贯通到 `NormalNoise.getValue`（当前
+     `NoiseChunkRealCoordsMixin.getBlockYDouble` 仍是 `(double)(cellStartBlockY + inCellY)`，Y 仍是 int）；
+  3. `PerlinNoise.wrap` 有真实开关（当前只有 `PerlinNoiseWrapDiagMixin` 诊断，默认关）；
+  4. `ImprovedNoise` 的 int 截断/saturating 语义不动。
+- 步骤（每轮单变量，fresh world，固定种子 12345，版本标记必看）：
+  - Y0 基线：沿用 §48 的三组指纹（(0,0)/(2^31)/(2^49)）；
+  - Y1 只抬高度：只改 dimension/NoiseSettings 的高度上限到 +2^31 一侧，不碰噪声与 Y 链；
+    预期 (0,0) 地形逐位不变、无崩溃；
+  - Y2 只通 Y 链：`getBlockYDouble` 改宽 Y；预期 Y>384 的采样连续、正常高度不变；
+  - Y3 只关 wrap：新增 `-Dfarlands.perlin.wrap=false`；预期高 Y 出现条带/墙（特定条件下）；
+  - Y4 对照：保持 wrap 开，确认 Y3 的现象不出现（证明是 wrap 的贡献）。
+- 验收：每步 `(0,0)`、2^31、2^49 指纹按 §48 判据（远域不要求等值）；Y 现象用高度剖面/截图记录。
+- 禁止：把 `ImprovedNoise` 的 int 换成 long；把 Y 512 位当实现前提（Y-AUDIT 结论：不需要）。
+- 状态：**未执行**。需要先确认高度上限取值与是否允许改 dimension type（影响已有存档）。
