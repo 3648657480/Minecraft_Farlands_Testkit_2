@@ -1750,6 +1750,23 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 状态：构建通过，待用户复测。
 - 证据：`%TEMP%\hang-dump.txt`（jcmd Thread.print，PID 36032）。
 
+## 72. P5/Y-D：换带存档重载后区块"空掉"的根因与修复（2026-10-22）
+
+- 现象（用户截图）：(0,0) 区块短暂完全消失（地形出现一个洞），tp 到 16000 再回来又恢复。
+- 根因：换带后的区块按 989..1012 存盘，但**窗口带没有持久化**。重载时窗口按默认带
+  （−4..19）建立，NBT 里的段全部落在窗口外被丢弃 → 区块空；只有再次触发换带才自愈。
+- 修复：
+  1. `YBandOverrides` 持久化到 `world/farlands_bands.txt`：换带完成后保存，服务器启动首次
+     tick（`-Dfarlands.y.follow=true`）加载；
+  2. 加载时窗口优先级：per-chunk 覆盖 > 存档 `yPos`（`SavedBandContext` +
+     `SerializableChunkDataAccessor`）> `-Dfarlands.y.center` > 维度带；
+  3. `[SBCTX]` 诊断（`-Dfarlands.y.diag=true`）打印读档 yPos 与 ctor 决策。
+- 验证：换带到 1000 → 文件内容 `0 0 1000` → 重载 `loaded 1 band overrides`、
+  `gen OK topY=15950`（磁盘读档 172ms），区块落在 989..1012，不再空。
+- 遗留：本次修复前存的世界没有带记录，旧世界需一次换带（tp 高再回）才会写入并自愈；
+  联机需要把带同步进协议，而不是本地文件。
+- 证据：`exp-store2-a.log`、`exp-store2-b.log`、`exp-bandstore-a.log`。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"
