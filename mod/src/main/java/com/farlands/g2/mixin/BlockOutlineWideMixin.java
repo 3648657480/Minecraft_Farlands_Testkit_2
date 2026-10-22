@@ -28,7 +28,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class BlockOutlineWideMixin {
 
     /** Opt-in until the far-domain raycast/selection path is verified in game. */
-    private static final boolean ENABLED = Boolean.getBoolean("farlands.outline.wide");
+    private static boolean farlands$enabled() {
+        return Boolean.getBoolean("farlands.outline.wide");
+    }
 
     private static boolean farlands$logged;
     private static int farlands$calls;
@@ -45,7 +47,7 @@ public abstract class BlockOutlineWideMixin {
     @Inject(method = "submitBlockOutline", at = @At("HEAD"), cancellable = true)
     private void farlands$wideOutline(PoseStack poseStack, SubmitNodeCollector collector,
         LevelRenderState levelRenderState, CallbackInfo ci) {
-        if (!ENABLED) {
+        if (!farlands$enabled()) {
             return;
         }
         BlockOutlineRenderState state = levelRenderState.blockOutlineRenderState;
