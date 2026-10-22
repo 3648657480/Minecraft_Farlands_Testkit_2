@@ -1,0 +1,16 @@
+# NOTICE
+
+## 设计参考与致谢
+
+- **infs-farlands** — https://github.com/AxorBisInfinitive/infs-farlands
+  （MIT，Copyright (C) 2026 Infinitive）。
+
+  本项目的"Y 轴窗口化"设计（每个 chunk 用稀疏 section 容器 + 以玩家为中心的竖直滑动窗口，
+  使世界高度可以达到 ±2^31 而不放大 section 数组）参考了该项目 `mixin/expand/y/` 与
+  `util/window/` 的做法。经作者同意参考（2026-10-22，作者原话："随便参考……不能直接复制
+  因为要适配，所以连许可证也不需要，找个地方签名就行"）。
+
+  本仓库没有逐字复制其代码：实现按本项目的宽身份层（`WideChunkPos` / `WideSectionKey2560`）
+  重新设计。若将来引入其代码片段，将在对应文件头与本节同时标注。
+
+- 设计说明见 `docs/Y-WINDOW-DESIGN.md`（草案）。

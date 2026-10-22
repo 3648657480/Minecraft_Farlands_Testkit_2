@@ -94,4 +94,5 @@ the red lines in [AGENTS.md](AGENTS.md) (R10).
 ## License
 
 MIT. This project ships no Minecraft assets; all Minecraft code is patched
-locally on the user's machine from the user's own copy.
+locally on the user's machine from the user's own copy. See [NOTICE](NOTICE)
+for design references and acknowledgements.
