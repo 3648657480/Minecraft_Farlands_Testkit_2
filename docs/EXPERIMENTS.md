@@ -1391,6 +1391,24 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   （`invalid location=0`）未在本轮复测。
 - 证据：`exp-p3-tick-2p31.log`、`exp-p3-tick-offset.log`；世界 `C:\Project-G2-aux\logs\p3-tick-*`。
 
+## 53. P5-Y-A：单独放宽可建造高度的负结果（2026-10-22）
+
+- 日期：2026-10-22
+- 假设：先把 `LevelHeightAccessor.isInside/isOutsideBuildHeight` 改为 `±(2^31−17)`，
+  世界仍 384 高、区块仍 24 段，应无行为变化（Y-A 只放宽谓词）。
+- 参数：种子 12345；`-TestGen 0,0`；Settle=100；`-Dfarlands.y.widebounds=true`；
+  新增 `VerticalBounds` + `LevelHeightAccessorMixin`（HEAD 注入，flag 关时原样返回）。
+- 预期：`DONE saved`，`(0,0)` 指纹 `floor=8936c275d063` 不变。
+- 实测：Worker 抛 `ReportedException: Exception generating new chunk`；
+  `Caused by: ArrayIndexOutOfBoundsException: Index -1 out of bounds for length 24`
+  at `ChunkAccess.getSection(ChunkAccess.java:164)`（24 = 384/16）。
+- 结论：**在本实验条件下**，单独放宽 build-height 谓词会让维度外的 Y 通过
+  `Level.isInValidBounds`，但 `ChunkAccess` 仍是定长 24 段数组 → 越界。
+  界与窗口必须同一轮落地；"只放宽界"作废。
+- 处置：删除 `LevelHeightAccessorMixin`（避免留下"一开就崩"的 flag），保留
+  `VerticalBounds` 供 Y-B 使用；Y-A 合并进 Y-B（见 `docs/Y-WINDOW-DESIGN.md` §10）。
+- 证据：`exp-ya-bounds-normal.log`。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"
