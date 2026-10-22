@@ -63,7 +63,10 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
             this.farlands$all.put(farlands$key(dimensionMin + i), this.sections[i]);
         }
         String override = System.getProperty("farlands.y.center");
-        if (override != null && !override.isEmpty()) {
+        Integer perChunk = com.farlands.g2.runtime.YBandOverrides.get(chunkPos.widePos());
+        if (perChunk != null) {
+            center = perChunk;
+        } else if (override != null && !override.isEmpty()) {
             center = Integer.parseInt(override);
         }
         farlands$applyWindow(center);

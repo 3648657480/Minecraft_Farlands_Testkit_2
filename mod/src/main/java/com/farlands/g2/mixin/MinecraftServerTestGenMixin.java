@@ -344,6 +344,41 @@ public abstract class MinecraftServerTestGenMixin {
                 long sz = sp.wideSection().z().limb(0);
                 System.out.println("[FarLands-Test] section2560 x=" + sx + " z=" + sz
                     + " expect=" + cxL + "," + czL + " ok=" + (sx == cxL && sz == czL));
+                // Y-D probe: re-band a loaded chunk in process (unload + regenerate).
+                if (Boolean.getBoolean("farlands.testgen.regen")) {
+                    int regenSy = Integer.getInteger("farlands.testgen.regen.sy", 1000);
+                    net.minecraft.world.level.ChunkPos rpos = chunk.getPos();
+                    com.farlands.g2.runtime.YBandOverrides.set(rpos.widePos(), regenSy);
+                    net.minecraft.server.level.ServerChunkCache rsc =
+                        (net.minecraft.server.level.ServerChunkCache) level.getChunkSource();
+                    net.minecraft.server.level.ChunkMap rcm = rsc.chunkMap;
+                    net.minecraft.server.level.ChunkHolder rh = rcm.farlands$getUpdatingChunkW(rpos.widePos());
+                    System.out.println("[REGEN] before minY=" + chunk.getMinY()
+                        + " holder=" + (rh != null) + " target=" + regenSy);
+                    if (rh != null) {
+                        try {
+                            ((com.farlands.g2.mixin.ChunkMapAccessor) rcm).farlands$scheduleUnload(rpos.pack(), rh);
+                        } catch (Throwable t) {
+                            System.out.println("[REGEN] scheduleUnload threw: " + t);
+                        }
+                        for (int i = 0; i < 200; i++) {
+                            rcm.getDistanceManager().runAllUpdates(rcm);
+                            try {
+                                ((com.farlands.g2.mixin.ChunkMapAccessor) rcm).farlands$tick(() -> true);
+                            } catch (Throwable ignored) {
+                            }
+                            net.minecraft.server.level.ChunkHolder h2 = rcm.farlands$getUpdatingChunkW(rpos.widePos());
+                            if (h2 != null && h2.getFullChunkFuture().isDone()) {
+                                break;
+                            }
+                        }
+                    }
+                    var rechunk = rsc.farlands$getChunkWide(rpos);
+                    System.out.println("[REGEN] after minY=" + (rechunk == null ? "null" : rechunk.getMinY())
+                        + " topY=" + (rechunk == null ? "null"
+                            : rechunk.getHeight(Heightmap.Types.WORLD_SURFACE, 8, 8)));
+                    System.out.flush();
+                }
                 // P3 tick probe: schedule a block tick at the centre of the far
                 // chunk. If LevelTicks resolves the position through the int
                 // view, it logs "Trying to schedule tick in not loaded position".

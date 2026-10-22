@@ -1517,6 +1517,23 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 遗留：进程内换带仍需"卸载 + 重新生成"（A 方案），需要 ticket 移除路径（A 的下一步）。
 - 证据：`exp-ye-band-a3.log`、`exp-ye-band-b3.log`、`exp-ye-bandchange.log`（修前）。
 
+## 60. P5-Y-D 探针：进程内换带（scheduleUnload）的负结果（2026-10-22）
+
+- 日期：2026-10-22
+- 目的：不重启进程，把已加载 chunk 的窗口从 −64…319 换到 1000 带并重新生成。
+- 做法：`YBandOverrides` 记录 per-chunk 目标带 → `ChunkMapAccessor`（`@Invoker`）调私有
+  `ChunkMap.scheduleUnload(pack, holder)` → 循环 `distanceManager.runAllUpdates + ChunkMap.tick`
+  → `farlands$getChunkWide` 重新取。
+- 参数：种子 12345；`-TestGen 0,0`；Settle=100；`-Dfarlands.y.window=true
+  -Dfarlands.testgen.regen=true`（目标 sy=1000）。
+- 预期：`after minY=15824`、`topY=15823`（新带重新生成）。
+- 实测：`[REGEN] before minY=-64 holder=true target=1000` → `[REGEN] after minY=-64 topY=62`
+  —— 窗口与内容都没变；chunk 没有被真正卸载/重建。
+- 结论：**在本实验条件下**，直接 `scheduleUnload` 不足以让已加载 chunk 换带重建；
+  需要先降 ticket 级（或移除宽 ticket）让 holder 走正常卸载流程，再重新请求。
+  这条路径涉及 ticket 归属与 tracker 状态，A 方案要按设计 §12.1 的"受控实现"推进。
+- 证据：`exp-yd-regen.log`。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"
