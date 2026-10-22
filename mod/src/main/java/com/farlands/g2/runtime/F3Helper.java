@@ -64,13 +64,6 @@ public final class F3Helper {
         return qr[1].signum() < 0 ? qr[0].subtract(java.math.BigInteger.ONE) : qr[0];
     }
 
-    /** Epoch lap count in 2^31-block windows (and the remainder inside the lap). */
-    private static String laps(java.math.BigInteger epoch) {
-        java.math.BigInteger window = java.math.BigInteger.ONE.shiftLeft(31);
-        java.math.BigInteger[] qr = epoch.divideAndRemainder(window);
-        return qr[0] + " (+" + qr[1] + ")";
-    }
-
     public static List<String> extraLines(Minecraft mc, Level level, Entity entity) {
         List<String> out = new ArrayList<>();
         double x = entity.getX();
