@@ -11,6 +11,7 @@
         "ChunkBiomesDiagMixin",
         "NoiseSettingsWindowMixin",
         "PlayerSpawnFinderWindowMixin",
+        "SerializableChunkDataWindowMixin",
         "LevelGetChunkAtWideMixin",
         "LevelGetBlockStateWideMixin",
         "ServerTickMixin",

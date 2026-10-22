@@ -1500,6 +1500,23 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 遗留：多区块/相邻 chunk 的段同步；低/高带混合世界的重载；网络包段列表。
 - 证据：`exp-ye-save.log`、`exp-ye-reload.log`。
 
+## 59. P5-Y-E 续：换带加载的 heightmap 修正（2026-10-22）
+
+- 日期：2026-10-22
+- 现象：默认带（−64…319）保存后，用 `-Dfarlands.y.center=0`（窗口整体移 7 段）重载：
+  方块数据正确（`b(8,60,8)=water`、`surfWG=62`），但运行时 heightmap 偏移：
+  `topY=-50`（应为 62）。
+- 根因：NBT 里的 heightmap 存的是**相对 chunk minY** 的值；换带后按新 minY 解释，
+  整体偏移 = 段数差 × 16（本例 −112）。方块按绝对 sectionY 存，所以不受影响。
+- 修复：`SerializableChunkDataWindowMixin` 在 `read` 返回时，对 `WindowedChunk` 重新计算
+  运行时 heightmap（`WORLD_SURFACE` / `MOTION_BLOCKING` / `MOTION_BLOCKING_NO_LEAVES` /
+  `OCEAN_FLOOR`）；WG 类型不动（生成期产物，动了会改指纹）。
+- 复测：默认带保存 → band=0 重载，`topY=62`，
+  `wgHash surf=b9216bad2029 floor=8936c275d063` 不变，`timeMs=226`（读档）。
+- 结论：**在本实验条件下**，窗口带跨存档变化时方块与运行时高度图都正确，WG 指纹稳定。
+- 遗留：进程内换带仍需"卸载 + 重新生成"（A 方案），需要 ticket 移除路径（A 的下一步）。
+- 证据：`exp-ye-band-a3.log`、`exp-ye-band-b3.log`、`exp-ye-bandchange.log`（修前）。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"
