@@ -1450,6 +1450,26 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 证据：`exp-yb2-normal.log`、`exp-yb2-normal2.log`、`exp-yb2-mid*.log`、
   `exp-yb2-noisefix-mid.log`、`exp-yb2-noisefix-high.log`、`exp-yb2-step-miss.log`。
 
+## 56. P5-Y-B 步 3：2^31 挂起根因（出生点搜索）与生成打通（2026-10-22）
+
+- 日期：2026-10-22
+- 现象：`-Dfarlands.y.center=134217714`（Y≈2^31 带）挂起；watchdog 只打堆、无 STACK。
+- 线程转储（挂起时 jcmd Thread.print）：`Server thread` RUNNABLE，CPU≈85 s，栈：
+  `MinecraftServer.setInitialSpawn → PlayerSpawnFinder.getSpawnPosInChunk
+  → getLevelRespawnPos → Block.isShapeFullBlock`。
+- 根因：窗口带的高度图返回 ≈2^31，`getLevelRespawnPos` 的循环从 `topY+1` 一直减到
+  `level.getMinY()`（−64），约 2^31 次迭代；每次 `getBlockState` 还会新建空 section。
+  这是**世界创建期**的搜索，与 generation 无关。
+- 处置（测试让步）：`PlayerSpawnFinderWindowMixin` 在 `farlands.y.window=true` 且设置了
+  `farlands.y.center` 时，直接把出生点回答在窗口带底部（正式语义留 Y-D）。
+- 复测：`gen OK`，`topY=2147483247`（= 带 minY−1，全空气），`sections=0`，
+  `wgHash surf=floor=c5e049258baf`，`biome=plains`，`DONE saved`。
+- 结论：**在本实验条件下**，窗口化 chunk 可以在 Y≈2^31 完成生成与保存；内容全空气
+  （该高度的密度与噪声冻结结果）。"是否出现穹顶"需要单独的 Y 现象实验，不在本步结论内。
+- 遗留：运行时滑窗（窗口目前只在构造期设定）；网络/读档同步；出生点的正式语义；
+  2 条 `Empty height range` 警告（feature 高度 provider，未归因）。
+- 证据：`exp-yb-hang.log`（线程转储 `%TEMP%\yb-hang-dump.txt`）、`exp-yb-high2.log`。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"

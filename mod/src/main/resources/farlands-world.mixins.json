@@ -10,6 +10,7 @@
         "ChunkMapStepDiagMixin",
         "ChunkBiomesDiagMixin",
         "NoiseSettingsWindowMixin",
+        "PlayerSpawnFinderWindowMixin",
         "LevelGetChunkAtWideMixin",
         "LevelGetBlockStateWideMixin",
         "ServerTickMixin",
