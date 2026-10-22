@@ -1723,6 +1723,17 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   因此 digest 不能判"是否复现 vanilla"，但可以判"重生成是否自一致"。
 - 证据：`exp-status-fix.log`。
 
+## 70. P5/B：features 邻读告警（write radius −1）修复（2026-10-22）
+
+- 现象（用户 22:16 日志）：`stage failed` 已为 0，但仍有 103 条
+  `Detected unsafe terrain read ... (distance: 1, write radius: -1), step: minecraft:features`。
+- 根因：`StageSteps` 捕获到的 FEATURES step 是 **load-time 变体**（`blockStateWriteRadius = -1`），
+  `WorldGenRegion` 的安全检查因此把所有邻读都判成越界。
+- 修复：`regionFor` 里当 step 的写半径 < 1 时，用同一 target/deps/task 重建一个半径 1 的
+  `ChunkStep`（与生成期 features 的允许半径一致）。
+- 验证（同带 sy=7）：`unsafe=0`、无 `stage failed`、`b49=gravel b60=water topY=62`。
+- 证据：`exp-unsafe-fix.log`。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"

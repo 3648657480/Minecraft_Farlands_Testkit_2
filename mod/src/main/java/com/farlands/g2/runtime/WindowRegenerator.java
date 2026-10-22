@@ -66,7 +66,16 @@ public final class WindowRegenerator {
             if (step == null) {
                 step = StageSteps.get(ChunkStatus.SURFACE);
             }
-            return step == null ? null : new WorldGenRegion(level, cache, step, proto);
+            if (step == null) {
+                return null;
+            }
+            if (step.blockStateWriteRadius() < 1) {
+                // The captured step may be the load-time variant (write radius -1),
+                // which makes the safety checks flag every neighbour read.
+                step = new ChunkStep(step.targetStatus(), step.directDependencies(),
+                    step.accumulatedDependencies(), 1, step.task());
+            }
+            return new WorldGenRegion(level, cache, step, proto);
         };
 
         // Structures first (vanilla order): starts -> references, then biomes/noise.
