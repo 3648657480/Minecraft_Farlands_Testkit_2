@@ -133,3 +133,19 @@ A 的待验证点：
 4. 跨带时 tick/实体位置是否会被丢（先只测方块）。
 
 状态：**设计记录，未实现**。Y-C 的搬窗与 Y-E 的重载已分别验证（§57/§58）。
+
+### 12.1 A 的 API 侦察（2026-10-22）
+
+| 入口 | 可见性 | 用途/限制 |
+|---|---|---|
+| `ServerChunkCache.chunkMap` | `public final` | 可直接拿 ChunkMap |
+| `ChunkMap.scheduleUnload(long pos, ChunkHolder)` | **private** | 异步保存后移除；需要 accessor mixin 调用 |
+| `ChunkMap.releaseGeneration(GenerationChunkHolder)` | public | 只减 generation 引用计数，不卸载 |
+| `ChunkHolder.setTicketLevel(int)` | public | 可把 holder 降到未加载级，触发正常卸载流程 |
+| `ChunkHolder.getSaveSyncFuture()` | public | 可用于等待落盘后再卸载 |
+| `ChunkMap.dropChunk(ServerPlayer, ChunkPos)` | private static | 只丢弃客户端发送缓存，不是卸载 |
+
+**A 的候选路径**：per-chunk 带覆盖表 → 跨带时把该 chunk 的 ticket 降级并 `scheduleUnload`
+（accessor）→ 重新请求该 chunk → 构造器读覆盖表 → 在新带重新生成。
+风险：ticket 归属（玩家 ticket 会立刻重加）、实体/POI 迁移、卸载与重加的时序。
+**结论：需要受控实现，不适合无人值守直接改。**
