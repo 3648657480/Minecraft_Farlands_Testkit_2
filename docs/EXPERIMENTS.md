@@ -1574,6 +1574,22 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   性能未测；ticket/调度未接（目前由 testgen 钩子触发）。
 - 证据：`exp-yd-regen-same2.log`、`exp-yd-regen-shift2.log`、`exp-yd-regen-same.log`（半径 1 失败）。
 
+## 63. P5-Y-D：玩家跟随触发线（2026-10-22）
+
+- 日期：2026-10-22
+- 实现：`WindowFollower` —— 每 tick 遍历玩家，玩家 section Y 离开窗口"舒适区"（边距 4 段）时
+  触发 `WindowRegenerator` 原地换带；每 chunk 40 tick 冷却 + in-flight 去重；
+  `-Dfarlands.y.follow=true` 开启，钩在 `MinecraftServer.tickServer` HEAD。
+- 测试路径：testgen 的 `farlands.testgen.followsy` 调用**同一个** `WindowFollower.follow`
+  （不依赖真实玩家）。
+- 实测：`[FOLLOW] target=1000 triggered=true minY=-64` →
+  `[YFOLLOW] regenerated pos=[0,0] band=989..1012 sections=24`；随后 `DONE saved`。
+- 结论：**在本实验条件下**，触发线逻辑成立（触发 → 异步重生成 → 窗口更新）；
+  真实玩家的 tick 钩子与测试钩子共用同一函数。
+- 遗留：真实玩家路径需要客户端验证（渲染窗口 Y-F 未做）；换带性能未测；
+  结构/实体/POI 未迁移；冷却/边距参数未调优。
+- 证据：`exp-yd-follow.log`。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"

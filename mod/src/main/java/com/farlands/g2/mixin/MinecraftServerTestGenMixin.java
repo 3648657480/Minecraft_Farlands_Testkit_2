@@ -364,6 +364,17 @@ public abstract class MinecraftServerTestGenMixin {
                     });
                     System.out.flush();
                 }
+                // Y-D follow trigger: exercise the same code path players use.
+                String followSy = System.getProperty("farlands.testgen.followsy");
+                if (followSy != null && !followSy.isEmpty()
+                    && chunk instanceof net.minecraft.world.level.chunk.LevelChunk followChunk) {
+                    int targetSy = Integer.parseInt(followSy);
+                    boolean triggered = com.farlands.g2.runtime.WindowFollower.follow(
+                        followChunk, targetSy, 100);
+                    System.out.println("[FOLLOW] target=" + targetSy + " triggered=" + triggered
+                        + " minY=" + followChunk.getMinY());
+                    System.out.flush();
+                }
                 // P3 tick probe: schedule a block tick at the centre of the far
                 // chunk. If LevelTicks resolves the position through the int
                 // view, it logs "Trying to schedule tick in not loaded position".
