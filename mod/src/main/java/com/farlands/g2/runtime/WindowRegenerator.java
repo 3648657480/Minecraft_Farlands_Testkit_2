@@ -92,7 +92,12 @@ public final class WindowRegenerator {
         final Blender noiseBlender = noiseRegion == null ? Blender.empty() : Blender.of(noiseRegion);
 
         generator.createBiomes(randomState, biomesBlender, structures, proto)
-            .thenCompose(biomes -> generator.fillFromNoise(noiseBlender, randomState, structures, biomes))
+            .thenCompose(biomes -> {
+                // Bypassing ChunkStep.apply means the status must be advanced by hand:
+                // surface rules / features refuse to run before BIOMES/NOISE.
+                proto.setPersistedStatus(ChunkStatus.BIOMES);
+                return generator.fillFromNoise(noiseBlender, randomState, structures, biomes);
+            })
             .whenComplete((filled, error) -> level.getServer().execute(() -> {
                 if (error != null) {
                     YBandOverrides.clear(pos.widePos());
@@ -101,20 +106,24 @@ public final class WindowRegenerator {
                     done.accept(false);
                     return;
                 }
+                proto.setPersistedStatus(ChunkStatus.NOISE);
                 try {
                     WorldGenRegion surfaceRegion = regionFor.apply(ChunkStatus.SURFACE);
                     if (surfaceRegion != null) {
                         generator.buildSurface(surfaceRegion, structures, randomState, proto);
                     }
+                    proto.setPersistedStatus(ChunkStatus.SURFACE);
                     WorldGenRegion carversRegion = regionFor.apply(ChunkStatus.CARVERS);
                     if (carversRegion != null) {
                         generator.applyCarvers(carversRegion, level.getSeed(), randomState,
                             level.getBiomeManager(), structures, proto);
                     }
+                    proto.setPersistedStatus(ChunkStatus.CARVERS);
                     WorldGenRegion featuresRegion = regionFor.apply(ChunkStatus.FEATURES);
                     if (featuresRegion != null) {
                         generator.applyBiomeDecoration(featuresRegion, proto, structures);
                     }
+                    proto.setPersistedStatus(ChunkStatus.FEATURES);
                 } catch (Throwable t) {
                     System.out.println("[REGEN] surface/feature stage failed: " + t);
                     System.out.flush();

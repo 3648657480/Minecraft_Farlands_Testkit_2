@@ -1706,6 +1706,23 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   客户端桥加 `[YBRIDGE] applied pos=… band=…`。
 - 状态：构建通过，待用户重跑确认日志。
 
+## 69. P5/B：绕过 ChunkStep.apply 导致 surface 静默失败（2026-10-22）
+
+- 日期：2026-10-22
+- 现象（日志）：两次换带后都有
+  `[REGEN] surface/feature stage failed: IllegalStateException: Asking for biomes before we have biomes`，
+  但 `[YFOLLOW] done ok=true`——**失败被 catch 吞掉，ok 是误导**。
+- 根因：`ProtoChunk.getHighestGeneratedStatus()` 来自 persisted status；vanilla 的 `ChunkStep.apply`
+  在每个阶段完成后写 `setPersistedStatus(targetStatus)`，我们直接调 generator、绕过了它，
+  所以 status 一直是 EMPTY，`getNoiseBiome` 直接抛异常 → surface/carvers/features 全部没跑。
+- 修复：流水线逐阶段推进 status：createBiomes 后 BIOMES、fillFromNoise 后 NOISE、
+  buildSurface 后 SURFACE、applyCarvers 后 CARVERS、applyBiomeDecoration 后 FEATURES。
+- 验证（同带 sy=7）：无 `stage failed`，`b49=gravel b60=water topY=62`。
+- 附带观察：`digest` 的 after 值跨运行一致（`-433337024007385167`），而 before 值在不同运行间
+  出现过两个值——说明**重生成结果本身是确定的**，不稳定的是 vanilla 原始生成的方块内容；
+  因此 digest 不能判"是否复现 vanilla"，但可以判"重生成是否自一致"。
+- 证据：`exp-status-fix.log`。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"
