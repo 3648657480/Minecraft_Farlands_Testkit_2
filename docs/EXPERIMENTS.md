@@ -1534,6 +1534,27 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   这条路径涉及 ticket 归属与 tracker 状态，A 方案要按设计 §12.1 的"受控实现"推进。
 - 证据：`exp-yd-regen.log`。
 
+## 61. P5-B 原型：原地换带重生成（噪声阶段）（2026-10-22）
+
+- 日期：2026-10-22
+- 思路（不卸载、不动 ticket）：建 detached `ProtoChunk`（带覆盖生效）→
+  `generator.fillFromNoise(Blender.empty(), randomState, structureManager, proto)` →
+  在主线程把 proto 的 section 移植进活 chunk 的宽键 map → `moveWindowTo` →
+  重算运行时 heightmap。
+- 关键坑：**不能在服务端线程 `join()`**。`fillFromNoise` 的 future 由主线程执行器完成，
+  `join()` 会让 Server thread WAITING、所有 Worker idle（jcmd 已确认）→ 死锁。
+  改为 `whenComplete + server.execute(...)`。
+- 参数：种子 12345；`-TestGen 0,0`；Settle=200；`-Dfarlands.y.window=true
+  -Dfarlands.testgen.regen=true`（目标 sy=1000）。
+- 实测：`[REGEN] before minY=-64 target=1000` →
+  `[REGEN] done ok=true minY=15824 topY=15950 sections=24`；随后 `DONE saved`。
+- 结论：**在本实验条件下**，原地换带重生成机制成立（噪声阶段）；窗口搬到 1000 带后
+  新带确实生成了地形（topY=15950），旧带数据仍在 map 中。
+- 遗留：surface / carver / feature 未接入（当前新带是纯噪声地形，不是完整地表）；
+  需要捕获 `ChunkStep` 构造 `WorldGenRegion` 才能调 `buildSurface/applyCarvers/
+  applyBiomeDecoration`；同带重生成与原始生成的内容比对待做。
+- 证据：`exp-yd-regen-b3.log`、`exp-yd-regen-b2.log`（死锁）。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"

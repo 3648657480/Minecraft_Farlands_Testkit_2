@@ -12,7 +12,6 @@
         "NoiseSettingsWindowMixin",
         "PlayerSpawnFinderWindowMixin",
         "SerializableChunkDataWindowMixin",
-        "ChunkMapAccessor",
         "LevelGetChunkAtWideMixin",
         "LevelGetBlockStateWideMixin",
         "ServerTickMixin",
