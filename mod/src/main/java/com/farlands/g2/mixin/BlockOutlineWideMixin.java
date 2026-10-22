@@ -34,6 +34,7 @@ public abstract class BlockOutlineWideMixin {
 
     private static boolean farlands$logged;
     private static int farlands$calls;
+    private static int farlands$nonNull;
 
     @Shadow private net.minecraft.client.renderer.GameRenderer gameRenderer;
 
@@ -51,12 +52,17 @@ public abstract class BlockOutlineWideMixin {
             return;
         }
         BlockOutlineRenderState state = levelRenderState.blockOutlineRenderState;
-        if (Boolean.getBoolean("farlands.diag.render") && farlands$calls < 3) {
+        if (Boolean.getBoolean("farlands.diag.render")) {
             farlands$calls++;
-            System.out.println("[RDIAG-OUTLINE-CALL] n=" + farlands$calls + " state=" + (state == null ? "null" : "present")
-                + " hit=" + (net.minecraft.client.Minecraft.getInstance().hitResult == null
-                    ? "null" : net.minecraft.client.Minecraft.getInstance().hitResult.getType()));
-            System.out.flush();
+            if (state != null) {
+                farlands$nonNull++;
+            }
+            if (farlands$calls % 200 == 0) {
+                System.out.println("[RDIAG-OUTLINE-STAT] calls=" + farlands$calls + " nonNull=" + farlands$nonNull
+                    + " hit=" + (net.minecraft.client.Minecraft.getInstance().hitResult == null
+                        ? "null" : net.minecraft.client.Minecraft.getInstance().hitResult.getType()));
+                System.out.flush();
+            }
         }
         if (state == null) {
             return;

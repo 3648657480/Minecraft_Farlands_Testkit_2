@@ -84,10 +84,11 @@ public class ClientAutoTestMixin {
                         System.out.println("[AUTOTEST] BREAK_SKIP_AIR");
                         farlands$phase = 3;
                     } else {
-                        String cmd = "tp @s "
-                            + (farlands$target.getLongX() + 0.5) + " "
-                            + (farlands$target.getLongY() + 2) + " "
-                            + (farlands$target.getLongZ() + 0.5) + " 0 70";
+                        String cmd = String.format(java.util.Locale.ROOT,
+                            "tp @s %.1f %.1f %.1f 0 70",
+                            (double) farlands$target.getLongX() + 0.5,
+                            (double) farlands$target.getLongY() + 2.0,
+                            (double) farlands$target.getLongZ() + 0.5);
                         System.out.println("[AUTOTEST] " + cmd);
                         mc.player.connection.sendCommand(cmd);
                         System.out.println("[AUTOTEST] moved next to target");

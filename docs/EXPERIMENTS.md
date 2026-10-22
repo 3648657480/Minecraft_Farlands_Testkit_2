@@ -1344,3 +1344,26 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   true），`-Dfarlands.diag.render=true` 原本静默无效；已改为调用时读属性。
 - 证据：`mod/run/logs/latest.log`（16:08–16:10）；截图 `2026-10-22_16.09.37_2.png`（破坏位）、
   `2026-10-22_16.09.45.png`（vantage）、`2026-10-22_16.10.17.png`（RDIAG 60 s）。
+
+## 50. P2：block 2^31 选择框（outline）验证受阻——测试夹具的三个限制（2026-10-22）
+
+- 日期：2026-10-22
+- 目的：验证 `BlockOutlineWideMixin`（`-Dfarlands.outline.wide=true`）在 block 2^31 是否画出选择框。
+- 参数：dev 客户端 autotest（`-Dfarlands.autotest=true -Dfarlands.diag.render=true
+  -Dfarlands.outline.wide=true`），世界 `test7`。
+- 实测：
+  - `[RDIAG-OUTLINE-STAT] calls=1600 nonNull=0`：整场 `levelRenderState.blockOutlineRenderState`
+    恒为 null，同一批采样的 `hit=MISS`（渲染时刻准星不在实心方块上）。
+  - 夹具缺陷 1（已修）：phase 4 的 `tp` 用 `long + 0.5` 拼命令 → `2.1474836475E9`；原版命令解析器
+    不接受科学计数法（"错误的命令参数"），玩家从未移动到目标旁。改为 `String.format("%.1f", ...)`。
+  - 夹具缺陷 2（未修）：目标选取在海洋列里向下找到 y≈47 的 gravel，tp 落点可能位于实心块内部/水下，
+    准星仍不指向可见实心块。
+  - 夹具缺陷 3（未修）：`setblock 2147483727 …` 被原版 int 解析器拒绝（"无效的整型数据"），
+    无法在 x>2^31 放置测试方块。
+- 结论：本轮**没有**验证选择框。`blockOutlineRenderState` 为 null 的直接原因是准星未落在实心方块上
+  （`hit=MISS`），不是 outline 平移路径；宽平移是否生效仍待可用夹具。
+- 下一步：在 autotest 里用客户端侧 `setYRot/setXRot` 把玩家朝向一个已知实心块（不依赖 `tp`/`setblock`
+  命令），再截 selection 图；或另立项给 BlockPosArgument 加宽坐标支持。
+- 附带修正（已提交）：`BlockOutlineWideMixin` 的静态 final 门控在客户端加载顺序下读到 false，
+  `-Dfarlands.outline.wide=true` 原本静默无效 → 改为调用时读；新增 `[RDIAG-OUTLINE-STAT]` 计数。
+- 证据：`mod/run/logs/latest.log`（16:18–16:25）；截图 `2026-10-22_16.24.41.png`（setblock 被拒）。
