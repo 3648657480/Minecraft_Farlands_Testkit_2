@@ -1367,3 +1367,26 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 附带修正（已提交）：`BlockOutlineWideMixin` 的静态 final 门控在客户端加载顺序下读到 false，
   `-Dfarlands.outline.wide=true` 原本静默无效 → 改为调用时读；新增 `[RDIAG-OUTLINE-STAT]` 计数。
 - 证据：`mod/run/logs/latest.log`（16:18–16:25）；截图 `2026-10-22_16.24.41.png`（setblock 被拒）。
+
+## 51. P3：远域 scheduleTick 探针——未复现 not loaded position（2026-10-22）
+
+- 日期：2026-10-22
+- 目的：交接 §4.3 的运行时 tick 症状（`Trying to schedule tick in not loaded position`）是否仍存在。
+- 夹具：新增 mod 侧 testgen 钩子 `-Dfarlands.testgen.scheduletick=true`：生成后对中心格
+  `(cx*16+8, 60, cz*16+8)` 用**宽 BlockPos** 调 `level.scheduleTick(block, 1)`，并打印宽坐标与 int 视图。
+- 参数：种子 12345；对照组 `-TestGen 2147483648,0`（int 视图 chunk 0，已加载）；
+  判别组 `-TestGen 2147483748,0`（chunk 2^31+100，int 视图 chunk 100，未加载）；
+  Settle=200；PATCH_REVISION=95 + mod 修复。
+- 预期：若 `LevelTicks` 仍按 int 视图解析，判别组会打印
+  `Trying to schedule tick in not loaded position BlockPos{x=1608,…}`。
+- 实测：
+  - 对照：`scheduleTick wide=34359738376,60,8 intView=8 block=water`，无警告；
+  - 判别组：`scheduleTick wide=34359739976,60,8 intView=1608 block=stone`，**无警告**，
+    `DONE saved`；gen 指纹 `surf=6668408435af floor=4aaefb31c613 biome=9feac1dd5391`（snowy_plains）；
+  - 另外 4 次常规 2^31 运行（§48）也均无 `not loaded position`。
+- 结论：**在本实验条件下**，远域 `scheduleTick` 未再复现 `not loaded position`；`LevelTicks` 对该
+  位置的解析没有落到 int 视图（或该警告条件不再成立）。与 bf2ddc2
+  （`ProtoChunk.unpackOffsetCoordinates` 改宽原点）一致。
+- 遗留：块 tick 是 no-op，尚未做"行为可见"的远域 tick（流体/红石）；D2 的保存→重载
+  （`invalid location=0`）未在本轮复测。
+- 证据：`exp-p3-tick-2p31.log`、`exp-p3-tick-offset.log`；世界 `C:\Project-G2-aux\logs\p3-tick-*`。

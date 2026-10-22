@@ -344,6 +344,18 @@ public abstract class MinecraftServerTestGenMixin {
                 long sz = sp.wideSection().z().limb(0);
                 System.out.println("[FarLands-Test] section2560 x=" + sx + " z=" + sz
                     + " expect=" + cxL + "," + czL + " ok=" + (sx == cxL && sz == czL));
+                // P3 tick probe: schedule a block tick at the centre of the far
+                // chunk. If LevelTicks resolves the position through the int
+                // view, it logs "Trying to schedule tick in not loaded position".
+                if (Boolean.getBoolean("farlands.testgen.scheduletick") && chunk != null) {
+                    net.minecraft.core.BlockPos tickPos =
+                        new net.minecraft.core.BlockPos(cxL * 16 + 8, 60, czL * 16 + 8);
+                    var tickState = level.getBlockState(tickPos);
+                    level.scheduleTick(tickPos, tickState.getBlock(), 1);
+                    System.out.println("[FarLands-Test] scheduleTick wide="
+                        + tickPos.getLongX() + "," + tickPos.getLongY() + "," + tickPos.getLongZ()
+                        + " intView=" + tickPos.getX() + " block=" + tickState.getBlock());
+                }
                 System.out.flush();
             }
             if (FarConfig.testgenStop()) {
