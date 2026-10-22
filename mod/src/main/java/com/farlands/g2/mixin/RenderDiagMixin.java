@@ -23,14 +23,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LevelRenderer.class)
 public class RenderDiagMixin {
 
-    private static final boolean ENABLED = Boolean.getBoolean("farlands.diag.render");
+    // Read at call time: the flag is applied after some client classes are
+    // loaded, so a static final captured too early stays false.
     private static int farlands$frames;
     private static int farlands$farFrames;
     private static int farlands$dumps;
 
     @Inject(method = "endFrame", at = @At("HEAD"))
     private void farlands$diag(CallbackInfo ci) {
-        if (!ENABLED) {
+        if (!Boolean.getBoolean("farlands.diag.render")) {
             return;
         }
         int frame = ++farlands$frames;

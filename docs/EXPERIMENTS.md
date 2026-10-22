@@ -1318,3 +1318,29 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 证据：`exp-p05a-chunkat-2p31.log`、`exp-p05b-fix-2p31-1x1.log`、`exp-p05b-fix-2p31-3x3.log`、
   `exp-p05b-rep-2p31-3x3.log`、`exp-p05b-rep2-2p31-3x3.log`、`exp-p05b-reg-normal2.log`、
   `exp-p05b-reg-2p49.log`；世界目录 `C:\Project-G2-aux\logs\p05b-*`。
+
+## 49. P0/P2：客户端 block 2^31 渲染与破坏复测（2026-10-22）
+
+- 日期：2026-10-22
+- 目的：§10.1 的客户端测量在 rev87；此后 epoch 清理与 P0.5 修复已改变 mod，重采客户端证据，
+  同时记录 block 2^31 以东的选中/破坏。
+- 参数：dev 客户端（`--quickPlaySingleplayer test7`），`-Dfarlands.autotest=true`、
+  `-Dfarlands.diag.render=true`；PATCH_REVISION=95 + mod 侧 P0.5 修复（commit `dc429ac`）。
+- 版本标记：`[FarLands-G2] 0.1.0 wide build (real coordinates)`；日志 `Env=CLIENT`。
+- 预期：RDIAG 能回答 §4.1 的四个问题（可见列表是否丢 section / 是否 UNCOMPILED / 队列 / 相机 section）。
+- 实测（vantage，block 2^31+82，y≈97）：
+  `[RDIAG] visible=6935/6935 uncompiled=384 east=5711 eastCompiled=5327 queue=0
+  camSection=origin=2147483728 mesh=compiled`，连续 10 帧以上不变。
+  ——可见列表没有丢 section（visible=total），384 个未编译与 §10.1 的外环积压同形，队列为 0。
+- 实测（目视）：vantage 截图海面连续、无洞；到达/破坏位截图在缝附近有一条竖直分界。
+- 实测（破坏）：`[AUTOTEST] hitResult=BlockPos{x=-2147483648,y=62,z=5}`（int 视图），
+  `[AUTOTEST] after=Block{minecraft:air} BREAK_OK`。
+- 结论：**在本实验条件下**，当前工作区未复现持续渲染空洞；到达瞬间的竖直分界与编译积压一致
+  （与 §10.1 同形）。block 2^31 以东的 `destroyBlock` 经客户端路径成功。
+- 遗留：①到达瞬间的竖直分界尚未单独判定"自然冰缘 vs 渲染缺失"（需定格 + 沿缝多角度截图）；
+  ②选择框（outline）未验证：`BlockOutlineWideMixin` 默认关闭，需 `-Dfarlands.outline.wide=true`
+  的单次验收。
+- 仪器修正：`RenderDiagMixin` 的 `static final` 门控在客户端加载顺序下读到 false（JVM 属性本身为
+  true），`-Dfarlands.diag.render=true` 原本静默无效；已改为调用时读属性。
+- 证据：`mod/run/logs/latest.log`（16:08–16:10）；截图 `2026-10-22_16.09.37_2.png`（破坏位）、
+  `2026-10-22_16.09.45.png`（vantage）、`2026-10-22_16.10.17.png`（RDIAG 60 s）。
