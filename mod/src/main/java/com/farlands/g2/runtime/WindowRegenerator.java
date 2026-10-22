@@ -55,43 +55,44 @@ public final class WindowRegenerator {
         StructureManager structures = level.structureManager();
         ChunkGenerator generator = level.getChunkSource().getGenerator();
 
-        WorldGenRegion region = null;
-        StaticCache2D<GenerationChunkHolder> cache = null;
-        ChunkStep surfaceStep = StageSteps.get(ChunkStatus.SURFACE);
-        if (surfaceStep != null) {
-            ServerChunkCache cacheSource = (ServerChunkCache) level.getChunkSource();
-            cache = StaticCache2D.create(pos.x(), pos.z(), 8,
-                (cx, cz) -> cacheSource.chunkMap.farlands$getUpdatingChunkW(
-                    new ChunkPos(cx, cz).widePos()));
-            region = new WorldGenRegion(level, cache, surfaceStep, proto);
-        }
-        final WorldGenRegion genRegion = region;
-        Blender blender = genRegion == null ? Blender.empty() : Blender.of(genRegion);
+        ServerChunkCache cacheSource = (ServerChunkCache) level.getChunkSource();
+        final StaticCache2D<GenerationChunkHolder> cache = StaticCache2D.create(pos.x(), pos.z(), 8,
+            (cx, cz) -> cacheSource.chunkMap.farlands$getUpdatingChunkW(
+                new ChunkPos(cx, cz).widePos()));
+        // Each stage needs a region built from ITS step: the step carries the write
+        // radius / dependency set the safety checks compare against.
+        java.util.function.Function<ChunkStatus, WorldGenRegion> regionFor = status -> {
+            ChunkStep step = StageSteps.get(status);
+            if (step == null) {
+                step = StageSteps.get(ChunkStatus.SURFACE);
+            }
+            return step == null ? null : new WorldGenRegion(level, cache, step, proto);
+        };
 
         // Structures first (vanilla order): starts -> references, then biomes/noise.
-        ChunkStep startsStep = StageSteps.get(ChunkStatus.STRUCTURE_STARTS);
-        ChunkStep referencesStep = StageSteps.get(ChunkStatus.STRUCTURE_REFERENCES);
-        if (startsStep != null && cache != null) {
-            try {
-                if (level.getServer().getWorldGenSettings().options().generateStructures()) {
-                    generator.createStructures(level.registryAccess(),
-                        level.getChunkSource().getGeneratorState(), structures, proto,
-                        level.getStructureManager(), level.dimension());
-                }
-                level.onStructureStartsAvailable(proto);
-                if (referencesStep != null) {
-                    WorldGenRegion refRegion = new WorldGenRegion(level, cache, referencesStep, proto);
-                    generator.createReferences(refRegion,
-                        structures.forWorldGenRegion(refRegion), proto);
-                }
-            } catch (Throwable t) {
-                System.out.println("[REGEN] structure stage failed: " + t);
-                System.out.flush();
+        try {
+            if (level.getServer().getWorldGenSettings().options().generateStructures()) {
+                generator.createStructures(level.registryAccess(),
+                    level.getChunkSource().getGeneratorState(), structures, proto,
+                    level.getStructureManager(), level.dimension());
             }
+            level.onStructureStartsAvailable(proto);
+            WorldGenRegion refRegion = regionFor.apply(ChunkStatus.STRUCTURE_REFERENCES);
+            if (refRegion != null) {
+                generator.createReferences(refRegion, structures.forWorldGenRegion(refRegion), proto);
+            }
+        } catch (Throwable t) {
+            System.out.println("[REGEN] structure stage failed: " + t);
+            System.out.flush();
         }
 
-        generator.createBiomes(randomState, blender, structures, proto)
-            .thenCompose(biomes -> generator.fillFromNoise(blender, randomState, structures, biomes))
+        WorldGenRegion biomesRegion = regionFor.apply(ChunkStatus.BIOMES);
+        WorldGenRegion noiseRegion = regionFor.apply(ChunkStatus.NOISE);
+        final Blender biomesBlender = biomesRegion == null ? Blender.empty() : Blender.of(biomesRegion);
+        final Blender noiseBlender = noiseRegion == null ? Blender.empty() : Blender.of(noiseRegion);
+
+        generator.createBiomes(randomState, biomesBlender, structures, proto)
+            .thenCompose(biomes -> generator.fillFromNoise(noiseBlender, randomState, structures, biomes))
             .whenComplete((filled, error) -> level.getServer().execute(() -> {
                 if (error != null) {
                     YBandOverrides.clear(pos.widePos());
@@ -100,16 +101,23 @@ public final class WindowRegenerator {
                     done.accept(false);
                     return;
                 }
-                if (genRegion != null) {
-                    try {
-                        generator.buildSurface(genRegion, structures, randomState, proto);
-                        generator.applyCarvers(genRegion, level.getSeed(), randomState,
-                            level.getBiomeManager(), structures, proto);
-                        generator.applyBiomeDecoration(genRegion, proto, structures);
-                    } catch (Throwable t) {
-                        System.out.println("[REGEN] surface/feature stage failed: " + t);
-                        System.out.flush();
+                try {
+                    WorldGenRegion surfaceRegion = regionFor.apply(ChunkStatus.SURFACE);
+                    if (surfaceRegion != null) {
+                        generator.buildSurface(surfaceRegion, structures, randomState, proto);
                     }
+                    WorldGenRegion carversRegion = regionFor.apply(ChunkStatus.CARVERS);
+                    if (carversRegion != null) {
+                        generator.applyCarvers(carversRegion, level.getSeed(), randomState,
+                            level.getBiomeManager(), structures, proto);
+                    }
+                    WorldGenRegion featuresRegion = regionFor.apply(ChunkStatus.FEATURES);
+                    if (featuresRegion != null) {
+                        generator.applyBiomeDecoration(featuresRegion, proto, structures);
+                    }
+                } catch (Throwable t) {
+                    System.out.println("[REGEN] surface/feature stage failed: " + t);
+                    System.out.flush();
                 }
                 transplant(chunk, proto, centerSectionY);
                 // Single-player: push the regenerated window to the client chunk.

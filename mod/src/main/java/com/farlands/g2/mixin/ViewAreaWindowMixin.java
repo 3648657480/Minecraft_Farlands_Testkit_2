@@ -42,14 +42,11 @@ public class ViewAreaWindowMixin {
         if (!Boolean.getBoolean("farlands.y.window")) {
             return null;
         }
-        if (farlands$level != null && farlands$camera != null) {
-            var pos = farlands$camera.blockPosition();
-            var chunk = farlands$level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4,
-                ChunkStatus.FULL, false);
-            if (chunk instanceof WindowedChunk windowed) {
-                return new int[] {windowed.farlands$windowMinSectionY(),
-                    windowed.farlands$windowMaxSectionY()};
-            }
+        // Centre the grid on the camera section: the camera is then always inside
+        // the view area (otherwise out-of-band graph nodes resolve to null).
+        if (farlands$camera != null) {
+            int camSection = Math.floorDiv(farlands$camera.blockPosition().getY(), 16);
+            return new int[] {camSection - HALF, camSection - HALF + 23};
         }
         String center = System.getProperty("farlands.y.center");
         if (center != null && !center.isEmpty()) {

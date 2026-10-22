@@ -1682,6 +1682,21 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   进世界后 `/tp` 到 Y≈16000 再回地表，观察 `[YFOLLOW]` 日志与渲染是否切换、是否崩溃。
 - 证据（待补）：客户端日志。
 
+### 68.1 tp 到 16000 崩溃与修复（2026-10-22）
+
+- 现象（用户手动）：`/tp` 到 Y=16000 后客户端崩溃。
+- 崩溃栈：`LevelRenderer.compileSections(LevelRenderer.java:609)` →
+  `NullPointerException: ... RenderSection.wasPreviouslyEmpty() because "section" is null`。
+- 根因：`ViewArea` 固定/按区块窗口带的网格不包含相机所在 section，section 图节点解析为 null。
+- 修复 1（客户端）：ViewArea 网格改为**以相机 section 为中心**（`camSection-11 … camSection+12`），
+  相机永远在网格内；`ClientBandFollowMixin` 改为"相机接近网格边缘（±2 段）时重建"，
+  不再按区块带变化重建。
+- 修复 2（服务端，附带）：重生成各阶段改用**各自 ChunkStep 的 region**
+  （biomes/noise/surface/carvers/features 分开构造），消除日志里
+  `Detected unsafe terrain read ... write radius: 0` 的刷屏。
+- 状态：修复后构建通过，**待用户复测**。
+- 证据：`mod/run/logs/latest.log`（21:59 崩溃段）。
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"

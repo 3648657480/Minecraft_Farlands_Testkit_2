@@ -29,17 +29,14 @@ public class ClientBandFollowMixin {
             return;
         }
         Camera camera = mc.gameRenderer.mainCamera();
-        var pos = camera.blockPosition();
-        var chunk = mc.level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4,
-            ChunkStatus.FULL, false);
-        if (!(chunk instanceof WindowedChunk windowed)) {
+        var viewArea = mc.levelRenderer.viewArea();
+        if (viewArea == null) {
             return;
         }
-        int band = windowed.farlands$windowMinSectionY();
-        if (band == farlands$lastBand) {
+        int camSection = Math.floorDiv(camera.blockPosition().getY(), 16);
+        if (camSection >= viewArea.minSectionY() + 2 && camSection <= viewArea.maxSectionY() - 2) {
             return;
         }
-        farlands$lastBand = band;
         mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options, camera, mc.getBlockColors());
     }
 }
