@@ -45,7 +45,30 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
     @Unique private int farlands$minSy;
     @Unique private int farlands$maxSy;
     @Unique private boolean farlands$windowReady;
+    @Unique private boolean farlands$heightmapsPrimed;
     @Unique private PalettedContainerFactory farlands$factory;
+
+    /**
+     * Saved heightmaps are band-relative; when the window is not the dimension
+     * band, the first height query must re-derive them from the loaded blocks.
+     */
+    @Inject(method = "getHeight", at = @At("HEAD"))
+    private void farlands$primeHeightmapsOnBandChange(net.minecraft.world.level.levelgen.Heightmap.Types type,
+        int x, int z, CallbackInfoReturnable<Integer> cir) {
+        if (!Boolean.getBoolean("farlands.y.window") || this.farlands$heightmapsPrimed) {
+            return;
+        }
+        this.farlands$heightmapsPrimed = true;
+        if (this.farlands$minSy == this.levelHeightAccessor.getMinSectionY()) {
+            return; // window equals the dimension band: saved heightmaps are valid
+        }
+        net.minecraft.world.level.levelgen.Heightmap.primeHeightmaps((ChunkAccess) (Object) this,
+            java.util.EnumSet.of(
+                net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE,
+                net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING,
+                net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR));
+    }
 
     @Inject(
         method = "<init>(Lnet/minecraft/world/level/ChunkPos;Lnet/minecraft/world/level/chunk/UpgradeData;Lnet/minecraft/world/level/LevelHeightAccessor;Lnet/minecraft/world/level/chunk/PalettedContainerFactory;J[Lnet/minecraft/world/level/chunk/LevelChunkSection;Lnet/minecraft/world/level/levelgen/blending/BlendingData;)V",
