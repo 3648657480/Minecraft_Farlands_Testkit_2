@@ -10,8 +10,10 @@ public class G2Mod implements ModInitializer {
     public void onInitialize() {
         // Multiplayer is not supported: the vertical-window machinery relies on
         // same-process client/server sync. On a dedicated server, turn it off
-        // loudly instead of running half a feature.
-        if (FabricLoader.getInstance().getEnvironmentType() == EnvType.SERVER) {
+        // loudly instead of running half a feature. The headless experiment rig
+        // (mod:runServer) opts back in explicitly via farlands.test.allowDedicated.
+        boolean allowDedicated = Boolean.getBoolean("farlands.test.allowDedicated");
+        if (FabricLoader.getInstance().getEnvironmentType() == EnvType.SERVER && !allowDedicated) {
             for (String key : new String[] {"farlands.y.window", "farlands.y.follow",
                 "farlands.y.reprime", "farlands.y.diag"}) {
                 if (Boolean.getBoolean(key)) {
