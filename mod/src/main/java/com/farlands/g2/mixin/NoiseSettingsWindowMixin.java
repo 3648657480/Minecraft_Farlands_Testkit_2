@@ -30,6 +30,13 @@ public class NoiseSettingsWindowMixin {
         if (!Boolean.getBoolean("farlands.y.window")) {
             return;
         }
+        if (Boolean.getBoolean("farlands.y.diag")) {
+            System.out.println("[NSWIN] clamp accessor=" + heightAccessor.getClass().getSimpleName()
+                + " windowed=" + (heightAccessor instanceof WindowedChunk)
+                + " accessorMinY=" + heightAccessor.getMinY()
+                + " settingsMinY=" + ((NoiseSettings) (Object) this).minY());
+            System.out.flush();
+        }
         if (!(heightAccessor instanceof WindowedChunk)) {
             return;
         }

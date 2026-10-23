@@ -362,6 +362,15 @@ public abstract class MinecraftServerTestGenMixin {
                     System.out.println("[STRUCT] hits=" + hits + " area=" + n + "x" + n);
                     System.out.flush();
                 }
+                // Y profile probe: regenerate the same chunk at several bands and
+                // report terrain top / non-empty sections per band.
+                String profile = System.getProperty("farlands.testgen.profile");
+                if (profile != null && !profile.isEmpty()
+                    && chunk instanceof net.minecraft.world.level.chunk.LevelChunk profileChunk) {
+                    int[] bands = java.util.Arrays.stream(profile.split(","))
+                        .mapToInt(s -> Integer.parseInt(s.trim())).toArray();
+                    farlands$profile(profileChunk, bands, 0);
+                }
                 // Y-D/B probe: regenerate the loaded chunk's window in place.
                 if (Boolean.getBoolean("farlands.testgen.regen")
                     && chunk instanceof net.minecraft.world.level.chunk.LevelChunk levelChunk) {
@@ -379,6 +388,9 @@ public abstract class MinecraftServerTestGenMixin {
                             + " topY=" + levelChunk.getHeight(Heightmap.Types.WORLD_SURFACE, 8, 8)
                             + " b49=" + levelChunk.getBlockState(probe49)
                             + " b60=" + levelChunk.getBlockState(probe60)
+                            + " col=" + farlands$column(levelChunk)
+                            + " raw0=" + farlands$rawHeight(levelChunk)
+                            + " solidSec=" + farlands$solidSections(levelChunk)
                             + " starts=" + levelChunk.getAllStarts().size()
                             + " digest=" + farlands$digest(levelChunk)
                             + " equal=" + (farlands$digest(levelChunk) == beforeDigest)
@@ -495,6 +507,70 @@ public abstract class MinecraftServerTestGenMixin {
             hex.append(Character.forDigit((b >> 4) & 0xF, 16)).append(Character.forDigit(b & 0xF, 16));
         }
         return hex.toString();
+    }
+
+    /** Vertical profile: regenerate the chunk at each section band in turn. */
+    @Unique
+    private static void farlands$profile(net.minecraft.world.level.chunk.LevelChunk chunk,
+        int[] bands, int index) {
+        if (index >= bands.length) {
+            return;
+        }
+        int sectionY = bands[index];
+        com.farlands.g2.runtime.WindowRegenerator.regenerate(chunk, sectionY, ok -> {
+            int top = chunk.getHeight(Heightmap.Types.WORLD_SURFACE, 8, 8);
+            int solid = 0;
+            for (net.minecraft.world.level.chunk.LevelChunkSection section : chunk.getSections()) {
+                if (section != null && !section.hasOnlyAir()) {
+                    solid++;
+                }
+            }
+            long minBlockY = (long) chunk.getMinY();
+            System.out.println("[PROFILE] sy=" + sectionY + " ok=" + ok
+                + " minBlockY=" + minBlockY + " topY=" + top
+                + " solidSections=" + solid);
+            System.out.flush();
+            farlands$profile(chunk, bands, index + 1);
+        });
+    }
+
+    /** First available WORLD_SURFACE height at local (8,8) (absolute Y). */
+    @Unique
+    private static int farlands$rawHeight(net.minecraft.world.level.chunk.LevelChunk chunk) {
+        for (var entry : chunk.getHeightmaps()) {
+            if (entry.getKey() == Heightmap.Types.WORLD_SURFACE) {
+                return entry.getValue().getFirstAvailable(8, 8);
+            }
+        }
+        return -1;
+    }
+
+    /** Number of non-empty sections in the chunk window. */
+    @Unique
+    private static int farlands$solidSections(net.minecraft.world.level.chunk.LevelChunk chunk) {
+        int solid = 0;
+        for (net.minecraft.world.level.chunk.LevelChunkSection section : chunk.getSections()) {
+            if (section != null && !section.hasOnlyAir()) {
+                solid++;
+            }
+        }
+        return solid;
+    }
+
+    /** Relative column sample: blocks at minY+{126,125,124,120,60,10} (replica vs plane). */
+    @Unique
+    private static String farlands$column(net.minecraft.world.level.chunk.LevelChunk chunk) {
+        int baseX = chunk.getPos().getMinBlockX() + 8;
+        int baseZ = chunk.getPos().getMinBlockZ() + 8;
+        int minY = chunk.getMinY();
+        StringBuilder sb = new StringBuilder();
+        for (int dy : new int[] {126, 125, 124, 120, 60, 10}) {
+            sb.append(dy).append(':')
+                .append(chunk.getBlockState(new net.minecraft.core.BlockPos(baseX, minY + dy, baseZ))
+                    .getBlock())
+                .append(' ');
+        }
+        return sb.toString().trim();
     }
 
     /** Sampled block-state digest of a chunk's window (for regeneration comparisons). */

@@ -62,7 +62,7 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         if (this.farlands$minSy == this.levelHeightAccessor.getMinSectionY()) {
             return; // window equals the dimension band: saved heightmaps are valid
         }
-        net.minecraft.world.level.levelgen.Heightmap.primeHeightmaps((ChunkAccess) (Object) this,
+        com.farlands.g2.runtime.Heightmaps.primeFully((ChunkAccess) (Object) this,
             java.util.EnumSet.of(
                 net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE,
                 net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING,
@@ -90,6 +90,10 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         Integer savedMinSection = com.farlands.g2.runtime.SavedBandContext.get();
         if (perChunk != null) {
             center = perChunk;
+            if (Boolean.getBoolean("farlands.y.diag")) {
+                System.out.println("[YWIN] ctor pos=" + pos + " perChunk=" + perChunk);
+                System.out.flush();
+            }
         } else if (savedMinSection != null) {
             // Loaded from disk: keep the band the chunk was saved with, otherwise
             // every saved section falls outside the window and the chunk is empty.

@@ -49,6 +49,11 @@ public final class WindowRegenerator {
         }
         ChunkPos pos = chunk.getPos();
         YBandOverrides.set(pos.widePos(), centerSectionY);
+        if (Boolean.getBoolean("farlands.y.diag")) {
+            System.out.println("[REGEN] override pos=" + pos + " wide=" + pos.widePos()
+                + " center=" + centerSectionY + " lookup=" + YBandOverrides.get(pos.widePos()));
+            System.out.flush();
+        }
         ProtoChunk proto = new ProtoChunk(pos, UpgradeData.EMPTY, level,
             level.palettedContainerFactory(), null);
         RandomState randomState = level.getChunkSource().randomState();
@@ -161,7 +166,7 @@ public final class WindowRegenerator {
             all.put(windowed.farlands$key(minSy + i), protoSections[i]);
         }
         windowed.farlands$moveWindowTo(centerSectionY);
-        Heightmap.primeHeightmaps(chunk, EnumSet.of(
+        Heightmaps.primeFully(chunk, EnumSet.of(
             Heightmap.Types.WORLD_SURFACE,
             Heightmap.Types.MOTION_BLOCKING,
             Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
