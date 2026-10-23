@@ -42,6 +42,17 @@ public class ClientBandFollowMixin {
         if (viewArea == null) {
             return;
         }
+        Camera camera = mc.gameRenderer.mainCamera();
+        // A ViewArea rebuilt while the camera was still uninitialised never got its
+        // rotating centre, so every lookup returns null and nothing compiles.
+        if (viewArea.getRenderSectionAt(mc.player.blockPosition()) == null) {
+            viewArea.repositionCamera(net.minecraft.core.SectionPos.of(camera.blockPosition()));
+            System.out.println("[YF-REPOS] camera section absent; repositioned, viewY="
+                + viewArea.minSectionY() + ".." + viewArea.maxSectionY()
+                + " playerY=" + mc.player.getY()
+                + " stillAbsent=" + (viewArea.getRenderSectionAt(mc.player.blockPosition()) == null));
+            System.out.flush();
+        }
         int playerSection = Math.floorDiv(mc.player.blockPosition().getY(), 16);
         if (playerSection >= viewArea.minSectionY() + 2 && playerSection <= viewArea.maxSectionY() - 2) {
             return;
@@ -49,7 +60,6 @@ public class ClientBandFollowMixin {
         System.out.println("[YF-REBUILD] playerSection=" + playerSection + " oldView="
             + viewArea.minSectionY() + ".." + viewArea.maxSectionY());
         System.out.flush();
-        Camera camera = mc.gameRenderer.mainCamera();
         mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options, camera, mc.getBlockColors());
     }
 }
