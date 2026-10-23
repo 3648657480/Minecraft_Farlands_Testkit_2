@@ -1932,14 +1932,13 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
     `playerSec=center=SectionPos{x=0,y=134217694,z=-1}`；
   - 但 `getRenderSectionAt(...)` 恒为 null（连带内中点 `midFound=false`），
     `RDIAG` 显示 `visible=6935/6935 uncompiled=6935 queue=0 camSection=absent` → 零编译、不渲染。
-- 根因：`SectionPos.asLong` 把 **Y 打包在 20 位**（±524287）。我们的 section Y = 134,217,694
-  远超该范围 → 键被截断 → `RotatingSectionStorage.getValue/containsSection` 查不到任何节点。
-  这是 vanilla 客户端渲染栈的地址宽度限制，不是本项目的 bug。
-- 阈值：可安全寻址的 section Y 约 ±2^19（block Y 约 ±2^23 ≈ ±8.4M）。
-- 与穹顶的关系：Cwg 的穹顶门槛约 `|y| ≥ 2·T_k`，`T_k = 2^(kmax−k)·E`，`E = 2^31/s_ref`；
-  low/high 路（16 阶，s_ref≈171）给出 `T_k≈12.5M` → 最小 |y|≈**25M blocks**（section≈1.56M），
-  仍远超 20 位范围。**因此：客户端要在“穹顶带”看见地形，必须给渲染层做局部 Y（渲染 epoch），
-  或把整条 SectionPos 渲染链路宽化。**
+- 根因（**2026-10-23 更正**）：不是 vanilla 的 22+22+20 位打包——本仓库的 `SectionPosPatch`
+  已把 `asLong` 重排为 **29+29+6** 位（x: 35-63，z: 6-34，y: 0-5）。**Y 只有 6 位**（−32…31 段）。
+  section Y=134,217,694 → `y & 0x3F = 62` → 解包为 −2 → 与窗口带不相交 → 全部节点为 null。
+  这是本仓库为"世界高度 384"做的压缩布局取舍，在远 Y 下失效。
+- 阈值（当前 6 位布局）：section Y 仅 −32…31（block −512…496）。
+  与穹顶的关系：Cwg 的穹顶门槛约 `|y| ≥ 2·T_k`，最小 |y|≈**25M blocks**（section≈1.56M）——
+  当前布局完全无法寻址，须改 `SectionPos` 的 long 视图（见 §79 与 `docs/RENDER-WIDE-KEYS.md`）。
 - 已落地的相关防护（保留）：`SectionGuardMixin`（过滤越界节点）、
   `ChunkSkyLightSourcesGuardMixin`（跳过窗口区块的 sky-light 更新）、
   `ChunkAccessLightSourceGuardMixin`（跳过窗口区块 initializeLightSources）、
@@ -1951,3 +1950,20 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   - B. **headless 出图**：用 Cwg 密度直接生成 PNG 剖面/热图作为现象证据，客户端暂不追求。
   - C. 维持现状：服务端现象已证实（§77），客户端等 A 做完再验收。
 - 证据：`mod/run/logs/latest.log`（23:34 段）。
+
+## 79. 前人做法与我们采用的方向（2026-10-23）
+
+- infs-farlands 的做法（源码）：
+  - `SectionPosMixin` 把 `asLong` 换成 `HashMath.hash(x,y,z)`（64 位混合），坐标存进
+    `SectionUtil`（`Long2ObjectStripedMap<IntSectionPos>`，约 1M，`lastAccess` 600 tick 淘汰，
+    断连 `clearAll`）；
+  - `x/y/z/of/offset/blockToSection/getZeroNode/aroundAndAtBlockPos/relativeToBlock*` 全部查表；
+  - 同键不同坐标走 `Common.conflict` 显式报冲突；
+  - `BlockPos` 侧同样走 `IntBlockPos` + `BlockUtil`。
+- 我们的方式（`docs/RENDER-WIDE-KEYS.md`）：**宽键 + long 句柄**。
+  - `SectionPos` 已有 `wideSection: WideSectionKey2560` 与 `of(WideSectionKey2560)`
+    （`SectionPosWideIdentityPatch`），身份已经是 2560 位；
+  - 把 `asLong/x/y/z/of/offset/...` 改为"宽键 → 单调句柄"的 intern 表（无哈希、无碰撞、可逆），
+    未登记的 long 回退 29/29/6 解包；句柄进程内有效，断连/切维清理、定时 trim，不入盘不上网；
+  - 不采用 infs 哈希（对 96 位坐标不可逆、有碰撞）与渲染局部 Y（违背宽身份）。
+- 状态：设计稿已提交（`docs/RENDER-WIDE-KEYS.md`），待启动 P0。
