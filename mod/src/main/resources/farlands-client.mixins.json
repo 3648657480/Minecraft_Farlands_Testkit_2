@@ -27,7 +27,9 @@
         "TitleScreenMixin",
         "ScreenAccessor",
         "ViewAreaWindowMixin",
-        "ClientBandFollowMixin"
+        "ClientBandFollowMixin",
+        "SectionGuardMixin",
+        "ViewAreaAccessor"
     ],
     "injectors": { "defaultRequire": 1 }
 }

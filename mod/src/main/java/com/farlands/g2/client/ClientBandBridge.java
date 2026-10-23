@@ -28,6 +28,10 @@ public final class ClientBandBridge {
         List<LevelChunkSection> sections) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.level == null || !mc.hasSingleplayerServer()) {
+            System.out.println("[YBRIDGE] skip push: client=" + (mc != null)
+                + " level=" + (mc != null && mc.level != null)
+                + " singleplayer=" + (mc != null && mc.hasSingleplayerServer()));
+            System.out.flush();
             return; // integrated server only: multiplayer is unsupported
         }
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
@@ -36,15 +40,22 @@ public final class ClientBandBridge {
             buffer.writeVarInt(minSectionY + i);
             sections.get(i).write(buffer);
         }
+        System.out.println("[YBRIDGE] push pos=" + pos + " band=" + minSectionY + " sections=" + sections.size());
+        System.out.flush();
         mc.execute(() -> apply(mc, pos, centerSectionY, buffer));
     }
 
     private static void apply(Minecraft mc, ChunkPos pos, int centerSectionY, FriendlyByteBuf buffer) {
         if (mc.level == null) {
+            System.out.println("[YBRIDGE] skip apply: level null");
+            System.out.flush();
             return;
         }
         var chunk = mc.level.getChunkSource().getChunk(pos.x(), pos.z(), ChunkStatus.FULL, false);
         if (!(chunk instanceof LevelChunk levelChunk) || !(chunk instanceof WindowedChunk windowed)) {
+            System.out.println("[YBRIDGE] skip apply: chunk=" + (chunk == null ? "null"
+                : chunk.getClass().getSimpleName()));
+            System.out.flush();
             return;
         }
         int count = buffer.readVarInt();
