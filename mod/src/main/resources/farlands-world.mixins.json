@@ -6,6 +6,7 @@
     "mixins": [
         "LevelMixin",
         "ChunkAccessWindowMixin",
+        "ChunkAccessLightSourceGuardMixin",
         "LevelHeightAccessorBoundsMixin",
         "ChunkMapStepDiagMixin",
         "ChunkBiomesDiagMixin",
