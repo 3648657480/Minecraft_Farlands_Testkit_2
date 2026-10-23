@@ -46,8 +46,13 @@ public class ViewAreaWindowMixin {
         if (mc != null && !mc.hasSingleplayerServer()) {
             return null; // multiplayer unsupported: keep the dimension band
         }
-        // Centre the grid on the camera section: the camera is then always inside
-        // the view area (otherwise out-of-band graph nodes resolve to null).
+        // Centre the grid on the player section (the camera follows the player within
+        // one section), so a teleport cannot leave render graph nodes outside the grid.
+        net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
+        if (minecraft != null && minecraft.player != null) {
+            int playerSection = Math.floorDiv(minecraft.player.blockPosition().getY(), 16);
+            return new int[] {playerSection - HALF, playerSection - HALF + 23};
+        }
         if (farlands$camera != null) {
             int camSection = Math.floorDiv(farlands$camera.blockPosition().getY(), 16);
             return new int[] {camSection - HALF, camSection - HALF + 23};
