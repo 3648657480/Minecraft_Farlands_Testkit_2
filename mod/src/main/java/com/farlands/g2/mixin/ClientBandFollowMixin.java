@@ -33,6 +33,11 @@ public class ClientBandFollowMixin {
         if (!mc.hasSingleplayerServer()) {
             return; // multiplayer unsupported: keep the dimension band
         }
+        try {
+            com.farlands.g2.client.ClientBandBridge.retry();
+        } catch (Throwable ignored) {
+            // client classes only; never let the bridge break the tick
+        }
         var viewArea = mc.levelRenderer.viewArea();
         if (viewArea == null) {
             return;

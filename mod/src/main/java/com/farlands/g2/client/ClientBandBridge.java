@@ -1,14 +1,17 @@
 package com.farlands.g2.client;
 
 import com.farlands.g2.runtime.WindowedChunk;
+import io.netty.buffer.ByteBufUtil;
+import io.netty.buffer.Unpooled;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
-import io.netty.buffer.Unpooled;
 
 /**
  * Single-player band bridge: after the server regenerates a chunk's window, push
@@ -18,8 +21,18 @@ import io.netty.buffer.Unpooled;
  * are serialised on the server thread and applied on the client thread, so no
  * live section object is shared across threads. Dedicated servers skip it (the
  * client classes are absent; the caller catches the linkage error).</p>
+ *
+ * <p>After a teleport the client chunk can still be missing when the server
+ * finishes regenerating, so the push is queued and retried from the client tick
+ * until the chunk exists (bounded).</p>
  */
 public final class ClientBandBridge {
+
+    private static final int MAX_ATTEMPTS = 400;
+    private static final Map<Long, Pending> PENDING = new ConcurrentHashMap<>();
+
+    private record Pending(ChunkPos pos, int centerSectionY, byte[] data, int attempts) {
+    }
 
     private ClientBandBridge() {
     }
@@ -40,24 +53,49 @@ public final class ClientBandBridge {
             buffer.writeVarInt(minSectionY + i);
             sections.get(i).write(buffer);
         }
+        byte[] data = ByteBufUtil.getBytes(buffer);
+        PENDING.put(key(pos), new Pending(pos, centerSectionY, data, 0));
         System.out.println("[YBRIDGE] push pos=" + pos + " band=" + minSectionY + " sections=" + sections.size());
         System.out.flush();
-        mc.execute(() -> apply(mc, pos, centerSectionY, buffer));
+        mc.execute(ClientBandBridge::retry);
     }
 
-    private static void apply(Minecraft mc, ChunkPos pos, int centerSectionY, FriendlyByteBuf buffer) {
-        if (mc.level == null) {
-            System.out.println("[YBRIDGE] skip apply: level null");
-            System.out.flush();
+    /** Called from the client tick: apply every queued push whose chunk now exists. */
+    public static void retry() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.level == null || PENDING.isEmpty()) {
             return;
         }
+        for (Map.Entry<Long, Pending> entry : List.copyOf(PENDING.entrySet())) {
+            Pending pending = entry.getValue();
+            if (apply(mc, pending)) {
+                PENDING.remove(entry.getKey());
+            } else {
+                int attempts = pending.attempts() + 1;
+                if (attempts > MAX_ATTEMPTS) {
+                    PENDING.remove(entry.getKey());
+                    System.out.println("[YBRIDGE] give up pos=" + pending.pos());
+                    System.out.flush();
+                } else {
+                    PENDING.put(entry.getKey(), new Pending(pending.pos(),
+                        pending.centerSectionY(), pending.data(), attempts));
+                }
+            }
+        }
+    }
+
+    private static boolean apply(Minecraft mc, Pending pending) {
+        ChunkPos pos = pending.pos();
         var chunk = mc.level.getChunkSource().getChunk(pos.x(), pos.z(), ChunkStatus.FULL, false);
         if (!(chunk instanceof LevelChunk levelChunk) || !(chunk instanceof WindowedChunk windowed)) {
-            System.out.println("[YBRIDGE] skip apply: chunk=" + (chunk == null ? "null"
-                : chunk.getClass().getSimpleName()));
-            System.out.flush();
-            return;
+            if (pending.attempts() == 0) {
+                System.out.println("[YBRIDGE] waiting pos=" + pos + " chunk=" + (chunk == null ? "null"
+                    : chunk.getClass().getSimpleName()));
+                System.out.flush();
+            }
+            return false;
         }
+        FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.wrappedBuffer(pending.data()));
         int count = buffer.readVarInt();
         for (int i = 0; i < count; i++) {
             int sectionY = buffer.readVarInt();
@@ -65,7 +103,7 @@ public final class ClientBandBridge {
             section.read(buffer);
             windowed.farlands$allSections().put(windowed.farlands$key(sectionY), section);
         }
-        windowed.farlands$moveWindowTo(centerSectionY);
+        windowed.farlands$moveWindowTo(pending.centerSectionY());
         int minSy = windowed.farlands$windowMinSectionY();
         var lightEngine = mc.level.getLightEngine();
         var skyLight = new net.minecraft.world.level.chunk.DataLayer(15);
@@ -82,5 +120,10 @@ public final class ClientBandBridge {
         System.out.println("[YBRIDGE] applied pos=" + pos + " band=" + minSy
             + ".." + windowed.farlands$windowMaxSectionY());
         System.out.flush();
+        return true;
+    }
+
+    private static long key(ChunkPos pos) {
+        return ((long) pos.x() << 32) ^ (pos.z() & 0xFFFFFFFFL);
     }
 }
