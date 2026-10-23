@@ -41,6 +41,9 @@ public class ClientBandFollowMixin {
         if (playerSection >= viewArea.minSectionY() + 2 && playerSection <= viewArea.maxSectionY() - 2) {
             return;
         }
+        System.out.println("[YF-REBUILD] playerSection=" + playerSection + " oldView="
+            + viewArea.minSectionY() + ".." + viewArea.maxSectionY());
+        System.out.flush();
         Camera camera = mc.gameRenderer.mainCamera();
         mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options, camera, mc.getBlockColors());
     }
