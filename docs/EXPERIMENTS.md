@@ -1924,3 +1924,30 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   换成 ±MAX_BLOCK/2"（`NoiseRouterDataWideYMixin`，默认关）：正常 Y 与高 Y 的 `finalDensity`
   **完全不变**。原因：`slideOverworld` 用的是硬编码常量（−64/384、−0.078125、0.1171875），
   改 Y 线索常量不触及它。该 mixin 保留为实验开关，但不参与现象。
+
+## 78. 客户端渲染的硬限制：SectionPos 的 Y 只有 20 位（2026-10-23）
+
+- 现象（客户端，单机，`-Dfarlands.gen.cwg=true`，tp 到 Y≈2.147e9）：
+  - `playerY=2.1474831E9`、`viewY=134217683..134217706`（网格带正确）、
+    `playerSec=center=SectionPos{x=0,y=134217694,z=-1}`；
+  - 但 `getRenderSectionAt(...)` 恒为 null（连带内中点 `midFound=false`），
+    `RDIAG` 显示 `visible=6935/6935 uncompiled=6935 queue=0 camSection=absent` → 零编译、不渲染。
+- 根因：`SectionPos.asLong` 把 **Y 打包在 20 位**（±524287）。我们的 section Y = 134,217,694
+  远超该范围 → 键被截断 → `RotatingSectionStorage.getValue/containsSection` 查不到任何节点。
+  这是 vanilla 客户端渲染栈的地址宽度限制，不是本项目的 bug。
+- 阈值：可安全寻址的 section Y 约 ±2^19（block Y 约 ±2^23 ≈ ±8.4M）。
+- 与穹顶的关系：Cwg 的穹顶门槛约 `|y| ≥ 2·T_k`，`T_k = 2^(kmax−k)·E`，`E = 2^31/s_ref`；
+  low/high 路（16 阶，s_ref≈171）给出 `T_k≈12.5M` → 最小 |y|≈**25M blocks**（section≈1.56M），
+  仍远超 20 位范围。**因此：客户端要在“穹顶带”看见地形，必须给渲染层做局部 Y（渲染 epoch），
+  或把整条 SectionPos 渲染链路宽化。**
+- 已落地的相关防护（保留）：`SectionGuardMixin`（过滤越界节点）、
+  `ChunkSkyLightSourcesGuardMixin`（跳过窗口区块的 sky-light 更新）、
+  `ChunkAccessLightSourceGuardMixin`（跳过窗口区块 initializeLightSources）、
+  客户端桥"待发送队列 + 重试"。
+- 决策点（未做）：
+  - A. **渲染局部 Y**：渲染层（ViewArea/SectionOcclusionGraph/SectionRenderDispatcher/SectionPos 键、
+    AABB 平移）用 `y - bandMin` 的局部段号，世界坐标在渲染入口换算；工作量中等，但会触及
+    "弃 epoch"的边界（仅渲染层，不动世界生成）。
+  - B. **headless 出图**：用 Cwg 密度直接生成 PNG 剖面/热图作为现象证据，客户端暂不追求。
+  - C. 维持现状：服务端现象已证实（§77），客户端等 A 做完再验收。
+- 证据：`mod/run/logs/latest.log`（23:34 段）。
