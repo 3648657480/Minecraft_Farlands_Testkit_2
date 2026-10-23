@@ -27,8 +27,8 @@ public final class ClientBandBridge {
     public static void push(ChunkPos pos, int centerSectionY, int minSectionY,
         List<LevelChunkSection> sections) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.level == null) {
-            return;
+        if (mc == null || mc.level == null || !mc.hasSingleplayerServer()) {
+            return; // integrated server only: multiplayer is unsupported
         }
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
         buffer.writeVarInt(sections.size());

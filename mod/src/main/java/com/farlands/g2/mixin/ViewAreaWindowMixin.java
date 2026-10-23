@@ -42,6 +42,10 @@ public class ViewAreaWindowMixin {
         if (!Boolean.getBoolean("farlands.y.window")) {
             return null;
         }
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc != null && !mc.hasSingleplayerServer()) {
+            return null; // multiplayer unsupported: keep the dimension band
+        }
         // Centre the grid on the camera section: the camera is then always inside
         // the view area (otherwise out-of-band graph nodes resolve to null).
         if (farlands$camera != null) {

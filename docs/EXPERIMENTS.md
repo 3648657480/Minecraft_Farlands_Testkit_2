@@ -1768,6 +1768,18 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 证据：`exp-store2-a.log`、`exp-store2-b.log`、`exp-bandstore-a.log`。
   用户手动复测（2026-10-23 20:37）："完全正常了"——重进世界后无空洞、带恢复正确。
 
+## 73. 联机禁用（单人限定）（2026-10-23）
+
+- 决定（用户）：不做联机，直接禁用，避免半套功能。
+- 实现：
+  - 专用服务器：`G2Mod.onInitialize` 检测 `EnvType.SERVER`，清除 `farlands.y.*` 系统属性并打印
+    `dedicated server detected: multiplayer is unsupported; Y window features disabled`；
+  - 客户端连远程服：`ClientBandFollowMixin` / `ViewAreaWindowMixin` / `ClientBandBridge`
+    都加 `Minecraft.hasSingleplayerServer()` 检查，非单人时保持维度带、不建桥、不重建 ViewArea。
+- 影响：单人/集成服务器行为不变；专用服务器与联机客户端不会进入窗口模式。
+- 证据：构建通过；逻辑为环境判断，无运行时实验。
+
+
 ## 52. P5 实验协议：Y / 穹顶（未执行，先写后做）
 
 - 依据：交接 §4.5 + `C:\Project-G2-aux\docs\Y-AUDIT-PACKAGE.md`。外部文档结论按 R10 只作"特定条件下"

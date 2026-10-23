@@ -28,6 +28,9 @@ public class ClientBandFollowMixin {
         if (mc.level == null || mc.gameRenderer == null || mc.levelRenderer == null) {
             return;
         }
+        if (!mc.hasSingleplayerServer()) {
+            return; // multiplayer unsupported: keep the dimension band
+        }
         Camera camera = mc.gameRenderer.mainCamera();
         var viewArea = mc.levelRenderer.viewArea();
         if (viewArea == null) {
