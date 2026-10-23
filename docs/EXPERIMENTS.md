@@ -1986,3 +1986,37 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   说明正常世界不受句柄路径影响。
 - 待验证：客户端远 Y（2^31）渲染——需 `-Dfarlands.render.wideKeys=true` 一并开启。
 - 证据：`exp-wk-base2.log`、`exp-wk-on.log`、`exp-wk-fix1.log`（失败构建）、`wk2.txt`（卡死转储）。
+
+## 81. Cwg 距离现象的图像证据（2026-10-23）
+
+- 目的：把"≈2^31 带的退化结构"变成可视证据，不再只靠数字。
+- 方法：`-Dfarlands.testgen.cwgmap=<sectionY>` 用 `CwgTerrain` 在 X-Z 平面 256×256 上采样
+  `density(x, baseY+dy, z)`（正=实心），输出 PGM；`baseY = (sectionY-11)*16`。
+- 实测（种子 12345，节段 134217700，baseY=2,147,483,024）：
+  - `dy=125 / 60 / 10` 三层：实心占比均 **0.500**，且三张图**逐像素相同**（Y 方向不变）。
+  - 结构：**2 格周期棋盘/网格**（细粒度交替），不是普通地形，也不是文档里的平滑斜面。
+    解释：在饱和区，高阶八度的权重按三次增长并交替符号，密度符号按格点翻转；
+    Y 方向因饱和而不变 → 形成"竖直网格柱"。
+- 意义：这是本项目**第一次拿到远域现象的图像**（服务端，无客户端参与）；与 §77 的数字一致。
+- 证据：`C:\Project-G2-aux\logs\cwgmap\cwg-map-134217700-dy{125,60,10}.png`、
+  `crop64.png`（64×64 放大）；`exp-cwgmap.log`。
+
+## 82. P0 句柄法的结构性缺陷：破坏 long 键排序（2026-10-23）
+
+- 现象（客户端 flag 开、出生阶段）：
+  `IllegalArgumentException: Start element (4611686018427388086) is larger than end element
+  (4611686018427388063)`，栈在 `EntitySectionStorage.forEachAccessibleNonEmptySection`
+  → `LongAVLTreeSet.subSet`。数值即句柄基址（0x4000…）。
+- 根因：`EntitySectionStorage` 把 section 键放进**有序** `LongAVLTreeSet` 并用 `subSet` 做范围查询，
+  隐含假设"long 键的数值顺序 = 坐标顺序"。句柄按分配顺序递增，不具有该性质。
+- 结论：**句柄法只适用于哈希式/无序访问**；凡是"有序 long 键"的消费者（实体分区、可能的
+  光照/更新队列）都会失效。用户同时指出：句柄表并未真正使用 2560 位身份（key 只是表内键），
+  "用 512B" 的说法不成立。
+- 路线（未实现，待决策）：
+  - **A. band-local 有序 long 视图**：`asLong` 打包 `(x, y−bandMin, z)`，身份仍是
+    `wideSection`，long 只是带内可排序索引；窗口移动时统一换带并重建缓存。解决排序与别名。
+  - **B. 渲染层真宽键**：把渲染栈（ViewArea/SectionOcclusionGraph/SectionRenderDispatcher）
+    的键从 `long` 换成 `WideSectionKey2560`（真正的消费者宽化，W5 线），工作量大但才真正"用 512B"。
+  - **C. 停在这里**：服务端现象已证实并有图像（§81），客户端渲染另立阶段。
+- 现状：句柄代码保留在 `-Dfarlands.render.wideKeys`（默认关）；默认构建仍用 29/29/6，
+  正常世界逐位不变。

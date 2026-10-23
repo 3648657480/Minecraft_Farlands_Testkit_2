@@ -410,6 +410,11 @@ public abstract class MinecraftServerTestGenMixin {
                     });
                     System.out.flush();
                 }
+                // Cwg map dump: X-Z slices of the density at a band (PGM for inspection).
+                String cwgMap = System.getProperty("farlands.testgen.cwgmap");
+                if (cwgMap != null && !cwgMap.isEmpty()) {
+                    farlands$cwgMap(level, Integer.parseInt(cwgMap.trim()));
+                }
                 // Y-D follow trigger: exercise the same code path players use.
                 String followSy = System.getProperty("farlands.testgen.followsy");
                 if (followSy != null && !followSy.isEmpty()
@@ -629,6 +634,32 @@ public abstract class MinecraftServerTestGenMixin {
             }
         }
         return -1;
+    }
+
+    /** Writes X-Z density slices of the Cwg chain at a band as binary PGM. */
+    @Unique
+    private static void farlands$cwgMap(net.minecraft.server.level.ServerLevel level, int sectionY) {
+        var terrain = com.farlands.g2.runtime.noise.CwgTerrain.create(level.getSeed(),
+            level.getChunkSource().randomState().router(), true);
+        int baseY = (sectionY - 11) * 16;
+        int size = 256;
+        for (int dy : new int[] {125, 60, 10}) {
+            String name = "cwg-map-" + sectionY + "-dy" + dy + ".pgm";
+            try (var out = new java.io.BufferedOutputStream(
+                new java.io.FileOutputStream(name))) {
+                out.write(("P5\n" + size + " " + size + "\n255\n").getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+                for (int z = 0; z < size; z++) {
+                    for (int x = 0; x < size; x++) {
+                        double d = terrain.density(x, baseY + dy, z);
+                        out.write(d > 0.0 ? 0 : 255);
+                    }
+                }
+            } catch (Exception e) {
+                System.out.println("[CWGMAP] failed " + name + ": " + e);
+            }
+            System.out.println("[CWGMAP] wrote " + name + " baseY=" + baseY + " dy=" + dy);
+        }
+        System.out.flush();
     }
 
     /** Number of non-empty sections in the chunk window. */
