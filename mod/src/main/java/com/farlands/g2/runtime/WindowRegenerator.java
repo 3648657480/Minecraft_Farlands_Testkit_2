@@ -60,6 +60,35 @@ public final class WindowRegenerator {
         StructureManager structures = level.structureManager();
         ChunkGenerator generator = level.getChunkSource().getGenerator();
 
+        // Optional noise source: the infs Cwg chain reproduces the dome/vertex-region
+        // phenomenon at high Y (EXPERIMENTS §77); vanilla's graph cannot (it clamps).
+        if (Boolean.getBoolean("farlands.gen.cwg")) {
+            try {
+                com.farlands.g2.runtime.noise.CwgTerrain terrain =
+                    com.farlands.g2.runtime.noise.CwgTerrain.create(level.getSeed(),
+                        randomState.router(), true);
+                int len = proto.getSections().length;
+                int minSy = centerSectionY - (len - 1) / 2;
+                long filled = terrain.fill(proto, minSy, minSy + len - 1);
+                transplant(chunk, proto, centerSectionY);
+                try {
+                    com.farlands.g2.client.ClientBandBridge.push(chunk.getPos(), centerSectionY,
+                        ((WindowedChunk) chunk).farlands$windowMinSectionY(),
+                        java.util.Arrays.asList(chunk.getSections()));
+                } catch (Throwable ignored) {
+                    // dedicated server: client classes absent
+                }
+                System.out.println("[REGEN] cwg pos=" + pos + " band=" + centerSectionY
+                    + " filled=" + filled);
+                System.out.flush();
+                done.accept(true);
+                return;
+            } catch (Throwable t) {
+                System.out.println("[REGEN] cwg failed: " + t);
+                System.out.flush();
+            }
+        }
+
         ServerChunkCache cacheSource = (ServerChunkCache) level.getChunkSource();
         final StaticCache2D<GenerationChunkHolder> cache = StaticCache2D.create(pos.x(), pos.z(), 8,
             (cx, cz) -> cacheSource.chunkMap.farlands$getUpdatingChunkW(

@@ -56,8 +56,17 @@ public final class ClientBandBridge {
         }
         windowed.farlands$moveWindowTo(centerSectionY);
         int minSy = windowed.farlands$windowMinSectionY();
+        var lightEngine = mc.level.getLightEngine();
+        var skyLight = new net.minecraft.world.level.chunk.DataLayer(15);
+        var blockLight = new net.minecraft.world.level.chunk.DataLayer(0);
         for (int i = 0; i < levelChunk.getSections().length; i++) {
-            mc.level.setSectionDirtyWithNeighbors(pos.x(), minSy + i, pos.z());
+            int sy = minSy + i;
+            mc.level.setSectionDirtyWithNeighbors(pos.x(), sy, pos.z());
+            // The bridge bypasses the chunk packet, so no light data arrives with the
+            // sections; give them full sky light (and no block light) or they render black.
+            var sectionPos = net.minecraft.core.SectionPos.of(pos.x(), sy, pos.z());
+            lightEngine.queueSectionData(net.minecraft.world.level.LightLayer.SKY, sectionPos, skyLight);
+            lightEngine.queueSectionData(net.minecraft.world.level.LightLayer.BLOCK, sectionPos, blockLight);
         }
         System.out.println("[YBRIDGE] applied pos=" + pos + " band=" + minSy
             + ".." + windowed.farlands$windowMaxSectionY());
