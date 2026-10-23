@@ -46,6 +46,22 @@ public class ViewAreaWindowMixin {
         if (mc != null && !mc.hasSingleplayerServer()) {
             return null; // multiplayer unsupported: keep the dimension band
         }
+        // Prefer the client chunk's own window band: it is the same band the server
+        // regenerated and sent, so the section graph and the grid cannot disagree.
+        if (mc != null && mc.level != null && mc.player != null) {
+            var pos = mc.player.blockPosition();
+            var chunk = mc.level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4,
+                net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false);
+            if (chunk instanceof com.farlands.g2.runtime.WindowedChunk windowed) {
+                int min = windowed.farlands$windowMinSectionY();
+                if (Boolean.getBoolean("farlands.y.diag")) {
+                    System.out.println("[YF-BAND] chunk window=" + min + ".."
+                        + windowed.farlands$windowMaxSectionY());
+                    System.out.flush();
+                }
+                return new int[] {min, windowed.farlands$windowMaxSectionY()};
+            }
+        }
         // Centre the grid on the player section (the camera follows the player within
         // one section), so a teleport cannot leave render graph nodes outside the grid.
         net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
