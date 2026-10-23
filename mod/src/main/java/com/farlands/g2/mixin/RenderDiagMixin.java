@@ -93,7 +93,8 @@ public class RenderDiagMixin {
             + " uncompiled=" + uncompiled
             + " east=" + east + " eastCompiled=" + eastCompiled
             + " queue=" + disp.getCompileQueueSize()
-            + " player=" + mc.player.getX() + "," + mc.player.getZ()
+            + " player=" + mc.player.getX() + "," + mc.player.getY() + "," + mc.player.getZ()
+            + " viewY=" + view.minSectionY() + ".." + view.maxSectionY()
             + " camSection=" + camInfo);
         System.out.flush();
     }
