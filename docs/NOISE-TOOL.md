@@ -15,8 +15,10 @@
 
 ### 目标
 1. **多版本**：26.3、26.3-farlands（带边境之地调试选项的 JVM 参数）、1.18.2+、1.18.1、
-   beta 1.7.3、基岩版，六个 profile。
+   beta 1.7.3，五个 profile（基岩版暂不做，2026-10-23 决定）。
 2. **八度全量**：每个噪声节点输出所有八度（octave）的独立值，而不仅是求和结果。
+   定义（用户 2026-10-23 确认）：每条八度给"在最终合成里的原始贡献（已乘 amplitude）"，
+   按真实求值顺序编号，另给总和 `sum` 供核对。
 3. **真实顺序**：八度求值/累加顺序必须与真实生成器一致（高→低、含中间 cast），不得重排、
    不得合并、不得用 FMA 重写；否则"现象"的坐标会漂。
 4. **批量**：CLI 流式批处理 + 库 API 批量，支持多线程。
@@ -24,24 +26,24 @@
 
 ### 非目标
 - 不生成区块、不生成方块、不做光照/结构/生物群系。
-- 不承诺还原"未公开"的基岩版内部实现；基岩版以**取样对拍**为准（见 §6.6）。
+- 基岩版不在本期范围（闭源、无 oracle；等有取样对拍需求再单独立项）。
 
 ## 2. profile 矩阵
 
 | profile id | 版本/来源 | 噪声模型 | 坐标语义 | oracle |
 |---|---|---|---|---|
 | `mc263` | Minecraft 26.3 原版 | DensityFunction 图（`NoiseRouter`） | `FunctionContext` int + 扩展 double | 游戏内 `RandomState.router()` |
-| `mc263_fl` | 26.3 + FarLands 补丁与 JVM 参数 | 图 + 宽 X/Z double + 调试开关 | 同上 + `FarProjection` | 本仓库 patch 后的无头服务端 |
+| `mc263_fl` | 26.3 + FarLands 补丁（原版 JVM 参数） | 图 + 宽 X/Z double | 同上 + `FarProjection` | 本仓库 patch 后的无头服务端 |
 | `mc1182p` | 1.18.2 及之后至 26.2 的图族 | 图（参数随版本） | int + 扩展 double | 各版本无头服务端 |
 | `mc1181` | 1.18.1 | 图（1.18.1 参数） | int + 扩展 double | 1.18.1 无头服务端 |
 | `beta173` | Beta 1.7.3 | 经典 `ImprovedNoise` + `OctavePerlin` | int（32 位）与 float 精度 | 参考源码 + 已知现象坐标 |
-| `bedrock` | 基岩版 | 社区逆向模型（浮点，参数化） | 32 位浮点/整型混合 | **用户取样**（见 §6.6） |
 
 约定：
-- `mc263_fl` 的 JVM 参数在 profile 内固化（例如 `-Dfarlands.perlin.wrap=...`），
-  输出里必须回显生效参数，避免"跑的是哪套"说不清。
+- `mc263_fl` **只使用原版参数**（不引入 `farlands.*` 调试开关矩阵）；差异仅在"补丁后的宽坐标
+  求值路径"。输出里回显 `patched=true` 与补丁版本（`PATCH_REVISION`）。
 - `mc1182p` 是**族**：`--mc-version 1.20.4` 选择参数集；参数集从对应版本 jar 抽取后存为
   `profiles/<version>.json`，库本身不内嵌任何版本的数值。
+- `mc1181` 与 `mc1182p` **独立导出、独立对拍**，不合并参数。
 
 ## 3. 统一数据模型
 
@@ -142,11 +144,12 @@ noise --profile mc1182p --mc-version 1.20.4 --scan x=12550820:12551000:1 y=64 z=
   自定义 `FunctionContext`（int 方法 + `getBlockX/Y/ZDouble()`）。
 - 验收：正常坐标 1000 点 bit-exact；`(0,0)` 的 `finalDensity` 剖面与游戏一致。
 
-### 6.2 `mc263_fl`（FarLands 补丁 + 调试参数）
-- 模型：同 26.3，但 X/Z 的 double 由 `FarProjection` 重建（宽坐标），并支持
-  `-Dfarlands.perlin.wrap` 等调试开关（开关集合以 patch 文档为准）。
-- oracle：本仓库 `vanilla-rig` / `mod:runServer` 加对应 JVM 参数。
-- 验收：开关开/关两组，正常坐标应逐位一致；远坐标（2^31、2^49）记录差异图。
+### 6.2 `mc263_fl`（FarLands 补丁，原版参数）
+- 模型：同 26.3，但 X/Z 的 double 由 `FarProjection` 重建（宽坐标）。
+- **只使用原版参数**：不引入 `farlands.*` 调试开关；与 `mc263` 的唯一差异是补丁后的
+  宽坐标求值路径。输出回显 `patched=true`、`PATCH_REVISION`。
+- oracle：本仓库 `vanilla-rig` / `mod:runServer`（wide=true continuity=true）。
+- 验收：正常坐标与 `mc263` 逐位一致；远坐标（2^31、2^49）记录差异图。
 
 ### 6.3 `mc1182p`（1.18.2 及以后图族）
 - 模型：与 6.1 相同的图结构，但参数随版本；`profiles/<version>.json` 一团一档。
@@ -169,14 +172,10 @@ noise --profile mc1182p --mc-version 1.20.4 --scan x=12550820:12551000:1 y=64 z=
      "现象首次出现"的坐标作为验收条件（见 §7.2）。
 - 注意：beta 的浮点字面量与累加顺序与图族不同，不能共用同一求值器实现。
 
-### 6.6 `bedrock`（基岩版）
-- 现实：基岩版闭源，无法从 jar 导出。
-- 方案：
-  1. 先按社区逆向资料实现参数化模型（浮点为主）；
-  2. **以用户取样为 oracle**：在基岩版里对固定种子/坐标网格取样（地形高度/方块），
-     存 `profiles/bedrock/samples.tsv`，库对其做拟合与验收；
-  3. 未通过验收前，`bedrock` profile 标记为 `experimental`，输出 `warnings += "unverified"`。
-- 需要用户提供：基岩版版本号、种子、取样网格（至少 3 组：正常区、12.5M 附近、2^31 附近）。
+### 6.6 基岩版（**本期不做**）
+- 2026-10-23 决定：基岩版闭源、无 oracle，本期不纳入。
+- 若以后要做：按社区逆向模型实现，并以游戏内取样（正常区 / 12.5M / 2^31 三组网格）为 oracle，
+  验收前标记 `experimental`。
 
 ## 7. 验证与现象扫描
 
@@ -214,8 +213,7 @@ noise --profile mc1182p --mc-version 1.20.4 --scan x=12550820:12551000:1 y=64 z=
 | P0 | `noise-lab` CLI（`--point/--profile-file/--jsonl/--workers`）+ `mc263` profile + oracle 对拍 | 1000 点 bit-exact |
 | P1 | 图导出器（26.3 / 1.18.x → `profiles/*.json`）+ `mc1181`、`mc1182p` | 各版本 200 点 bit-exact |
 | P2 | `beta173`（2D/3D 八度、真实顺序）+ 现象锚点 | 12,550,820 首次偏差 |
-| P3 | `mc263_fl`（调试开关矩阵） | 开关开/关差异图 |
-| P4 | `bedrock`（实验） | 用户取样拟合通过后转正 |
+| P3 | `mc263_fl`（补丁路径，原版参数） | 与 `mc263` 正常坐标逐位一致；远坐标差异图 |
 | P5 | 现象扫描工具（CSV/PNG） | 输出各 profile 的候选坐标表 |
 
 ## 10. 风险与未决
@@ -223,7 +221,7 @@ noise --profile mc1182p --mc-version 1.20.4 --scan x=12550820:12551000:1 y=64 z=
 1. **图导出**：`NoiseGeneratorSettings` 引用 datapack 注册表；独立库要么自带序列化图，
    要么在运行时加载 vanilla 数据包（后者会把"独立"变成"依赖 MC 数据"）。建议：**自带 JSON 图**。
 2. **1.18.1 vs 1.18.2 参数差异**：需逐版本 dump，不能假设相同。
-3. **基岩版**：无 oracle 源码，只能取样拟合；在验收前必须标记 `unverified`。
+3. **基岩版**：本期不做（见 §6.6）。
 4. **"真实顺序"的可验证性**：需要 oracle 暴露中间八度值；图族的 `NormalNoise` 内部
    可能做了优化（如合并计算），必要时在 oracle 侧用反射/拆分重构逐八度求值。
 5. **版本漂移**：26.x 更新可能改图；`profiles/` 按版本入库，库不硬编码数值。

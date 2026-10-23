@@ -1868,3 +1868,29 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 对"Y=2^31-1 附近有地形吗"的最终回答：**没有**（本条件）。窗口机制可用，但远域地形/穹顶
   现象未复现；需要绝对 Y 的噪声采样（§52 的 Y1–Y4 / 宽噪声线），且该现象是否存在本身仍待验证。
 - 证据：`exp-solid-{0,1000}.log`、`exp-col2-{1000,16000}.log`、`exp-hfix2.log`、`exp-raw0.log`（探针崩溃）。
+
+## 76. 游戏内密度采样（简单版）：高 Y 无地形（2026-10-23）
+
+- 新增探针：`-Dfarlands.testgen.density=<y列表 | y0:y1:step>`。在 testgen chunk 的
+  (x=8, z=8) 用 `RandomState.router().finalDensity().compute(ctx)` 与
+  `preliminarySurfaceLevel().compute(ctx)` 单点采样（自定义 `FunctionContext`，int Y）。
+- 高 Y 实测（seed 12345，26.3 原版密度图）：
+  `1000 / 1e4 / 1e5 / 1e6 / 1e7 / 1e8 / 1e9 / 2e9 / 2147483000`
+  → **全部 `finalDensity = -0.02499479166666667`**（负 = 空气），`prelimSurface = 32.0` 恒定。
+- 对照（正常 Y，采样器有效性）：
+
+  | y | finalDensity |
+  |---|---|
+  | −64 | +0.0375 |
+  | −32 | +0.0757 |
+  | 0 | +0.0100 |
+  | 32 | +0.0117 |
+  | 62 | −0.1630 |
+  | 64 | −0.1911 |
+  | 100 / 200 | −0.4583 |
+  | 319 / 320 / 321 / 400 / 1000 | −0.02499 |
+
+  → 319 起进入密度图的 clamp 尾段，之后恒定。
+- 结论（仅限上述条件，R10）：**高 Y 不存在正密度/地形**；该密度图在 int Y 范围内不可能产生
+  "穹顶"。P5 窗口机制可用，但现象线转为研究问题：见 `docs/NOISE-TOOL.md`（多版本噪声库）。
+- 证据：`exp-density-probe.log`、`exp-density-control.log`。

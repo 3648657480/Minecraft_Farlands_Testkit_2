@@ -363,6 +363,11 @@ public abstract class MinecraftServerTestGenMixin {
                     System.out.flush();
                 }
                 // Y profile probe: regenerate the same chunk at several bands and
+                // Simple in-game noise sampler: finalDensity at arbitrary block Y.
+                String densitySpec = System.getProperty("farlands.testgen.density");
+                if (densitySpec != null && !densitySpec.isEmpty()) {
+                    farlands$densityProbe(level, (int) (cxL * 16 + 8), (int) (czL * 16 + 8), densitySpec);
+                }
                 // report terrain top / non-empty sections per band.
                 String profile = System.getProperty("farlands.testgen.profile");
                 if (profile != null && !profile.isEmpty()
@@ -507,6 +512,42 @@ public abstract class MinecraftServerTestGenMixin {
             hex.append(Character.forDigit((b >> 4) & 0xF, 16)).append(Character.forDigit(b & 0xF, 16));
         }
         return hex.toString();
+    }
+
+    /** Simple in-game density sampler (see farlands.testgen.density). */
+    @Unique
+    private static void farlands$densityProbe(net.minecraft.server.level.ServerLevel level,
+        int x, int z, String spec) {
+        var router = level.getChunkSource().randomState().router();
+        int[] ys;
+        if (spec.contains(":")) {
+            String[] parts = spec.split(":");
+            int y0 = Integer.parseInt(parts[0].trim());
+            int y1 = Integer.parseInt(parts[1].trim());
+            int step = parts.length > 2 ? Math.max(1, Integer.parseInt(parts[2].trim())) : 1;
+            int count = Math.max(0, (y1 - y0) / step + 1);
+            ys = new int[Math.min(count, 4096)];
+            for (int i = 0; i < ys.length; i++) {
+                ys[i] = y0 + i * step;
+            }
+        } else {
+            ys = java.util.Arrays.stream(spec.split(","))
+                .mapToInt(s -> Integer.parseInt(s.trim())).toArray();
+        }
+        for (int y : ys) {
+            final int by = y;
+            net.minecraft.world.level.levelgen.DensityFunction.FunctionContext ctx =
+                new net.minecraft.world.level.levelgen.DensityFunction.FunctionContext() {
+                    @Override public int blockX() { return x; }
+                    @Override public int blockY() { return by; }
+                    @Override public int blockZ() { return z; }
+                };
+            double finalDensity = router.finalDensity().compute(ctx);
+            double prelim = router.preliminarySurfaceLevel().compute(ctx);
+            System.out.println("[DENSITY] x=" + x + " y=" + y + " z=" + z
+                + " finalDensity=" + finalDensity + " prelimSurface=" + prelim);
+        }
+        System.out.flush();
     }
 
     /** Vertical profile: regenerate the chunk at each section band in turn. */
