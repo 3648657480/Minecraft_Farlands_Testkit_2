@@ -47,10 +47,14 @@ public class ClientBandFollowMixin {
         // rotating centre, so every lookup returns null and nothing compiles.
         if (viewArea.getRenderSectionAt(mc.player.blockPosition()) == null) {
             viewArea.repositionCamera(net.minecraft.core.SectionPos.of(camera.blockPosition()));
-            System.out.println("[YF-REPOS] camera section absent; repositioned, viewY="
-                + viewArea.minSectionY() + ".." + viewArea.maxSectionY()
-                + " playerY=" + mc.player.getY()
-                + " stillAbsent=" + (viewArea.getRenderSectionAt(mc.player.blockPosition()) == null));
+            var playerSec = net.minecraft.core.SectionPos.of(mc.player.blockPosition());
+            var midPos = new net.minecraft.core.BlockPos(mc.player.blockPosition().getX(),
+                viewArea.minSectionY() * 16 + 8, mc.player.blockPosition().getZ());
+            System.out.println("[YF-REPOS] playerSec=" + playerSec
+                + " center=" + viewArea.getCameraSectionPos()
+                + " midFound=" + (viewArea.getRenderSectionAt(midPos) != null)
+                + " stillAbsent=" + (viewArea.getRenderSectionAt(mc.player.blockPosition()) == null)
+                + " viewY=" + viewArea.minSectionY() + ".." + viewArea.maxSectionY());
             System.out.flush();
         }
         int playerSection = Math.floorDiv(mc.player.blockPosition().getY(), 16);
