@@ -1920,3 +1920,7 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 结论（仅限上述条件，R10）：**穹顶/顶点区现象在 Cwg 噪声下于 ≈2^31 带复现**；
   vanilla 图不会产生（§76）。后续：把 Cwg 接成窗口重生成的噪声源（可选开关），再做客户端目视。
 - 证据：`exp-cwg2-{7,33554432,134217700}.log`、`exp-cwg-slice.log`。
+- 附带负结果：先按作者的 `NoiseRouterDataMixin` 思路试过"只把 bootstrap 的 MIN_Y/MAX_Y 读点
+  换成 ±MAX_BLOCK/2"（`NoiseRouterDataWideYMixin`，默认关）：正常 Y 与高 Y 的 `finalDensity`
+  **完全不变**。原因：`slideOverworld` 用的是硬编码常量（−64/384、−0.078125、0.1171875），
+  改 Y 线索常量不触及它。该 mixin 保留为实验开关，但不参与现象。
