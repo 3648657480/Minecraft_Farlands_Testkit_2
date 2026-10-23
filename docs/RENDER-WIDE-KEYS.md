@@ -132,6 +132,35 @@ SectionPosHandles（单例，进程内）
 
 B1 无 MC 依赖，可先独立完成；B2 起需要 patcher 改动（`PATCH_REVISION` + refresh）。
 
+### B2 改动面清点（2026-10-23 实测）
+
+| 文件 | 待换型/待改点 | 备注 |
+|---|---|---|
+| `client/renderer/state/level/SectionUpdateRenderState.java` | record 组件 `long sectionNode` | 全管线节点的载体 |
+| `client/renderer/state/level/LevelRenderState.java` | `List<SectionUpdateRenderState>` | 列表本身无需换型 |
+| `client/renderer/SectionOcclusionGraph.java` | **39 处** `long`/`SectionPos` 引用 | 图节点、邻居、队列 |
+| `client/renderer/chunk/SectionRenderDispatcher.java` | **27 处**（19 处 SectionPos 调用） | `RenderSection.sectionNode`、缓存 map |
+| `client/renderer/ViewArea.java` | 3 处（`getRenderSection(long)`、`getRenderSectionAt`） | 与 `RotatingSectionStorage` 配套 |
+| `client/RotatingSectionStorage.java` | `minY/maxY/centerSectionPos`、`getValue*`、节点表 | 以段号为索引，需改宽键+int 视图 |
+| `client/renderer/chunk/RenderRegionCache.java` | 5 处 | 区域缓存键 |
+| `client/renderer/SectionUpdateTracker.java`（位置待确认） | 10 处 | 更新集合/队列 |
+
+结论：B2 是一次**跨 7 个类、约 90 处类型级改动**的迁移（不含 B3/B4 的实体/光照/段存储）。
+必须先定"节点键类型"（建议 `SectionKey`，即 B1 的宽键+int 视图+全序），再逐类替换；
+每类替换后都要跑一次客户端正常世界冒烟（flag 开、正常 Y），最后才切远 Y。
+
+### B2 执行顺序（逐类、可回退）
+
+1. `SectionUpdateRenderState`（record）+ `LevelRenderState`：只改类型，编译期暴露所有构造/访问点；
+2. `SectionOcclusionGraph`：节点集合/邻居偏移改用 `SectionKey` + `offset`；
+3. `SectionRenderDispatcher` + `RenderSection`：`sectionNode` 字段、缓存 map、`getSectionNode()`；
+4. `ViewArea` + `RotatingSectionStorage`：`getRenderSection(SectionKey)`、`repositionCamera(SectionPos)`
+   仍用 int 视图构造键；
+5. `RenderRegionCache` / `SectionUpdateTracker`：键类型跟随；
+6. 全绿后跑客户端正常世界（RDIAG `visible`、`uncompiled` 收敛），再跑远 Y（§81 的棋盘柱）。
+
+每步一个提交，保持可回退；`PATCH_REVISION` 在第一次 patcher 改动时 bump 一次并 refresh。
+
 ## 9. 旧的 P0 分阶段（已废弃，仅存档）
 
 1. ~~P0：SectionPosHandles + 访问器重写~~（已实现，默认关闭，实测破坏有序消费者）；
