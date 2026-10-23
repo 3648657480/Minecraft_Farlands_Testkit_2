@@ -1967,3 +1967,22 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
     未登记的 long 回退 29/29/6 解包；句柄进程内有效，断连/切维清理、定时 trim，不入盘不上网；
   - 不采用 infs 哈希（对 96 位坐标不可逆、有碰撞）与渲染局部 Y（违背宽身份）。
 - 状态：设计稿已提交（`docs/RENDER-WIDE-KEYS.md`），待启动 P0。
+
+## 80. P0 落地：SectionPos 长视图改为宽键句柄（2026-10-23）
+
+- 实现（mod 侧，flag `-Dfarlands.render.wideKeys=true`）：
+  - `runtime/section/SectionPosHandles`：`WideSectionKey2560` 为身份，`(x,y,z)` int 为索引，
+    单调分配 long 句柄（`0x4000…` 起），无哈希、无碰撞、可逆；`clear()/size()` 已备；
+  - `mixin/SectionPosWideHandleMixin`：`@Overwrite` 了
+    `asLong(III)/asLong(BlockPos)/asLong()/x/y/z(long)/of(long)/offset(long,…)/blockToSection(long)/
+    getZeroNode(long,int)`；flag 关时精确回退到本仓库 29/29/6 打包（公式与 `SectionPosPatch` 逐位一致）。
+- 途中抓到的真 bug（重要教训）：首版 `asLong(BlockPos)` 直接把**方块坐标**传给
+  `asLong(int,int,int)`（后者要 section 坐标），缺 `>>4` → 所有基于 BlockPos 的 section 查找错键
+  → 出生区块加载卡死（server 线程停在 `PlayerSpawnFinder.getLevelRespawnBlock`，worker 全空闲、
+  无异常）。修正后正常。
+- 回归（headless，种子 12345、(0,0)）：
+  - flag 关：`gen OK`，`surf=b9216bad2029 floor=8936c275d063` 与基线逐位一致（timeMs≈961）；
+  - flag 开：`gen OK`，同一指纹逐位一致（timeMs≈1050）。
+  说明正常世界不受句柄路径影响。
+- 待验证：客户端远 Y（2^31）渲染——需 `-Dfarlands.render.wideKeys=true` 一并开启。
+- 证据：`exp-wk-base2.log`、`exp-wk-on.log`、`exp-wk-fix1.log`（失败构建）、`wk2.txt`（卡死转储）。

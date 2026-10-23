@@ -8,6 +8,7 @@
         "ChunkAccessWindowMixin",
         "ChunkAccessLightSourceGuardMixin",
         "ChunkSkyLightSourcesGuardMixin",
+        "SectionPosWideHandleMixin",
         "LevelHeightAccessorBoundsMixin",
         "ChunkMapStepDiagMixin",
         "ChunkBiomesDiagMixin",
