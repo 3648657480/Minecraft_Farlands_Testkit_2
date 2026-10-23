@@ -100,10 +100,39 @@ SectionPosHandles（单例，进程内）
 | 客户端远 Y | tp 到 Y≈2.147e9 | `[RDIAG] camSection=origin=…`、`uncompiled` 下降、画面出柱状面 |
 | 句柄表 | 断连/切维/长跑 | 无泄漏、`trim` 生效、无跨进程键 |
 
-## 7. 分阶段
+## 7. 决策（2026-10-23）：走 B（真宽键），句柄法降级为实验
 
-1. **P0**：`SectionPosHandles` + `SectionPos` 访问器重写（flag `-Dfarlands.render.wideKeys` 默认关）；
-2. **P1**：正常世界回归 + 客户端常规渲染冒烟（flag 开，正常 Y）；
-3. **P2**：远 Y 客户端目视（2^31 柱状面）+ `RDIAG` 验收；
-4. **P3**：全仓 long 位运算审计、`STREAM_CODEC` 改造、句柄生命周期收口；
-5. **P4**：默认开启并记录 `PATCH_REVISION`。
+用户裁定：句柄表并未使用 2560 位身份（long 只是序号），且实测**破坏 long 键排序**（§82：
+`EntitySectionStorage` 的 `LongAVLTreeSet.subSet` 抛 start>end）。因此：
+
+- **目标路线 = B**：把渲染栈的键从 `long` 换成宽键（`WideSectionKey2560` 或带序的宽键包装），
+  身份自始至终是 2560 位；`SectionPosHandles` 仅保留为默认关闭的实验（`farlands.render.wideKeys`）。
+- 落地时必须同时处理三类"有序 long"消费者（`grep LongAVLTreeSet|LongSortedSet|subSet`）：
+
+  | 消费者 | 文件 | 有序用法 |
+  |---|---|---|
+  | 实体分区 | `world/level/entity/EntitySectionStorage.java` | `LongAVLTreeSet.subSet(...)` 范围查询（7 处） |
+  | 光照队列 | `world/level/lighting/LeveledPriorityQueue.java`、`SpatialLongSet.java` | 按 long 键分层/有序（8 处） |
+  | 区块段存储 | `world/level/chunk/storage/SectionStorage.java` | 段键排序（2 处） |
+
+  渲染栈自身（`RotatingSectionStorage`/`SectionOcclusionGraph`/`SectionUpdateTracker`/
+  `SectionRenderDispatcher`）多用无序 map，但仍以 `long` 为节点类型，跨类传递
+  （`LevelRenderState.sectionUpdateRenderStates` 的 `sectionNode: long`）。
+
+## 8. B 的分阶段（可执行）
+
+| 阶段 | 内容 | 验收 |
+|---|---|---|
+| **B1** | 键类型与序：`SectionKey`（宽键 + int 视图 + `compareTo(x,y,z)`）；不改 vanilla | 纯 Java 单测：唯一/可逆/全序 |
+| **B2** | 渲染节点解耦：`SectionUpdateRenderState` 等 record 的 `sectionNode` 改宽键（patcher），`RotatingSectionStorage`/`ViewArea` 跟随 | 客户端正常世界渲染冒烟（无远 Y） |
+| **B3** | `SectionOcclusionGraph` + `SectionUpdateTracker` + `SectionRenderDispatcher` 的键/邻居改为宽键 | 正常世界 `RDIAG visible>0`、`uncompiled` 收敛 |
+| **B4** | 有序消费者（实体/光照/段存储）换宽键或改为"坐标排序的宽键 map" | 出生搜索、实体碰撞、光照更新无异常 |
+| **B5** | 远 Y 客户端目视（2^31 柱状面） | `camSection=origin=…`、画面出 §81 的棋盘柱 |
+| **B6** | 全仓 long 位运算审计、`STREAM_CODEC` 改造、默认开启 + `PATCH_REVISION` | M1 14 点回归逐位不变 |
+
+B1 无 MC 依赖，可先独立完成；B2 起需要 patcher 改动（`PATCH_REVISION` + refresh）。
+
+## 9. 旧的 P0 分阶段（已废弃，仅存档）
+
+1. ~~P0：SectionPosHandles + 访问器重写~~（已实现，默认关闭，实测破坏有序消费者）；
+2. ~~P1—P4~~：同上，被 §7 的 B1–B6 取代。
