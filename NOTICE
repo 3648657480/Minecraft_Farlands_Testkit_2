@@ -13,4 +13,9 @@
   本仓库没有逐字复制其代码：实现按本项目的宽身份层（`WideChunkPos` / `WideSectionKey2560`）
   重新设计。若将来引入其代码片段，将在对应文件头与本节同时标注。
 
-- 设计说明见 `docs/Y-WINDOW-DESIGN.md`（草案）。
+  **例外（已标注）**：`mod/src/main/java/com/farlands/g2/runtime/noise/`
+  （`CwgNoise` / `CwgDensity` / `CwgTerrain`）是按其 `CwgNoise` / `CwgDensity` / `CwgNoiseSystem`
+  语义移植/改写的（MIT，Copyright (C) 2026 Infinitive），用于复现"穹顶/顶点区"现象；
+  文件头与本节同时标注来源。作者已同意参考，见上。
+
+- 设计说明见 `docs/Y-WINDOW-DESIGN.md`（草案）；噪声采样工具见 `docs/NOISE-TOOL.md`。

@@ -1894,3 +1894,29 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 结论（仅限上述条件，R10）：**高 Y 不存在正密度/地形**；该密度图在 int Y 范围内不可能产生
   "穹顶"。P5 窗口机制可用，但现象线转为研究问题：见 `docs/NOISE-TOOL.md`（多版本噪声库）。
 - 证据：`exp-density-probe.log`、`exp-density-control.log`。
+
+## 77. P5：移植 infs Cwg 噪声，穹顶在 ≈2^31 复现（2026-10-23）
+
+- 依据：作者文档 `docs/wiki.farlands/docs/dome/cause.md`——穹顶是 **Cwg 噪声族**在
+  `foldCoordinates=false`（farLands）时的现象：坐标越过 2^31 后格点索引冻结
+  （`(int)` 饱和 + `x0+1` 回绕）、smoothstep 权重离开 [0,1] 并按三次增长，密度零集退化成平面。
+  vanilla 26.3 的密度图有 clamp，不产生该现象（§76 实测）。
+- 移植（MIT，见 NOTICE）：`runtime/noise/` 下
+  - `CwgNoise`（167 行，逐阶 Perlin；int 饱和/回绕/梯度索引语义照搬）；
+  - `CwgDensity`（密度链，算子顺序照搬）；
+  - `CwgTerrain`（按作者默认参数组装四路八度 + `TerrainProvider` 两条形状样条）。
+- 探针：`-Dfarlands.testgen.cwg=<sectionY>`（需 `-Dfarlands.y.window=true
+  -Dfarlands.test.allowDedicated=true`）：按目标带填充整窗（正密度=石，否则空气）并移植回活 chunk。
+- 实测（seed 12345，chunk (0,0)）：
+
+  | sy | minY（block） | filled（占 98304） | solidSec | 形态 |
+  |---|---|---|---|---|
+  | 7 | −64 | 28287（29%） | 8 | 普通地形（col 60/10 = stone，topY=45） |
+  | 33,554,432 | 536,870,736 | 48120（49%） | 24 | 半空间 |
+  | 134,217,700 | 2,147,483,024 | 46080（47%） | 24 | 半空间 |
+
+- 截面（`[CWG-SLICE]`，dy=32/160/288/352 的 16×16 位图）在 ≈2^31 带**四层完全相同**：
+  密度沿 Y 不变 → 分界是**竖直柱状面**（Y 方向饱和后的退化形态），而不是普通地形。
+- 结论（仅限上述条件，R10）：**穹顶/顶点区现象在 Cwg 噪声下于 ≈2^31 带复现**；
+  vanilla 图不会产生（§76）。后续：把 Cwg 接成窗口重生成的噪声源（可选开关），再做客户端目视。
+- 证据：`exp-cwg2-{7,33554432,134217700}.log`、`exp-cwg-slice.log`。

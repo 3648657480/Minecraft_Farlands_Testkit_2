@@ -155,7 +155,7 @@ public final class WindowRegenerator {
             }));
     }
 
-    private static void transplant(LevelChunk chunk, ChunkAccess proto, int centerSectionY) {
+    public static void transplant(LevelChunk chunk, ChunkAccess proto, int centerSectionY) {
         WindowedChunk windowed = (WindowedChunk) chunk;
         int len = chunk.getSections().length;
         int half = (len - 1) / 2;

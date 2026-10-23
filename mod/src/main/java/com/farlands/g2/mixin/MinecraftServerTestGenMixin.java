@@ -376,6 +376,12 @@ public abstract class MinecraftServerTestGenMixin {
                         .mapToInt(s -> Integer.parseInt(s.trim())).toArray();
                     farlands$profile(profileChunk, bands, 0);
                 }
+                // Cwg (infs) density probe: fill a chunk window with the Cwg noise chain.
+                String cwgSy = System.getProperty("farlands.testgen.cwg");
+                if (cwgSy != null && !cwgSy.isEmpty()
+                    && chunk instanceof net.minecraft.world.level.chunk.LevelChunk cwgChunk) {
+                    farlands$cwgFill(level, cwgChunk, Integer.parseInt(cwgSy.trim()));
+                }
                 // Y-D/B probe: regenerate the loaded chunk's window in place.
                 if (Boolean.getBoolean("farlands.testgen.regen")
                     && chunk instanceof net.minecraft.world.level.chunk.LevelChunk levelChunk) {
@@ -546,6 +552,45 @@ public abstract class MinecraftServerTestGenMixin {
             double prelim = router.preliminarySurfaceLevel().compute(ctx);
             System.out.println("[DENSITY] x=" + x + " y=" + y + " z=" + z
                 + " finalDensity=" + finalDensity + " prelimSurface=" + prelim);
+        }
+        System.out.flush();
+    }
+
+    /** Fill the chunk window with the infs Cwg noise chain at the given section band. */
+    @Unique
+    private static void farlands$cwgFill(net.minecraft.server.level.ServerLevel level,
+        net.minecraft.world.level.chunk.LevelChunk chunk, int centerSy) {
+        long t0 = System.nanoTime();
+        var router = level.getChunkSource().randomState().router();
+        com.farlands.g2.runtime.noise.CwgTerrain terrain =
+            com.farlands.g2.runtime.noise.CwgTerrain.create(level.getSeed(), router, true);
+        com.farlands.g2.runtime.YBandOverrides.set(chunk.getPos().widePos(), centerSy);
+        net.minecraft.world.level.chunk.ProtoChunk proto = new net.minecraft.world.level.chunk.ProtoChunk(
+            chunk.getPos(), net.minecraft.world.level.chunk.UpgradeData.EMPTY, level,
+            level.palettedContainerFactory(), null);
+        int len = proto.getSections().length;
+        int minSy = centerSy - (len - 1) / 2;
+        long filled = terrain.fill(proto, minSy, minSy + len - 1);
+        com.farlands.g2.runtime.WindowRegenerator.transplant(chunk, proto, centerSy);
+        long ms = (System.nanoTime() - t0) / 1_000_000L;
+        int solid = farlands$solidSections(chunk);
+        int top = chunk.getHeight(Heightmap.Types.WORLD_SURFACE, 8, 8);
+        System.out.println("[CWG] sy=" + centerSy + " minY=" + chunk.getMinY()
+            + " filled=" + filled + " solidSec=" + solid + " topY=" + top
+            + " col=" + farlands$column(chunk) + " ms=" + ms);
+        int baseX = chunk.getPos().getMinBlockX();
+        int baseZ = chunk.getPos().getMinBlockZ();
+        for (int dy : new int[] {32, 160, 288, 352}) {
+            StringBuilder rows = new StringBuilder();
+            for (int x = 0; x < 16; x++) {
+                for (int z = 0; z < 16; z++) {
+                    var state = chunk.getBlockState(new net.minecraft.core.BlockPos(
+                        baseX + x, chunk.getMinY() + dy, baseZ + z));
+                    rows.append(state.isAir() ? '.' : '#');
+                }
+                rows.append('/');
+            }
+            System.out.println("[CWG-SLICE] dy=" + dy + " " + rows);
         }
         System.out.flush();
     }
