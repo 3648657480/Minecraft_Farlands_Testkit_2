@@ -162,6 +162,29 @@ public class ClientAutoTestMixin {
         }
     }
 
+    private static BlockPos farlands$findSolid(Minecraft mc, int cx, int cz) {
+        var chunk = mc.level.getChunkSource().getChunk(cx, cz,
+            net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false);
+        if (chunk == null) return null;
+        int minSy = 0;
+        if (chunk instanceof com.farlands.g2.runtime.WindowedChunk w) minSy = w.farlands$windowMinSectionY();
+        var sections = chunk.getSections();
+        for (int i = 0; i < sections.length; i++) {
+            var s = sections[i];
+            if (s == null || s.hasOnlyAir()) continue;
+            for (int ly = 0; ly < 16; ly++) {
+                for (int lx = 0; lx < 16; lx++) {
+                    for (int lz = 0; lz < 16; lz++) {
+                        if (!s.getBlockState(lx, ly, lz).isAir()) {
+                            return new BlockPos(cx * 16 + lx, (minSy + i) * 16 + ly, cz * 16 + lz);
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     private static boolean farlands$chunkReady(Minecraft mc) {
         if (mc.level == null) {
             return false;

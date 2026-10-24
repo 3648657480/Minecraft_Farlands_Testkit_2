@@ -43,6 +43,13 @@ public final class RenderKeys {
         }
     }
 
+    public static void remove(long node) {
+        SectionRenderDispatcher.RenderSection section = BY_NODE.remove(node);
+        if (section != null) {
+            BY_KEY.values().removeIf(value -> value == section);
+        }
+    }
+
     public static int size() {
         return BY_KEY.size();
     }

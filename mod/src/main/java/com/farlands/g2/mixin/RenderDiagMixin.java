@@ -67,13 +67,15 @@ public class RenderDiagMixin {
             return;
         }
         // After a ViewArea rebuild the visible list keeps the previous instance's
-        // sections, so the draw pass skips the real (compiled) ones. Refill it from
-        // the CURRENT grid on the render thread (the client tick may be paused).
-        self.clearVisibleSections();
-        for (Object section : view.getAllSections()) {
-            if (section != null) {
-                self.visibleSections().add(
-                    (net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection) section);
+        // sections, so the draw pass skips the real (compiled) ones. Refill only when
+        // it is empty: clearing every second would blank the screen while moving.
+        if (self.visibleSections().isEmpty()) {
+            self.clearVisibleSections();
+            for (Object section : view.getAllSections()) {
+                if (section != null) {
+                    self.visibleSections().add(
+                        (net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection) section);
+                }
             }
         }
         int visible = self.visibleSections().size();

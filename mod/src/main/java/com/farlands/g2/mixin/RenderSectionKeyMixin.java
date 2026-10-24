@@ -10,6 +10,9 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Adds the 2560-bit {@link SectionKey} identity to a render section. The origin
@@ -31,6 +34,11 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
         return this.farlands$key;
     }
 
+    @Inject(method = "setSectionNode", at = @At("HEAD"))
+    private void farlands$dropOldNode(long sectionNode, CallbackInfo ci) {
+        RenderKeys.remove(this.getSectionNode());
+    }
+
     @Override
     public void farlands$setKey(SectionKey key) {
         this.farlands$key = key;
@@ -44,11 +52,12 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
         this.renderOrigin.set(x, y, z);
         this.bb = new AABB(x, y, z, x + 16.0, y + 16.0, z + 16.0);
         RenderKeys.put(key, (SectionRenderDispatcher.RenderSection) (Object) this);
-        // reset() dropped the mesh; mark the section dirty so the compile pipeline
-        // picks it up again (first assignment and band moves both need this).
+        // reset() dropped the mesh; mark only this section dirty. Marking the whole
+        // 3x3x3 neighbourhood here floods the queue whenever the camera moves and
+        // leaves the view blank until every round of recompiles finishes.
         var mc = net.minecraft.client.Minecraft.getInstance();
         if (mc != null && mc.level != null) {
-            mc.level.setSectionDirtyWithNeighbors(key.x, key.y, key.z);
+            mc.level.setSectionRangeDirty(key.x, key.y, key.z, key.x, key.y, key.z);
         }
     }
 }
