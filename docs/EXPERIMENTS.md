@@ -2206,3 +2206,23 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 风险：该 mixin 与 `RotatingSectionStorageKeyMixin`（TAIL 赋 `SectionKey`）作用于同一方法，
   `@Overwrite` 可能使后者的注入失效；若无键，`getRenderSectionAt` 会回退到 6 位打包解码而在
   远 Y 失败。下一步应验证 `RenderKeys.size()` 或把赋键逻辑并入 `@Overwrite` 版本。
+
+## 91. 可见段列表陈旧 + 键赋值并入 overwrite（2026-10-24）
+
+- 修复：
+  - `RotatingSectionStorageBandMixin.repositionCenter` 的 `@Overwrite` 版本**直接赋宽键**
+    （原 `RotatingSectionStorageKeyMixin` 的 TAIL 注入可能被 overwrite 覆盖），并登记
+    `RenderKeys`；
+  - `ViewArea` 构造 TAIL 额外 `levelRenderer.clearVisibleSections()`（旧 ViewArea 的段实例不能
+    留在可见列表里）；
+  - `RenderDiagMixin` 在渲染线程发现可见列表为空时重填（客户端 tick 可能暂停）。
+- 实测（`y=2147483100`）：无 mixin 错误；`YF-VA/YF-VIS` 各 3 次、`camSection=compiled`、
+  `YF-REPOS=0`（查找正常）。
+- 但 `RDIAG uncompiled=6935` 仍不降：可见列表是 ViewArea 的**全部** 17×17×24 段，其中绝大多数
+  区块在客户端根本未加载/未搬到该带（跟随器默认只搬玩家本块），所以它们没有可编译内容。
+  这不是编译门槛问题，而是**视野内只有极少数区块被搬到远带**。
+- 结论：要"看得见一片地形"，必须把视野内区块也搬到同一带；但 Cwg 单块约 5 秒（异步、并发 1），
+  半径 3（49 块）≈4 分钟填充。可选：
+  - 调大 `-Dfarlands.y.followRadius=3`，后台逐步填充（画面逐渐出现）；
+  - 或优化 `CwgTerrain.fill`（目前 98k 样本/块，纯 Perlin，未做插值/并行）。
+- 证据：`client-band4/5.log`、截图 `16.42.57`（稀疏）。

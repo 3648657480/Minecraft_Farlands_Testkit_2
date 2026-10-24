@@ -110,6 +110,19 @@ public abstract class RotatingSectionStorageBandMixin {
                     if (value.getSectionNode() != target) {
                         value.setSectionNode(target);
                     }
+                    // This @Overwrite replaces the method the separate key-assignment
+                    // inject targets, so assign the wide key here as well.
+                    if (value instanceof com.farlands.g2.runtime.section.RenderSectionKeyAccessor accessor) {
+                        com.farlands.g2.runtime.section.SectionKey key =
+                            com.farlands.g2.runtime.section.SectionKey.of(
+                                newSectionX, newSectionY, newSectionZ);
+                        if (!key.equals(accessor.farlands$getKey())) {
+                            accessor.farlands$setKey(key);
+                        } else {
+                            com.farlands.g2.client.RenderKeys.put(key,
+                                (net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection) value);
+                        }
+                    }
                 }
             }
         }

@@ -33,6 +33,11 @@ public abstract class ViewAreaKeyMixin {
     @Inject(method = "<init>", at = @At("TAIL"))
     private void farlands$resetKeys(CallbackInfo ci) {
         RenderKeys.clear();
+        // The old visible list points at this (replaced) ViewArea's predecessors.
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc != null && mc.levelRenderer != null) {
+            mc.levelRenderer.clearVisibleSections();
+        }
         System.out.println("[YF-VA] new ViewArea, RenderKeys cleared");
         System.out.flush();
     }
