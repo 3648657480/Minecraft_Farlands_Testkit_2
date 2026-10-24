@@ -2067,4 +2067,18 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 结论（R10）：在上述条件下，B-render（宽键身份 + `RenderKeys` 解码 + patcher 调用替换）
   对正常世界的渲染**无退化**（编译收敛、相机段可查）。
 - 待办：`RenderKeys` 跨世界/断连未清理（小泄漏）；远 Y 地形在该带较稀疏，视觉证据以 §81
-  的密度图为主，客户端截图（`12.01.59`/`12.02.08`）显示可选中/可破坏/有网格。 
+  的密度图为主，客户端截图（`12.01.59`/`12.02.08`）显示可选中/可破坏/有网格。
+
+## 85. B4 第一步：实体分区范围查询的回绕安全（2026-10-24）
+
+- 问题：`EntitySectionStorage` 用有序 `LongAVLTreeSet` + `subSet(from,to)`；打包键 Y 只有 6 位，
+  窗口带下两个边界的数值顺序可能反转（§82 的 start>end）。
+- 处理（不改变正常路径）：`EntitySectionStorageRangeMixin` 对两处 `subSet` 做 `@Redirect`：
+  `from <= to` 时原样走 `subSet`；反转时回退为按 X（`getChunkSections` 再加 Z）过滤整个集合，
+  与调用方随后的 y/z 过滤等价。
+- 附带：`RenderKeys` 在客户端 level 变化时清空（`ClientBandFollowMixin` 记录 lastLevel）。
+- 验证（headless，种子 12345、(0,0)）：`gen OK`，`surf=b9216bad2029 floor=8936c275d063`
+  与基线逐位一致；无 mixin 错误。
+- 未做（B4 剩余）：光照队列（`LeveledPriorityQueue`/`SpatialLongSet`）与 `SectionStorage`
+  仍是打包键；窗口区块的光照已被守卫跳过，暂无影响。真宽键迁移（`SectionKey` 替换 `long`）
+  仍需逐类 descriptor 改造。 

@@ -10,6 +10,7 @@
         "ChunkSkyLightSourcesGuardMixin",
         "SectionPosWideHandleMixin",
         "ProtoChunkMarkGuardMixin",
+        "EntitySectionStorageRangeMixin",
         "LevelHeightAccessorBoundsMixin",
         "ChunkMapStepDiagMixin",
         "ChunkBiomesDiagMixin",

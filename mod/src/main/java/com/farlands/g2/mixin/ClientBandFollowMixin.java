@@ -20,6 +20,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Minecraft.class)
 public class ClientBandFollowMixin {
 
+    /** Last level the wide-key table was built for; cleared when the level changes. */
+    private static Object farlands$lastLevel;
+
     @Inject(method = "tick", at = @At("TAIL"))
     private void farlands$followBand(CallbackInfo ci) {
         if (!Boolean.getBoolean("farlands.y.window")) {
@@ -29,6 +32,14 @@ public class ClientBandFollowMixin {
         if (mc.level == null || mc.gameRenderer == null || mc.levelRenderer == null
             || mc.player == null) {
             return;
+        }
+        if (mc.level != farlands$lastLevel) {
+            farlands$lastLevel = mc.level;
+            try {
+                com.farlands.g2.client.RenderKeys.clear();
+            } catch (Throwable ignored) {
+                // client classes only
+            }
         }
         if (!mc.hasSingleplayerServer()) {
             return; // multiplayer unsupported: keep the dimension band
