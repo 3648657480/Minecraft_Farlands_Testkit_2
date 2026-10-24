@@ -2396,3 +2396,25 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   - 远 Y 跟随：`[YFOLLOW] done band=134217696..134217719`。
 - 已知未验证：多页深度预取只在客户端由玩家触发（headless 探针只覆盖单页）。
 - 证据：`exp-p3-page.log`、`exp-p3-far.log`、`exp-p3-normal.log`。
+
+## 102. 崩溃与错位：页跨 2^31 溢出（2026-10-24）
+
+- 崩溃（`crash-2026-10-24_20.56.11`）：`ChunkAccess.getNoiseBiome` →
+  `ArrayIndexOutOfBoundsException: Index -268435448 out of bounds for length 24`。
+- 根因：页 `134217720..134217743` 的方块范围是 `2147483520..2147483903`，**跨过 2^31**；
+  `QuartPos.toBlock(536870912)` 溢出 int → 负值 → `getSectionIndex` 得负索引。
+  同一次溢出也让方块坐标回绕，表现为严重错位（页内变化）。
+- 修复：`VerticalBounds.pageMin(pageY, len)` **夹紧页号**（不是夹起点）：
+  `maxPageY = floorDiv(MAX_PLAYABLE_SECTION - len + 1, len)`、`minPageY = -floorDiv(-MIN_PLAYABLE_SECTION, len)`；
+  夹紧后页仍 24 对齐，`floorDiv(center,len)` 回推一致。
+  `applyWindow`、`WindowFollower`、`WindowRegenerator`（fill/transplant/prefetch）、测试探针统一用它。
+- 验证：
+  - `testgen.cwg=134217720` → `[CWGFILL] sy=134217696..134217719`、`minY=2147483136`、
+    `filled=46080`（不再溢出）；
+  - 预取探针：`sync ready pageY=5592405` → `applied band=134217696..134217719` → `applied=true`；
+  - 正常世界指纹 `surf=b9216bad2029 floor=8936c275d063` 逐位不变。
+- 错位的第二来源（待修）：`WindowFollower` 只搬玩家周围 `followRadius=4`（9×9）的区块，
+  而客户端视距可达 12–96 区块；**视野内未搬带的区块仍停在维度带**，与页区块混在一起渲染，
+  所以错位会随区块载入而变化。修复方向：把视野内所有已加载区块逐步搬到当前页
+  （按距离由近到远），或在客户端过滤掉非当前页的段（宁可先不画，也不画错位）。
+- 证据：`exp-clamp-top2.log`、`exp-clamp-page.log`、`exp-clamp-normal.log`。

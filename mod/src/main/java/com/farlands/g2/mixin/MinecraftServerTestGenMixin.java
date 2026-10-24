@@ -587,7 +587,7 @@ public abstract class MinecraftServerTestGenMixin {
             chunk.getPos(), net.minecraft.world.level.chunk.UpgradeData.EMPTY, level,
             level.palettedContainerFactory(), null);
         int len = proto.getSections().length;
-        int minSy = Math.floorDiv(centerSy, len) * len; // page-aligned
+        int minSy = com.farlands.g2.runtime.VerticalBounds.pageMin(Math.floorDiv(centerSy, len), len);
         long filled = terrain.fill(proto, minSy, minSy + len - 1);
         com.farlands.g2.runtime.WindowRegenerator.transplant(chunk, proto, centerSy);
         long ms = (System.nanoTime() - t0) / 1_000_000L;

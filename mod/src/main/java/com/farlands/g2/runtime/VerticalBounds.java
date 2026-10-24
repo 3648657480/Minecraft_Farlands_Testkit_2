@@ -36,6 +36,17 @@ public final class VerticalBounds {
     private VerticalBounds() {
     }
 
+    /**
+     * Page start for a 24-section page, clamped so no section leaves the
+     * playable int domain (a page crossing 2^31 overflows QuartPos/BlockPos).
+     */
+    public static int pageMin(int pageY, int len) {
+        int maxPageY = Math.floorDiv(MAX_PLAYABLE_SECTION - len + 1, len);
+        int minPageY = -Math.floorDiv(-MIN_PLAYABLE_SECTION, len);
+        int clamped = Math.max(minPageY, Math.min(pageY, maxPageY));
+        return clamped * len;
+    }
+
     public static boolean inBuildHeight(int blockY) {
         return blockY >= MIN_PLAYABLE_BLOCK && blockY <= MAX_PLAYABLE_BLOCK;
     }

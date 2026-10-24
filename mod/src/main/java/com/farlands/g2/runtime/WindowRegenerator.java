@@ -91,7 +91,7 @@ public final class WindowRegenerator {
                         com.farlands.g2.runtime.noise.CwgTerrain.create(seed, router, true);
                     int len = fillProto.getSections().length;
                     // Page-aligned: minY = pageY * len (SEGMENT-PAGING §1).
-                    int minSy = Math.floorDiv(center, len) * len;
+                    int minSy = com.farlands.g2.runtime.VerticalBounds.pageMin(Math.floorDiv(center, len), len);
                     filled = terrain.fill(fillProto, minSy, minSy + len - 1);
                 } catch (Throwable t) {
                     error = t;
@@ -240,7 +240,7 @@ public final class WindowRegenerator {
         ServerLevel level = (ServerLevel) chunk.getLevel();
         int len = chunk.getSections().length;
         int pageY = Math.floorDiv(targetSectionY, len);
-        int pageMin = pageY * len;
+        int pageMin = com.farlands.g2.runtime.VerticalBounds.pageMin(pageY, len);
         PageStore.Key key = new PageStore.Key(chunk.getPos().widePos(), pageY);
         if (!PageStore.begin(key)) {
             return;
@@ -354,7 +354,7 @@ public final class WindowRegenerator {
         WindowedChunk windowed = (WindowedChunk) chunk;
         int len = chunk.getSections().length;
         // Page-aligned: minY = pageY * len (SEGMENT-PAGING §1).
-        int minSy = Math.floorDiv(centerSectionY, len) * len;
+        int minSy = com.farlands.g2.runtime.VerticalBounds.pageMin(Math.floorDiv(centerSectionY, len), len);
         Map<WideSectionKey2560, LevelChunkSection> all = windowed.farlands$allSections();
         LevelChunkSection[] protoSections = proto.getSections();
         for (int i = 0; i < len && i < protoSections.length; i++) {

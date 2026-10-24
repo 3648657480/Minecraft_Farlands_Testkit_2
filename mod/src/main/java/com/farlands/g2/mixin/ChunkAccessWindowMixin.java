@@ -132,7 +132,7 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         } else {
             // Far Y: page-aligned, minY = pageY * len (SEGMENT-PAGING §1).
             int pageY = Math.floorDiv(centerSectionY, len);
-            minSy = pageY * len;
+            minSy = VerticalBounds.pageMin(pageY, len);
             maxSy = minSy + len - 1;
         }
         this.farlands$minSy = minSy;
