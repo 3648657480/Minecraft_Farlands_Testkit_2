@@ -53,6 +53,22 @@ public class ClientBandFollowMixin {
         if (viewArea == null) {
             return;
         }
+        // The fork bypasses SectionOcclusionGraph.update, so applyFrustum only runs
+        // when the camera rotation changes. After a band move with a still camera the
+        // visible list stays empty and nothing is compiled; refill it from the grid.
+        if (mc.levelRenderer.visibleSections().isEmpty()) {
+            try {
+                mc.levelRenderer.sectionOcclusionGraph().waitAndReset(viewArea);
+                mc.levelRenderer.sectionOcclusionGraph().addSectionsInFrustum(null,
+                    mc.levelRenderer.visibleSections(), mc.levelRenderer.nearbyVisibleSections());
+                System.out.println("[YF-VIS] refilled visible="
+                    + mc.levelRenderer.visibleSections().size());
+                System.out.flush();
+            } catch (Throwable t) {
+                System.out.println("[YF-VIS] refill failed: " + t);
+                System.out.flush();
+            }
+        }
         Camera camera = mc.gameRenderer.mainCamera();
         // A ViewArea rebuilt while the camera was still uninitialised never got its
         // rotating centre, so every lookup returns null and nothing compiles.
@@ -69,7 +85,7 @@ public class ClientBandFollowMixin {
             System.out.flush();
         }
         int playerSection = Math.floorDiv(mc.player.blockPosition().getY(), 16);
-        if (playerSection >= viewArea.minSectionY() + 2 && playerSection <= viewArea.maxSectionY() - 2) {
+        if (playerSection >= viewArea.minSectionY() && playerSection <= viewArea.maxSectionY()) {
             return;
         }
         System.out.println("[YF-REBUILD] playerSection=" + playerSection + " oldView="

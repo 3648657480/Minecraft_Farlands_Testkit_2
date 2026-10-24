@@ -2081,4 +2081,31 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   与基线逐位一致；无 mixin 错误。
 - 未做（B4 剩余）：光照队列（`LeveledPriorityQueue`/`SpatialLongSet`）与 `SectionStorage`
   仍是打包键；窗口区块的光照已被守卫跳过，暂无影响。真宽键迁移（`SectionKey` 替换 `long`）
-  仍需逐类 descriptor 改造。 
+  仍需逐类 descriptor 改造。
+
+## 86. Y≈2^31-1 上界渲染的三处修复（2026-10-24）
+
+- 现象（人工 + autotest，`y=2147483600`）：`viewY=134217714..134217737`、`uncompiled=6935`、
+  `camSection` 存在但 UNCOMPILED；服务端 `Bound must be positive`。
+- 根因与修复：
+  1. **窗口/网格上沿越界**：`134217737*16+15 > 2^31-1`，方块坐标 int 溢出，段无法成立。
+     `ViewAreaWindowMixin.farlands$clamp(...)` 把客户端网格带钳制到
+     `VerticalBounds.MAX_PLAYABLE_SECTION`（实测带变为 `134217703..134217726`）；
+     chunk 窗口本就有同样的钳制。
+  2. **刷怪 Y 区间溢出**：`NaturalSpawner.getRandomPosWithin` 用 `level.getMinY()`（-64）到
+     chunk 的 heightmap（≈2^31），`max-min+1` 溢出成负数 → `nextInt` 抛 "Bound must be positive"。
+     改为整方法覆写：用 `max(level.getMinY(), chunk.getMinY())` 与
+     `min(surface, chunk.getMaxY())`，区间反转时取 minY。
+  3. **可见段列表为空**：fork 绕开 `SectionOcclusionGraph.update` 后，
+     `needsFrustumUpdate` 永不置位，`applyFrustum` 只在**相机旋转**变化时运行；
+     相机静止时带搬移后列表一直空 → 零编译。`ClientBandFollowMixin` 在
+     `visibleSections().isEmpty()` 时 `waitAndReset(viewArea)` + `addSectionsInFrustum(null, …)`
+     重填（同时把"玩家在带边距内"判定改为"玩家在带内"，避免顶部每 tick 重建）。
+- 实测（客户端，`y=2147483600`，Cwg）：
+  - `viewY=134217703..134217726`、`visible=6935/6935`、`uncompiled 6426→6381` 持续下降、
+    `camSection=origin=0 mesh=compiled`；
+  - `[REGEN] cwg filled=47168`、`[YFOLLOW] done band=134217703..134217726`；
+  - 截图 `2026-10-24_12.38.04.png`：可见地形方块与天空（该带仍稀疏）。
+- 结论（R10）：在上述条件下，Y≈2^31-1 的客户端渲染与刷怪 tick 均正常，不再崩溃/空白。
+- 附带教训：`compiled` 与 `visible=0` 的区分很关键；"相机静止 + 带搬移"会让 fork 的
+  frustum 路径不触发，任何带搬移后都应主动重填可见段列表。 

@@ -38,6 +38,23 @@ public class ViewAreaWindowMixin {
     }
 
     @Unique
+    private static int[] farlands$clamp(int min, int max) {
+        int maxPlayable = com.farlands.g2.runtime.VerticalBounds.MAX_PLAYABLE_SECTION;
+        int minPlayable = com.farlands.g2.runtime.VerticalBounds.MIN_PLAYABLE_SECTION;
+        if (max > maxPlayable) {
+            int shift = max - maxPlayable;
+            min -= shift;
+            max -= shift;
+        }
+        if (min < minPlayable) {
+            int shift = minPlayable - min;
+            min += shift;
+            max += shift;
+        }
+        return new int[] {min, max};
+    }
+
+    @Unique
     private static int[] farlands$band() {
         if (!Boolean.getBoolean("farlands.y.window")) {
             return null;
@@ -57,7 +74,7 @@ public class ViewAreaWindowMixin {
                 System.out.println("[YF-BAND] source=chunk-window band=" + min + ".."
                     + windowed.farlands$windowMaxSectionY());
                 System.out.flush();
-                return new int[] {min, windowed.farlands$windowMaxSectionY()};
+                return farlands$clamp(min, windowed.farlands$windowMaxSectionY());
             }
             System.out.println("[YF-BAND] source=player-section chunk="
                 + (chunk == null ? "null" : chunk.getClass().getSimpleName()));
@@ -68,11 +85,11 @@ public class ViewAreaWindowMixin {
         net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
         if (minecraft != null && minecraft.player != null) {
             int playerSection = Math.floorDiv(minecraft.player.blockPosition().getY(), 16);
-            return new int[] {playerSection - HALF, playerSection - HALF + 23};
+            return farlands$clamp(playerSection - HALF, playerSection - HALF + 23);
         }
         if (farlands$camera != null) {
             int camSection = Math.floorDiv(farlands$camera.blockPosition().getY(), 16);
-            return new int[] {camSection - HALF, camSection - HALF + 23};
+            return farlands$clamp(camSection - HALF, camSection - HALF + 23);
         }
         String center = System.getProperty("farlands.y.center");
         if (center != null && !center.isEmpty()) {
