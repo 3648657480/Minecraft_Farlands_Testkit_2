@@ -41,7 +41,7 @@ public final class FarLandsPatcher {
      * to the patch set (not just the wide/continuity/epoch/unlock flags) must
      * bump it, otherwise dev runs silently reuse a stale patched jar.
      */
-    public static final int PATCH_REVISION = 96;
+    public static final int PATCH_REVISION = 97;
 
     private final List<ClassPatch> patches = new ArrayList<>();
 
@@ -73,7 +73,7 @@ public final class FarLandsPatcher {
     /**
      * Opt-in unlock gate. BOTH flags are required so the lab tool can never be
      * switched on by accident: {@code -Dfarlands.unlock=true}
-     * {@code -Dfarlands.unlock.i_know_what_im_doing=true}（「我知道我在做什么」）�?
+     * {@code -Dfarlands.unlock.i_know_what_im_doing=true}（「我知道我在做什么」）�?
      */
     public static boolean unlockEnabled() {
         return Boolean.getBoolean("farlands.unlock")
@@ -83,9 +83,9 @@ public final class FarLandsPatcher {
     /** Explicit-flag variant: lets build tooling key its cache on the flags. */
     public static FarLandsPatcher createDefault(boolean wide, boolean continuity, boolean unlock) {
         FarLandsPatcher p = new FarLandsPatcher();
-        // 路线图隔离：每条线一个开关，只有通过交界点验收才并入默认构建�?
-        //   A 稳定线（默认�? 仅稳定性修�?+ 访问�?
-        //   B 容器宽化�? -Dfarlands.wide
+        // 路线图隔离：每条线一个开关，只有通过交界点验收才并入默认构建�?
+        //   A 稳定线（默认�? 仅稳定性修�?+ 访问�?
+        //   B 容器宽化�? -Dfarlands.wide
         //   D 生成连续性线: -Dfarlands.continuity
         if (continuity && !wide) {
             throw new IllegalArgumentException("farlands.continuity 依赖 farlands.wide（B 线容器宽化）");

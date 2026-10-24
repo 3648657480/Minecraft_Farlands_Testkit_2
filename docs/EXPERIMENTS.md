@@ -2290,3 +2290,19 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   24µs/方块。改为构造时建一次、复用后：`[CWGFILL] ms=705`（此前 2400，最初 5000），
   即单块 **0.7 秒**；切片图案与填充量一致（`filled=46080`，`CWG-SLICE` 与之前相同）。
 - 组合效果：25 块 ≈ 6 秒、81 块 ≈ 20 秒（并发 3）。
+
+## 96. 卡死现场：区块任务 debug 注入（2026-10-24）
+
+- 现场（活线程转储，`pid` 存活 167s）：
+  - Server thread：`Entity.checkInsideBlocks → Level.getBlockState → ServerChunkCache.getChunk
+    → managedBlock`（阻塞等区块）；
+  - Render thread：`EntityFluidInteraction.update → Level.getFluidState → getChunkAt`（CPU 177s/212s）；
+  - 日志被 `genTask far pos=… target=… r=… src=…` 刷屏（latest.log 1MB/3 分钟）。
+- 根因：`ChunkGenerationTaskWidePatch.injectTaskDiag` 给**每个区块生成任务**注入
+  一条 `System.out.println`，并且每次 `new Throwable().getStackTrace()` **两次**
+  （为打印调用栈）——堆栈捕获 + 日志 I/O 让区块生成慢到实体 tick 阻塞。
+- 修复：移除该 diag 注入（`PATCH_REVISION 96 → 97`），删除 loom merged jar 强制重打；
+  验证新 jar 内已无 `genTask far` 字符串。
+- 仍待观察：`LoadingChunkTrackerWidePatch` 还有一条 `setL` 打印，但被 `level >= 42` 限制，
+  仅在远域触发，暂留。
+- 另一项性能相关：`CwgTerrain.density` 复用后单块 0.7s；跟随半径默认 4（81 块 ≈ 20s）。

@@ -97,7 +97,7 @@ public final class ChunkGenerationTaskWidePatch implements ClassPatch {
             "(" + GEN_MAP_D + CHUNK_POS_D + ")L" + INITIALIZER + ";", target.bsm, args);
         create.instructions.insertBefore(target, new VarInsnNode(Opcodes.ALOAD, 2)); // centre pos
         create.instructions.set(target, replaced);
-        injectTaskDiag(create);
+        // task diag removed: it captured a stack trace per chunk task (§96)
 
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
