@@ -32,6 +32,9 @@ public abstract class ViewAreaKeyMixin {
      */
     @Inject(method = "<init>", at = @At("TAIL"))
     private void farlands$resetKeys(CallbackInfo ci) {
+        if (!Boolean.getBoolean("farlands.render.reentryFix")) {
+            return;
+        }
         RenderKeys.clear();
         // The old visible list points at this (replaced) ViewArea's predecessors.
         var mc = net.minecraft.client.Minecraft.getInstance();

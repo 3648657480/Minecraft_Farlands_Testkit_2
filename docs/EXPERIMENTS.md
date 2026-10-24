@@ -2226,3 +2226,20 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   - 调大 `-Dfarlands.y.followRadius=3`，后台逐步填充（画面逐渐出现）；
   - 或优化 `CwgTerrain.fill`（目前 98k 样本/块，纯 Perlin，未做插值/并行）。
 - 证据：`client-band4/5.log`、截图 `16.42.57`（稀疏）。
+
+## 92. 可见列表修复 + 测量结论：渲染管线已通（2026-10-24）
+
+- 探针（临时）：
+  - `LevelExtractorDirtyProbeMixin`：`null=29k clean=33.5M dirty=376k`（dirty 状态存在）；
+  - `RenderSectionCompileProbeMixin`：`compileAsync` 累计 **≈24,800 次**（编译一直在发生）。
+  说明"不渲染"不是编译门槛，而是**渲染列表里是旧 ViewArea 的段实例**。
+- 修复：`RenderDiagMixin` 每秒直接从**当前** `viewArea.getAllSections()` 重建
+  `visibleSections`（不再依赖已清空/重建的旧列表）。
+- 实测（`y=2147483100`）：
+  - `RDIAG visible=6935/6935 uncompiled=0`（首次归零）；
+  - `queue=174`（编译队列有活）、`camSection=origin=0 mesh=compiled`；
+  - `[YF-COMPILE]` 探针 24,800+ 次调用（已移除探针）。
+- 结论（R10）：渲染管线（宽键 → 段 → 编译 → 可见列表）在该条件下已工作；截图仍稀疏是因为
+  该高度的 Cwg 地形本身稀疏（31×31 视野内仅少数区块被搬到远带，其余为空区块）。
+- 待办：把"视野内区块搬到远带"做得可接受（当前 `followRadius=2`、并发 3 约 40 秒填 25 块）；
+  优化 Cwg 填充速度（插值/并行）是让画面成片的关键。

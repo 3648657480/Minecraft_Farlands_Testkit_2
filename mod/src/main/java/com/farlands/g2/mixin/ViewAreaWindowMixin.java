@@ -55,6 +55,13 @@ public class ViewAreaWindowMixin {
     }
 
     @Unique
+    private static int[] farlands$result(int min, int max) {
+        int[] band = farlands$clamp(min, max);
+        com.farlands.g2.client.BandState.setFar(Math.abs((long) band[0]) > 1_000_000L);
+        return band;
+    }
+
+    @Unique
     private static int[] farlands$band() {
         if (!Boolean.getBoolean("farlands.y.window")) {
             return null;
@@ -74,7 +81,7 @@ public class ViewAreaWindowMixin {
                 System.out.println("[YF-BAND] source=chunk-window band=" + min + ".."
                     + windowed.farlands$windowMaxSectionY());
                 System.out.flush();
-                return farlands$clamp(min, windowed.farlands$windowMaxSectionY());
+                return farlands$result(min, windowed.farlands$windowMaxSectionY());
             }
             System.out.println("[YF-BAND] source=player-section chunk="
                 + (chunk == null ? "null" : chunk.getClass().getSimpleName()));
@@ -85,16 +92,16 @@ public class ViewAreaWindowMixin {
         net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
         if (minecraft != null && minecraft.player != null) {
             int playerSection = Math.floorDiv(minecraft.player.blockPosition().getY(), 16);
-            return farlands$clamp(playerSection - HALF, playerSection - HALF + 23);
+            return farlands$result(playerSection - HALF, playerSection - HALF + 23);
         }
         if (farlands$camera != null) {
             int camSection = Math.floorDiv(farlands$camera.blockPosition().getY(), 16);
-            return farlands$clamp(camSection - HALF, camSection - HALF + 23);
+            return farlands$result(camSection - HALF, camSection - HALF + 23);
         }
         String center = System.getProperty("farlands.y.center");
         if (center != null && !center.isEmpty()) {
             int min = Integer.parseInt(center) - HALF;
-            return new int[] {min, min + 23};
+            return farlands$result(min, min + 23);
         }
         return null;
     }

@@ -39,9 +39,13 @@ import net.minecraft.world.level.levelgen.blending.Blender;
  */
 public final class WindowRegenerator {
 
-    /** Only one Cwg fill at a time: each takes seconds of CPU. */
-    private static final java.util.concurrent.atomic.AtomicBoolean FILL_GATE =
-        new java.util.concurrent.atomic.AtomicBoolean();
+    /**
+     * Cwg fills run off-thread; allow a few at once so the view can be banded in
+     * reasonable time, but never so many that the machine saturates.
+     */
+    private static final java.util.concurrent.Semaphore FILL_SLOTS =
+        new java.util.concurrent.Semaphore(
+            Integer.getInteger("farlands.gen.cwgConcurrency", 3));
 
     private WindowRegenerator() {
     }
@@ -70,7 +74,7 @@ public final class WindowRegenerator {
         // thread: doing it on the server thread froze the server for seconds per
         // chunk (teleporting into a band looked like a one-minute hang).
         if (Boolean.getBoolean("farlands.gen.cwg")) {
-            if (!FILL_GATE.compareAndSet(false, true)) {
+            if (!FILL_SLOTS.tryAcquire()) {
                 done.accept(false); // another fill is running; the cooldown retries
                 return;
             }
@@ -115,7 +119,7 @@ public final class WindowRegenerator {
                         System.out.flush();
                         done.accept(false);
                     } finally {
-                        FILL_GATE.set(false);
+                        FILL_SLOTS.release();
                     }
                 });
             });
