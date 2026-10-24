@@ -22,6 +22,7 @@ public class ClientBandFollowMixin {
 
     /** Last level the wide-key table was built for; cleared when the level changes. */
     private static Object farlands$lastLevel;
+    private static boolean farlands$farReady;
 
     @Inject(method = "tick", at = @At("TAIL"))
     private void farlands$followBand(CallbackInfo ci) {
@@ -34,6 +35,7 @@ public class ClientBandFollowMixin {
             return;
         }
         if (mc.level != farlands$lastLevel) {
+            farlands$farReady = false;
             farlands$lastLevel = mc.level;
             try {
                 com.farlands.g2.client.RenderKeys.clear();
@@ -52,6 +54,22 @@ public class ClientBandFollowMixin {
         var viewArea = mc.levelRenderer.viewArea();
         if (viewArea == null) {
             return;
+        }
+        // On re-entry the chunks load with the window already moved and no band
+        // bridge runs, so nothing marks the sections dirty; force one full renderer
+        // reload when the player first stands in a far window.
+        if (!farlands$farReady && mc.player != null && mc.level != null) {
+            var pc = mc.level.getChunkSource().getChunk(mc.player.blockPosition().getX() >> 4,
+                mc.player.blockPosition().getZ() >> 4,
+                net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false);
+            if (pc instanceof com.farlands.g2.runtime.WindowedChunk wc
+                && wc.farlands$windowMinSectionY() > 1_000_000) {
+                farlands$farReady = true;
+                mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options,
+                    mc.gameRenderer.mainCamera(), mc.getBlockColors());
+                System.out.println("[YF-ALLCHANGED] far window entered, renderer reloaded");
+                System.out.flush();
+            }
         }
         // The fork bypasses SectionOcclusionGraph.update, so applyFrustum only runs
         // when the camera rotation changes. After a band move with a still camera the

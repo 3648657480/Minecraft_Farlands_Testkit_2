@@ -2108,4 +2108,29 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   - 截图 `2026-10-24_12.38.04.png`：可见地形方块与天空（该带仍稀疏）。
 - 结论（R10）：在上述条件下，Y≈2^31-1 的客户端渲染与刷怪 tick 均正常，不再崩溃/空白。
 - 附带教训：`compiled` 与 `visible=0` 的区分很关键；"相机静止 + 带搬移"会让 fork 的
-  frustum 路径不触发，任何带搬移后都应主动重填可见段列表。 
+  frustum 路径不触发，任何带搬移后都应主动重填可见段列表。
+
+## 87. 顶部/重进问题：刷怪溢出、边缘流体、跟随追逐、带加载顺序（2026-10-24）
+
+- 人工测试反馈："炸了，且高 Y 只成功渲染了一次"。
+- 崩溃：`ChunkHolder.blockChanged` → `Index -1 out of bounds for length 24`，由
+  `FlowingFluid.spreadTo` 在窗口下界外一格触发（`ServerLevel.sendBlockUpdated` → `tickFluid`）。
+  → `ChunkHolderBlockChangedGuardMixin`：Y 在块自身窗口外时直接返回 false（§86 刷怪修复之外的第二个边缘入口）。
+- 反复重生成：顶端带被钳制后，`[YFOLLOW] target=134217726` 与钳制后的中心 134217715 不一致，
+  每 40 tick 重新触发 Cwg（每次约 8 秒）。
+  → `WindowFollower` 先把 target 用与窗口相同的规则钳制；若钳制后等于当前中心则不再触发。
+  实测顶部 `triggers=1`（修复前 18+）。
+- 重进追逐：重启后玩家在高 Y，但区块带在加载时仍是维度带，玩家自由落体；
+  Cwg 重生成期间玩家已下落数千格，跟随器一路追。
+  → `WindowFollower.followPlayer`：区块未就绪 / 玩家在带外 / 该区块重生成中时
+  `setNoGravity(true)`（HOLDING 集合），回到带内后恢复。实测重进 `triggers=0`。
+- 带加载顺序：`YBandOverrides` 直到服务端首个 tick 才加载，而出生区块在此前已按维度带创建，
+  重进时客户端 chunk 窗口是低带、包里的高带段落不进数组。
+  → `YBandOverrides.ensureLoaded(server)` + `MinecraftServerBandsMixin` 在
+  `MinecraftServer.createLevels` HEAD 先加载覆盖表（按世界路径缓存）。
+- 仍未解决：重进时 `visible=6935`、带正确、但 `uncompiled≈6606` 不下降、
+  `camSection=UNCOMPILED`——客户端段没有被排入编译（首进靠客户端桥的 `setSectionDirtyWithNeighbors`
+  触发；重进没有桥，赋键时的标脏/强制重建均未奏效）。下一步方向：
+  - 让 `LevelExtractor` 对"可见且 UNCOMPILED"的段无条件产出 update state（跳过 dirty 门槛）；
+  - 或给 `RotatingSectionStorage` 赋键后的 `reset()` 换成"仅 markDirty 不清网格"。
+- 证据：`mod/run/logs/latest.log`（12:45 崩溃）、`client-ytop7/8.log`、`client-reentry3/4/5.log`。 

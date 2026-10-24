@@ -27,6 +27,7 @@ public final class WindowFollower {
 
     private static final Map<ChunkPos, Integer> NEXT_ATTEMPT = new ConcurrentHashMap<>();
     private static final Set<ChunkPos> IN_FLIGHT = ConcurrentHashMap.newKeySet();
+    private static final Set<java.util.UUID> HOLDING = ConcurrentHashMap.newKeySet();
     private static boolean overridesLoaded;
 
     private WindowFollower() {
@@ -49,14 +50,52 @@ public final class WindowFollower {
         }
     }
 
+    private static int farlands$clampCenter(int target, int len) {
+        int half = (len - 1) / 2;
+        int min = target - half;
+        int max = min + len - 1;
+        int maxPlay = VerticalBounds.MAX_PLAYABLE_SECTION;
+        int minPlay = VerticalBounds.MIN_PLAYABLE_SECTION;
+        if (max > maxPlay) {
+            int d = max - maxPlay;
+            min -= d;
+            max -= d;
+        }
+        if (min < minPlay) {
+            int d = minPlay - min;
+            min += d;
+            max += d;
+        }
+        return min + half;
+    }
+
     private static void followPlayer(ServerLevel level, ServerPlayer player, int tick) {
         int cx = player.chunkPosition().x();
         int cz = player.chunkPosition().z();
         if (!(level.getChunkSource().getChunkNow(cx, cz) instanceof LevelChunk chunk)) {
+            farlands$hold(player, true);
             return;
         }
         int playerSection = player.blockPosition().getY() >> 4;
+        if (chunk instanceof WindowedChunk windowed) {
+            int min = windowed.farlands$windowMinSectionY();
+            int max = windowed.farlands$windowMaxSectionY();
+            boolean inside = playerSection >= min + 2 && playerSection <= max - 2;
+            // A falling player outruns the seconds-long regeneration; hold them while
+            // the window is being moved so the band can catch up instead of chasing.
+            farlands$hold(player, !inside || IN_FLIGHT.contains(chunk.getPos()));
+        }
         follow(chunk, playerSection, tick);
+    }
+
+    private static void farlands$hold(ServerPlayer player, boolean hold) {
+        if (hold) {
+            if (HOLDING.add(player.getUUID())) {
+                player.setNoGravity(true);
+            }
+        } else if (HOLDING.remove(player.getUUID())) {
+            player.setNoGravity(false);
+        }
     }
 
     /** Follow one chunk to a target section Y (also used by the testgen probe). */
@@ -66,7 +105,15 @@ public final class WindowFollower {
         }
         int min = windowed.farlands$windowMinSectionY();
         int max = windowed.farlands$windowMaxSectionY();
-        if (targetSectionY >= min + MARGIN && targetSectionY <= max - MARGIN) {
+        int len = max - min + 1;
+        int center = min + (len - 1) / 2;
+        int target = farlands$clampCenter(targetSectionY, len);
+        // At the top/bottom of the playable range the window cannot centre on the
+        // player; without this the follower would regenerate forever.
+        if (target == center) {
+            return false;
+        }
+        if (target >= min + MARGIN && target <= max - MARGIN) {
             return false;
         }
         ChunkPos pos = chunk.getPos();
@@ -78,10 +125,10 @@ public final class WindowFollower {
             return false;
         }
         NEXT_ATTEMPT.put(pos, tick + COOLDOWN_TICKS);
-        System.out.println("[YFOLLOW] trigger pos=" + pos + " target=" + targetSectionY
+        System.out.println("[YFOLLOW] trigger pos=" + pos + " target=" + target
             + " window=" + min + ".." + max);
         System.out.flush();
-        WindowRegenerator.regenerate(chunk, targetSectionY, ok -> {
+        WindowRegenerator.regenerate(chunk, target, ok -> {
             IN_FLIGHT.remove(pos);
             YBandOverrides.save(chunk.getLevel().getServer().getWorldPath(
                 net.minecraft.world.level.storage.LevelResource.ROOT).resolve("farlands_bands.txt"));

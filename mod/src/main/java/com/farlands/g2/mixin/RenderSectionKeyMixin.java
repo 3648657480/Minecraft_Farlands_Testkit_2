@@ -44,5 +44,11 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
         this.renderOrigin.set(x, y, z);
         this.bb = new AABB(x, y, z, x + 16.0, y + 16.0, z + 16.0);
         RenderKeys.put(key, (SectionRenderDispatcher.RenderSection) (Object) this);
+        // reset() dropped the mesh; mark the section dirty so the compile pipeline
+        // picks it up again (first assignment and band moves both need this).
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc != null && mc.level != null) {
+            mc.level.setSectionDirtyWithNeighbors(key.x, key.y, key.z);
+        }
     }
 }

@@ -12,6 +12,8 @@
         "ProtoChunkMarkGuardMixin",
         "EntitySectionStorageRangeMixin",
         "NaturalSpawnerYSafeMixin",
+        "ChunkHolderBlockChangedGuardMixin",
+        "MinecraftServerBandsMixin",
         "LevelHeightAccessorBoundsMixin",
         "ChunkMapStepDiagMixin",
         "ChunkBiomesDiagMixin",

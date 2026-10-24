@@ -56,6 +56,24 @@ public final class YBandOverrides {
         }
     }
 
+    private static Path farlands$loadedPath;
+
+    /**
+     * Loads the persisted overrides once per world, as early as the server knows its
+     * world path. Chunks created before the first server tick would otherwise be placed
+     * at the dimension band and their saved sections would fall outside the window.
+     */
+    public static synchronized void ensureLoaded(net.minecraft.server.MinecraftServer server) {
+        Path path = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
+            .resolve("farlands_bands.txt");
+        if (path.equals(farlands$loadedPath)) {
+            return;
+        }
+        farlands$loadedPath = path;
+        OVERRIDES.clear();
+        load(path);
+    }
+
     public static void load(Path file) {
         if (!Files.isRegularFile(file)) {
             return;
