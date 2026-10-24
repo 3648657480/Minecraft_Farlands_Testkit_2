@@ -27,6 +27,8 @@ public final class PageStore {
 
     private static final Map<Key, Prepared> PAGES = new ConcurrentHashMap<>();
     private static final Set<Key> IN_FLIGHT = ConcurrentHashMap.newKeySet();
+    private static final java.util.concurrent.ConcurrentLinkedQueue<Key> ORDER = new java.util.concurrent.ConcurrentLinkedQueue<>();
+    private static final int MAX_PAGES = Integer.getInteger("farlands.y.pageCache", 8);
 
     private PageStore() {
     }
@@ -41,6 +43,12 @@ public final class PageStore {
 
     public static void complete(Key key, Prepared prepared) {
         PAGES.put(key, prepared);
+        ORDER.add(key);
+        while (PAGES.size() > MAX_PAGES) {
+            Key oldest = ORDER.poll();
+            if (oldest == null) break;
+            PAGES.remove(oldest);
+        }
         IN_FLIGHT.remove(key);
     }
 

@@ -133,12 +133,15 @@ public final class WindowFollower {
             return;
         }
         int margin = Integer.getInteger("farlands.y.prefetchMargin", 4);
+        int depth = Math.min(Integer.getInteger("farlands.y.viewPages", 4), 16);
         int centerOffset = (len - 1) / 2;
-        if (playerSection - min < margin) {
-            WindowRegenerator.prefetch(chunk, (pageY - 1) * len + centerOffset);
-        }
-        if (max - playerSection < margin) {
-            WindowRegenerator.prefetch(chunk, (pageY + 1) * len + centerOffset);
+        // Travel direction: prefetch depth pages towards the edge the player is
+        // approaching (P3 viewPages budget).
+        int direction = (playerSection - min < max - playerSection) ? -1 : 1;
+        if (playerSection - min < margin || max - playerSection < margin) {
+            for (int d = 1; d <= depth; d++) {
+                WindowRegenerator.prefetch(chunk, (pageY + direction * d) * len + centerOffset);
+            }
         }
     }
 

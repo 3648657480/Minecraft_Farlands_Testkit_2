@@ -2376,3 +2376,23 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   - 远 Y 跟随：`[YFOLLOW] target=134217707` → 页 `134217696..134217719`。
 - 下一步（P3）：侧页渲染（`viewPages` 预算）、页级高度图/光照；P4 存档按页。
 - 证据：`exp-p2-page2.log`、`exp-p2-far.log`、`exp-p2-normal2.log`。
+
+## 101. P3/P4（范围收口）：viewPages 预取深度 + 页缓存上限 + 确定性再生（2026-10-24）
+
+- **P3（本轮）**：
+  - `WindowFollower.maybePrefetch` 按**移动方向**预取 `viewPages` 页（默认 4，上限 16），
+    不再只预取相邻 1 页；
+  - `PageStore` 增加 LRU 上限（`-Dfarlands.y.pageCache`，默认 8），防止无限增长；
+  - 已备页跨界仍是 `applyPrepared` 快速交换。
+- **P3b（未做，明确边界）**：真正的"侧页渲染"需要**客户端页存储**
+  （客户端目前只认识活跃页的 `LevelChunk`，侧页没有 chunk/region 可编译），
+  属于下一阶段，不在本轮。
+- **P4（本轮结论）**：非活跃页**不落盘**，依赖 Cwg 的**确定性再生**
+  （同种子同坐标同结果）；活跃页仍按 vanilla `yPos` 保存。
+  限制：玩家在非活跃页的改动不会持久化（远 Y 目前也没有可用编辑路径）。
+- 验证：
+  - 正常世界 `(0,0)` 指纹 `surf=b9216bad2029 floor=8936c275d063` **逐位不变**；
+  - 预取探针：`[PREFETCH] sync ready filled=46080` → `applied` → `[PAGETEST] applied=true`；
+  - 远 Y 跟随：`[YFOLLOW] done band=134217696..134217719`。
+- 已知未验证：多页深度预取只在客户端由玩家触发（headless 探针只覆盖单页）。
+- 证据：`exp-p3-page.log`、`exp-p3-far.log`、`exp-p3-normal.log`。
