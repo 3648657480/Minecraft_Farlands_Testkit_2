@@ -415,6 +415,19 @@ public abstract class MinecraftServerTestGenMixin {
                 if (cwgMap != null && !cwgMap.isEmpty()) {
                     farlands$cwgMap(level, Integer.parseInt(cwgMap.trim()));
                 }
+                // P2 probe: prefetch + apply a page in one go (sync test path).
+                String pageTest = System.getProperty("farlands.testgen.pageprefetch");
+                if (pageTest != null && !pageTest.isEmpty()
+                    && chunk instanceof net.minecraft.world.level.chunk.LevelChunk pageChunk) {
+                    int pageSy = Integer.parseInt(pageTest.trim());
+                    long pt0 = System.nanoTime();
+                    com.farlands.g2.runtime.WindowRegenerator.prefetch(pageChunk, pageSy);
+                    boolean applied = com.farlands.g2.runtime.WindowRegenerator.applyPrepared(pageChunk, pageSy);
+                    System.out.println("[PAGETEST] sy=" + pageSy + " applied=" + applied
+                        + " band=" + pageChunk.getMinY() / 16 + " ms="
+                        + (System.nanoTime() - pt0) / 1_000_000L);
+                    System.out.flush();
+                }
                 // Y-D follow trigger: exercise the same code path players use.
                 String followSy = System.getProperty("farlands.testgen.followsy");
                 if (followSy != null && !followSy.isEmpty()

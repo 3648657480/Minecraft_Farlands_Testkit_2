@@ -2353,3 +2353,26 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 下一步（P2）：副页（Secondary 1–2 页）预取、跨界交换、`viewPages` 预算；
   之后 P3 侧页渲染、P4 存档/光照/高度图。
 - 证据：`exp-page2.log`、`exp-page-normal3.log`、`exp-page4.log`。
+
+## 100. P2 落地：副页预取 + 跨界快速交换（2026-10-24）
+
+- 新增 `runtime/PageStore`：`Key(WideChunkPos, pageY)` → `Prepared(pageMin, 24 段, filled)`，
+  带 `begin/complete/fail/take`（并发 set/map），世界加载时清空。
+- `WindowRegenerator`：
+  - `prefetch(chunk, targetSectionY)`：在后台线程把目标页填充进**脱离的 ProtoChunk**
+    （`SavedBandContext` 临时设为 pageMin，否则 proto 是维度带、填充全跳过 → filled=0），
+    完成后 `PageStore.complete`；全局 `FILL_SLOTS` 限流；
+  - `applyPrepared(chunk, targetSectionY)`：取走已备页，写宽键 map、`moveWindowTo(page 中心)`、
+    重新 prime 高度图、`postProcessGeneration`、桥推送；返回是否命中。
+  - 测试开关 `-Dfarlands.y.prefetchSync=true`：在调用线程同步填充（供探针验证）。
+- `WindowFollower`：
+  - 同页：靠近页边（`farlands.y.prefetchMargin`，默认 4 段）时预取相邻页；
+  - 跨页：先 `applyPrepared`，命中则**直接交换**（不重新生成），否则走原重生成；
+  - 维度带区块不预取（`min == 维度 min` 直接跳过）。
+- 实测：
+  - 正常世界 `(0,0)` 指纹 `surf=b9216bad2029 floor=8936c275d063` **逐位不变**；
+  - 预取探针：`[PREFETCH] sync ready pageY=5592404 filled=46080` →
+    `[PREFETCH] applied band=134217696..134217719 filled=46080` → `[PAGETEST] applied=true`；
+  - 远 Y 跟随：`[YFOLLOW] target=134217707` → 页 `134217696..134217719`。
+- 下一步（P3）：侧页渲染（`viewPages` 预算）、页级高度图/光照；P4 存档按页。
+- 证据：`exp-p2-page2.log`、`exp-p2-far.log`、`exp-p2-normal2.log`。

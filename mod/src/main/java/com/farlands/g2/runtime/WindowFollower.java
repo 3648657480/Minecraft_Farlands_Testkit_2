@@ -39,6 +39,7 @@ public final class WindowFollower {
         }
         if (!overridesLoaded) {
             overridesLoaded = true;
+            com.farlands.g2.runtime.PageStore.clear();
             YBandOverrides.load(server.getWorldPath(
                 net.minecraft.world.level.storage.LevelResource.ROOT).resolve("farlands_bands.txt"));
         }
@@ -118,6 +119,29 @@ public final class WindowFollower {
         }
     }
 
+    /** P2: generate the adjacent page when the player approaches a page edge. */
+    private static void maybePrefetch(LevelChunk chunk, int playerSection, int min, int max,
+        int len, int pageY) {
+        if (!Boolean.getBoolean("farlands.y.window")) {
+            return;
+        }
+        if (Integer.getInteger("farlands.y.prefetchPages", 1) <= 0) {
+            return;
+        }
+        // Dimension-band chunks are not pages; only far pages prefetch.
+        if (chunk.getLevel().getMinSectionY() == min) {
+            return;
+        }
+        int margin = Integer.getInteger("farlands.y.prefetchMargin", 4);
+        int centerOffset = (len - 1) / 2;
+        if (playerSection - min < margin) {
+            WindowRegenerator.prefetch(chunk, (pageY - 1) * len + centerOffset);
+        }
+        if (max - playerSection < margin) {
+            WindowRegenerator.prefetch(chunk, (pageY + 1) * len + centerOffset);
+        }
+    }
+
     /** Follow one chunk to a target section Y (also used by the testgen probe). */
     public static boolean follow(LevelChunk chunk, int targetSectionY, int tick) {
         if (!(chunk instanceof WindowedChunk windowed)) {
@@ -129,7 +153,12 @@ public final class WindowFollower {
         int pageY = Math.floorDiv(targetSectionY, len);
         int pageMin = pageY * len;
         if (pageMin == min) {
+            maybePrefetch(chunk, targetSectionY, min, max, len, pageY);
             return false; // already on that page; moving inside a page is free
+        }
+        // P2: crossing a page boundary — use a prepared page when available.
+        if (WindowRegenerator.applyPrepared(chunk, targetSectionY)) {
+            return true;
         }
         int target = pageMin + (len - 1) / 2; // page centre for the regenerate call
         ChunkPos pos = chunk.getPos();

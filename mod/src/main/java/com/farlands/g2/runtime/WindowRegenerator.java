@@ -229,6 +229,127 @@ public final class WindowRegenerator {
             }));
     }
 
+    /**
+     * P2: generate the page containing {@code targetSectionY} into {@link PageStore}
+     * without touching the live chunk, so a page crossing becomes a transplant.
+     */
+    public static void prefetch(LevelChunk chunk, int targetSectionY) {
+        if (!(chunk instanceof WindowedChunk)) {
+            return;
+        }
+        ServerLevel level = (ServerLevel) chunk.getLevel();
+        int len = chunk.getSections().length;
+        int pageY = Math.floorDiv(targetSectionY, len);
+        int pageMin = pageY * len;
+        PageStore.Key key = new PageStore.Key(chunk.getPos().widePos(), pageY);
+        if (!PageStore.begin(key)) {
+            return;
+        }
+        if (!FILL_SLOTS.tryAcquire()) {
+            PageStore.fail(key);
+            return;
+        }
+        final long seed = level.getSeed();
+        final var router = level.getChunkSource().randomState().router();
+        // The detached ProtoChunk must cover the page, otherwise its section array
+        // is the dimension band and the fill silently skips every block (filled=0).
+        Integer previousBand = SavedBandContext.get();
+        SavedBandContext.set(pageMin);
+        final ProtoChunk proto = new ProtoChunk(chunk.getPos(), UpgradeData.EMPTY, level,
+            level.palettedContainerFactory(), null);
+        if (previousBand != null) {
+            SavedBandContext.set(previousBand);
+        } else {
+            SavedBandContext.clear();
+        }
+        final net.minecraft.server.MinecraftServer server = level.getServer();
+        if (Boolean.getBoolean("farlands.y.prefetchSync")) {
+            // Test path: fill on the calling (server) thread, then complete.
+            try {
+                com.farlands.g2.runtime.noise.CwgTerrain terrain =
+                    com.farlands.g2.runtime.noise.CwgTerrain.create(seed, router, true);
+                long filled = terrain.fill(proto, pageMin, pageMin + len - 1);
+                PageStore.complete(key, new PageStore.Prepared(pageMin, proto.getSections(), filled));
+                System.out.println("[PREFETCH] sync ready pageY=" + pageY + " filled=" + filled);
+                System.out.flush();
+            } catch (Throwable t) {
+                PageStore.fail(key);
+            } finally {
+                FILL_SLOTS.release();
+            }
+            return;
+        }
+        net.minecraft.util.Util.backgroundExecutor().execute(() -> {
+            long filled = -1L;
+            Throwable error = null;
+            try {
+                com.farlands.g2.runtime.noise.CwgTerrain terrain =
+                    com.farlands.g2.runtime.noise.CwgTerrain.create(seed, router, true);
+                filled = terrain.fill(proto, pageMin, pageMin + len - 1);
+            } catch (Throwable t) {
+                error = t;
+            }
+            final long filledFinal = filled;
+            final Throwable failure = error;
+            server.execute(() -> {
+                try {
+                    if (failure != null) {
+                        throw new RuntimeException(failure);
+                    }
+                    PageStore.complete(key, new PageStore.Prepared(pageMin, proto.getSections(), filledFinal));
+                    System.out.println("[PREFETCH] ready pos=" + chunk.getPos() + " pageY=" + pageY
+                        + " filled=" + filledFinal);
+                    System.out.flush();
+                } catch (Throwable t) {
+                    PageStore.fail(key);
+                } finally {
+                    FILL_SLOTS.release();
+                }
+            });
+        });
+    }
+
+    /** P2: transplant a prepared page into the live chunk; false when none is ready. */
+    public static boolean applyPrepared(LevelChunk chunk, int targetSectionY) {
+        if (!(chunk instanceof WindowedChunk windowed)) {
+            return false;
+        }
+        int len = chunk.getSections().length;
+        int pageY = Math.floorDiv(targetSectionY, len);
+        PageStore.Prepared prepared = PageStore.take(
+            new PageStore.Key(chunk.getPos().widePos(), pageY));
+        if (prepared == null) {
+            return false;
+        }
+        int min = prepared.pageMin();
+        Map<WideSectionKey2560, LevelChunkSection> all = windowed.farlands$allSections();
+        LevelChunkSection[] sections = prepared.sections();
+        for (int i = 0; i < len && i < sections.length; i++) {
+            all.put(windowed.farlands$key(min + i), sections[i]);
+        }
+        int center = min + (len - 1) / 2;
+        windowed.farlands$moveWindowTo(center);
+        Heightmaps.primeFully(chunk, EnumSet.of(
+            Heightmap.Types.WORLD_SURFACE,
+            Heightmap.Types.MOTION_BLOCKING,
+            Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+            Heightmap.Types.OCEAN_FLOOR));
+        if (chunk.getLevel() instanceof ServerLevel level) {
+            chunk.postProcessGeneration(level);
+        }
+        try {
+            com.farlands.g2.client.ClientBandBridge.push(chunk.getPos(), center,
+                windowed.farlands$windowMinSectionY(),
+                java.util.Arrays.asList(chunk.getSections()));
+        } catch (Throwable ignored) {
+            // dedicated server: client classes absent
+        }
+        System.out.println("[PREFETCH] applied pos=" + chunk.getPos() + " band=" + min
+            + ".." + (min + len - 1) + " filled=" + prepared.filled());
+        System.out.flush();
+        return true;
+    }
+
     public static void transplant(LevelChunk chunk, ChunkAccess proto, int centerSectionY) {
         WindowedChunk windowed = (WindowedChunk) chunk;
         int len = chunk.getSections().length;
