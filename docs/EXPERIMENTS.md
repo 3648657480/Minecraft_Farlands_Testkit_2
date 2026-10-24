@@ -2334,3 +2334,22 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 影响：下一步只需在 int 内做**带感知谓词**（维度范围 ∪ 当前窗口带），把 2^31−1 以内做稳；
   路线 2（宽 Y）暂不需要。
 - 证据：`exp-cwgscan-*.log`、`exp-cwgbisect-*.log`（`%TEMP%\opencode`）。
+
+## 99. P1 落地：任意窗口 → 对齐 384 页（2026-10-24）
+
+- 背景：连续窗口的 `minY` 任意/钳制/搬窗是错位根源（§78/§81/§89/§90/§91/§97）；
+  新方案 `SEGMENT-PAGING`（`docs/SEGMENT-PAGING.md`）改为**对齐 384 页**。
+- 改动：
+  - `ChunkAccessWindowMixin.applyWindow`：`pageY = floorDiv(center, len)`、
+    `minY = pageY*len`，**删除 clamp**；但**维度带例外**（当长度等于维度带且 center 在带内时，
+    仍用维度 min/max，否则正常世界会被整体平移）；
+  - `WindowRegenerator` 的 Cwg 填充与 `transplant`：同样按页对齐（`floorDiv(center,len)*len`）；
+  - `WindowFollower.follow`：按页判断（同页直接返回；跨页才重生成），删除 clampCenter；
+  - `followPlayer` 的重力保持改为"整页内"判断（页边界不再卡住玩家）。
+- 实测：
+  - 正常世界：`(0,0)` 指纹恢复 `surf=b9216bad2029 floor=8936c275d063`（逐位不变）；
+  - 远 Y（`sy=134217700`）：`[CWGFILL] sy=134217696..134217719`（页起点 = 5592404×24），
+    `filled=46080`、`solidSec=24`，与历史一致。
+- 下一步（P2）：副页（Secondary 1–2 页）预取、跨界交换、`viewPages` 预算；
+  之后 P3 侧页渲染、P4 存档/光照/高度图。
+- 证据：`exp-page2.log`、`exp-page-normal3.log`、`exp-page4.log`。

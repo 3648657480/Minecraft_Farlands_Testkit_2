@@ -98,7 +98,9 @@ public final class WindowFollower {
         if (chunk instanceof WindowedChunk windowed) {
             int min = windowed.farlands$windowMinSectionY();
             int max = windowed.farlands$windowMaxSectionY();
-            boolean inside = playerSection >= min + 2 && playerSection <= max - 2;
+            // Pages are 384 blocks tall: anywhere inside the page is fine, only a
+            // page change (or an in-flight regeneration) needs the hold.
+            boolean inside = playerSection >= min && playerSection <= max;
             // A falling player outruns the seconds-long regeneration; hold them while
             // the window is being moved so the band can catch up instead of chasing.
             farlands$hold(player, !inside || IN_FLIGHT.contains(chunk.getPos()));
@@ -124,16 +126,12 @@ public final class WindowFollower {
         int min = windowed.farlands$windowMinSectionY();
         int max = windowed.farlands$windowMaxSectionY();
         int len = max - min + 1;
-        int center = min + (len - 1) / 2;
-        int target = farlands$clampCenter(targetSectionY, len);
-        // At the top/bottom of the playable range the window cannot centre on the
-        // player; without this the follower would regenerate forever.
-        if (target == center) {
-            return false;
+        int pageY = Math.floorDiv(targetSectionY, len);
+        int pageMin = pageY * len;
+        if (pageMin == min) {
+            return false; // already on that page; moving inside a page is free
         }
-        if (target >= min + MARGIN && target <= max - MARGIN) {
-            return false;
-        }
+        int target = pageMin + (len - 1) / 2; // page centre for the regenerate call
         ChunkPos pos = chunk.getPos();
         Integer next = NEXT_ATTEMPT.get(pos);
         if (next != null && tick < next) {

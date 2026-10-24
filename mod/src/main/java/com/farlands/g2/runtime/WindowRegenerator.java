@@ -90,7 +90,8 @@ public final class WindowRegenerator {
                     com.farlands.g2.runtime.noise.CwgTerrain terrain =
                         com.farlands.g2.runtime.noise.CwgTerrain.create(seed, router, true);
                     int len = fillProto.getSections().length;
-                    int minSy = center - (len - 1) / 2;
+                    // Page-aligned: minY = pageY * len (SEGMENT-PAGING §1).
+                    int minSy = Math.floorDiv(center, len) * len;
                     filled = terrain.fill(fillProto, minSy, minSy + len - 1);
                 } catch (Throwable t) {
                     error = t;
@@ -231,8 +232,8 @@ public final class WindowRegenerator {
     public static void transplant(LevelChunk chunk, ChunkAccess proto, int centerSectionY) {
         WindowedChunk windowed = (WindowedChunk) chunk;
         int len = chunk.getSections().length;
-        int half = (len - 1) / 2;
-        int minSy = centerSectionY - half;
+        // Page-aligned: minY = pageY * len (SEGMENT-PAGING §1).
+        int minSy = Math.floorDiv(centerSectionY, len) * len;
         Map<WideSectionKey2560, LevelChunkSection> all = windowed.farlands$allSections();
         LevelChunkSection[] protoSections = proto.getSections();
         for (int i = 0; i < len && i < protoSections.length; i++) {

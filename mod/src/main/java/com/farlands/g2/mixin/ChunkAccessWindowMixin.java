@@ -109,19 +109,30 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         farlands$applyWindow(center);
     }
 
-    /** Rebuild the window (array + map entries) around an absolute int section Y. */
+    /**
+     * Rebuild the page containing {@code centerSectionY}. Pages are aligned to
+     * 384 blocks (24 sections), so {@code minY = pageY * 384} is exact and never
+     * drifts between moves (SEGMENT-PAGING §1). No clamping: a page is always
+     * exactly one vanilla column height.
+     */
     @Unique
     private void farlands$applyWindow(int centerSectionY) {
         int len = this.sections.length;
         int half = (len - 1) / 2;
-        int minSy = centerSectionY - half;
-        int maxSy = minSy + len - 1;
-        if (maxSy > VerticalBounds.MAX_PLAYABLE_SECTION) {
-            maxSy = VerticalBounds.MAX_PLAYABLE_SECTION;
-            minSy = maxSy - len + 1;
-        }
-        if (minSy < VerticalBounds.MIN_PLAYABLE_SECTION) {
-            minSy = VerticalBounds.MIN_PLAYABLE_SECTION;
+        int dimensionMin = this.levelHeightAccessor.getMinSectionY();
+        int dimensionMax = this.levelHeightAccessor.getMaxSectionY();
+        int minSy;
+        int maxSy;
+        if (len == dimensionMax - dimensionMin + 1
+            && centerSectionY >= dimensionMin && centerSectionY <= dimensionMax) {
+            // Normal world: the page is the dimension band itself. Aligning this to
+            // a 24-page would shift every normal chunk by a few sections.
+            minSy = dimensionMin;
+            maxSy = dimensionMax;
+        } else {
+            // Far Y: page-aligned, minY = pageY * len (SEGMENT-PAGING §1).
+            int pageY = Math.floorDiv(centerSectionY, len);
+            minSy = pageY * len;
             maxSy = minSy + len - 1;
         }
         this.farlands$minSy = minSy;
@@ -129,10 +140,9 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         this.farlands$centerY = WideSectionCoord512.of((long) minSy + half);
         this.farlands$windowReady = true;
         if (Boolean.getBoolean("farlands.y.diag")) {
-            System.out.println("[YWIN] init pos=" + chunkPos.x() + "," + chunkPos.z()
-                + " dimSec=" + levelHeightAccessor.getMinSectionY() + ".." + levelHeightAccessor.getMaxSectionY()
-                + " band=" + minSy + ".." + maxSy + " center=" + centerSectionY
-                + " arrayLen=" + this.sections.length);
+            System.out.println("[YWIN] page pos=" + chunkPos.x() + "," + chunkPos.z()
+                + " band=" + minSy + ".." + maxSy
+                + " center=" + centerSectionY + " arrayLen=" + this.sections.length);
             System.out.flush();
         }
         for (int i = 0; i < len; i++) {
