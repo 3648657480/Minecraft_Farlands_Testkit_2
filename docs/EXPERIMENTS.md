@@ -2020,3 +2020,40 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   - **C. 停在这里**：服务端现象已证实并有图像（§81），客户端渲染另立阶段。
 - 现状：句柄代码保留在 `-Dfarlands.render.wideKeys`（默认关）；默认构建仍用 29/29/6，
   正常世界逐位不变。
+
+## 83. B-render 落地：渲染节点带 2560 位身份，客户端在 ≈2^31 可渲染（2026-10-24）
+
+- 设计（`docs/RENDER-WIDE-KEYS.md`）：fork 已用补丁绕开 `SectionOcclusionGraph` 的视锥/图逻辑
+  （`update()` 只更新加载块/空段集合，`addSectionsInFrustum` 遍历全部段），因此**只需修"解码点"**，
+  不必改 record 类型。
+- 实现：
+  - `runtime/section/SectionKey`：`WideSectionKey2560` 身份 + int 视图 + 全序 + `centerBlock()`；
+  - `client/RenderKeys`：`long ↔ SectionKey ↔ RenderSection` 表，提供 `pos/x/y/z/center(long)`，
+    未登记的 long 回退 vanilla 解码；
+  - `RenderSectionKeyMixin`：给 `SectionRenderDispatcher$RenderSection` 加 `SectionKey` 字段，
+    `farlands$setKey` 按键的 int 坐标重算 origin/AABB 并登记进 RenderKeys；
+  - `RotatingSectionStorageKeyMixin`：`repositionCenter` TAIL 按网格数学**直接**赋键（不经过 long 打包），
+    键未变则跳过（否则每帧 `reset()` 会清网格）；`farlands$lastCenter` 快路径；
+  - `ViewAreaKeyMixin`：`getRenderSection(long)`/`getRenderSectionAt(BlockPos)` 走 RenderKeys；
+  - patcher `RenderDecodePatch`（`PATCH_REVISION 96`）：把 `net/minecraft/client/renderer/**` 内的
+    `SectionPos.of/x/y/z(J)` 调用同名替换为 `RenderKeys.*`（描述符不变；实体/光照不受影响）。
+- 途中问题（均已修）：
+  - duck 接口不能放 mixin 包（`cannot be referenced directly`）→ 移到 `runtime/section/`；
+  - `getRenderSection` 实际是 public，`@Overwrite` 写成 protected 被拒；
+  - loom 的 `minecraft-merged-*` 缓存不会因 `PATCH_REVISION` 自动失效，曾复用 10/22 的旧补丁 jar
+    （引用已删除的 `FarWideGuard` → `ClassNotFoundException`）→ 删除缓存目录强制重打；
+  - 特征装饰在窗口带会用旧 heightmap 在低 Y 放方块 → `ProtoChunk.markPosForPostProcessing`
+    对窗口外位置直接忽略（`ProtoChunkMarkGuardMixin`）；
+  - autotest 默认 tp 到 X=2^31，导致方块 X 溢出（`origin=-2147483632`、`visible=0`）→ Y 测试必须
+    保持 X/Z 正常（`-Dfarlands.autotest.x=8 -Dfarlands.autotest.z=8`）。
+- 实测（客户端，`test7`，autotest）：
+  - `[YFOLLOW] trigger pos=[0,0] target=134217693` → `[REGEN] cwg filled=52992` → 桥 applied；
+  - `RDIAG viewY=134217682..134217705`、`visible=6935/6935`、`uncompiled 6935→6421`（有段已编译）、
+    `camSection=origin=0`；
+  - `hitResult=MutableBlockPos{x=8,y=2147483101,z=9} before=stone`、
+    `destroyBlock=true`、`after=air BREAK_OK` → **高 Y 可选中、可破坏、有渲染**；
+  - 截图：`mod/run/screenshots/2026-10-24_12.01.59.png`（选中方块+线框）、
+    `2026-10-24_12.02.08.png`（俯瞰；该带地形稀疏，主要见天空与单个方块）。
+- 结论（R10）：在上述条件下，客户端首次在 ≈2^31 带渲染出 Cwg 地形并可交互；
+  地形在该带较稀疏（与 §81 的 50% 棋盘一致，具体高度取决于密度符号分布）。
+- 未完成：正常世界客户端回归（`uncompiled` 收敛冒烟）尚未单独跑；§84 记录后续。 

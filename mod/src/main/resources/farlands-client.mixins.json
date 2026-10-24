@@ -28,6 +28,9 @@
         "ScreenAccessor",
         "ViewAreaWindowMixin",
         "ClientBandFollowMixin",
+        "ViewAreaKeyMixin",
+        "RotatingSectionStorageKeyMixin",
+        "RenderSectionKeyMixin",
         "SectionGuardMixin",
         "ViewAreaAccessor"
     ],

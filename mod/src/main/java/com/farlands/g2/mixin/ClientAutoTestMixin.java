@@ -22,6 +22,7 @@ public class ClientAutoTestMixin {
     private static int farlands$ticks;
     private static int farlands$phase;
     private static BlockPos farlands$target;
+    private static double farlands$holdX, farlands$holdY, farlands$holdZ;
     private static boolean farlands$logged;
     private static boolean farlands$shot;
 
@@ -47,7 +48,12 @@ public class ClientAutoTestMixin {
             case 0 -> {
                 if (farlands$ticks > 100) {
                     mc.player.connection.sendCommand("gamemode creative");
-                    mc.player.connection.sendCommand("tp @s 2147483648.0 70 0.5");
+                    double tx = Double.parseDouble(System.getProperty("farlands.autotest.x", "2147483648.0"));
+                    double ty = Double.parseDouble(System.getProperty("farlands.autotest.y", "70"));
+                    double tz = Double.parseDouble(System.getProperty("farlands.autotest.z", "0.5"));
+                    farlands$holdX = tx; farlands$holdY = ty; farlands$holdZ = tz;
+                    mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
+                        "tp @s %.1f %.1f %.1f", tx, ty, tz));
                     farlands$phase = 1;
                     farlands$ticks = 0;
                     System.out.println("[AUTOTEST] teleport sent pos=" + mc.player.position()
@@ -55,6 +61,12 @@ public class ClientAutoTestMixin {
                 }
             }
             case 1 -> {
+                if (farlands$ticks % 60 == 0) {
+                    // Hold the player at the target so the window band can settle and
+                    // the Cwg regeneration is not chased downward by falling.
+                    mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
+                        "tp @s %.1f %.1f %.1f", farlands$holdX, farlands$holdY, farlands$holdZ));
+                }
                 if (farlands$ticks % 200 == 0) {
                     System.out.println("[AUTOTEST] wait ticks=" + farlands$ticks + " pos=" + mc.player.position());
                 }
@@ -127,7 +139,16 @@ public class ClientAutoTestMixin {
                 // Vantage shot for the seam: stand east of block 2^31, look west
                 // across it from above, let the world settle, then capture.
                 if (farlands$ticks == 40) {
-                    mc.player.connection.sendCommand("tp @s 2147483730 100 0.5 90 25");
+                    // Look down on the current band from above (Y test) or across the
+                    // seam (X test), depending on the configured target Y.
+                    double ty = Double.parseDouble(System.getProperty("farlands.autotest.y", "70"));
+                    if (ty > 1.0e8) {
+                        mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
+                            "tp @s %.1f %.1f %.1f 30 60", mc.player.getX(), mc.player.getY() + 18.0,
+                            mc.player.getZ()));
+                    } else {
+                        mc.player.connection.sendCommand("tp @s 2147483730 100 0.5 90 25");
+                    }
                     System.out.println("[AUTOTEST] vantage tp sent");
                 }
                 if (farlands$ticks > 460) {
@@ -144,6 +165,17 @@ public class ClientAutoTestMixin {
     private static boolean farlands$chunkReady(Minecraft mc) {
         if (mc.level == null) {
             return false;
+        }
+        double targetY = Double.parseDouble(System.getProperty("farlands.autotest.y", "70"));
+        if (targetY > 1.0e8 && mc.player != null) {
+            // Y-band test: ready once the player's own client chunk has a far window.
+            BlockPos pos = mc.player.blockPosition();
+            var chunk = mc.level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4,
+                net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false);
+            if (chunk instanceof com.farlands.g2.runtime.WindowedChunk windowed
+                && windowed.farlands$windowMinSectionY() > 1_000_000) {
+                return true;
+            }
         }
         var src = mc.level.getChunkSource();
         return src.getChunk(134217727, 0,

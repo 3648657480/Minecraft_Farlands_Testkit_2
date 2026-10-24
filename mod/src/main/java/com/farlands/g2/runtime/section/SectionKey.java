@@ -39,6 +39,11 @@ public final class SectionKey implements Comparable<SectionKey> {
         return new SectionKey(x + dx, y + dy, z + dz);
     }
 
+    /** Centre block of this section (for distance/centre lookups). */
+    public net.minecraft.core.BlockPos centerBlock() {
+        return new net.minecraft.core.BlockPos((x << 4) + 8, (y << 4) + 8, (z << 4) + 8);
+    }
+
     /** Total order: x, then y, then z (stable and coordinate-monotonic). */
     @Override
     public int compareTo(SectionKey other) {
