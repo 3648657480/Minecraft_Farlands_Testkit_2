@@ -119,6 +119,7 @@ public class ClientBandFollowMixin {
             System.out.println("[YF-REPOS] playerSec=" + playerSec
                 + " center=" + viewArea.getCameraSectionPos()
                 + " midFound=" + (viewArea.getRenderSectionAt(midPos) != null)
+                + " keys=" + com.farlands.g2.client.RenderKeys.size()
                 + " stillAbsent=" + (viewArea.getRenderSectionAt(mc.player.blockPosition()) == null)
                 + " viewY=" + viewArea.minSectionY() + ".." + viewArea.maxSectionY());
             System.out.flush();

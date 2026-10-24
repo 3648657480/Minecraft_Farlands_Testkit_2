@@ -43,6 +43,10 @@ public final class RenderKeys {
         }
     }
 
+    public static int size() {
+        return BY_KEY.size();
+    }
+
     public static void clear() {
         BY_NODE.clear();
         BY_KEY.clear();

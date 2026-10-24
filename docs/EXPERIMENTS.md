@@ -2138,4 +2138,25 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   - 候选根因：`RenderKeys` 表里同 key 的 `RenderSection` 实例可能与新 ViewArea 的实例不一致
     （旧实例已 compiled，新实例 UNCOMPILED），导致 tick 侧判断为"已 compiled"而跳过。
     下一步：让 `RenderKeys` 在 ViewArea 重建时清空/按新实例覆盖，或改为从 ViewArea 直接取段。
-- 证据：`mod/run/logs/latest.log`（12:45 崩溃）、`client-ytop7/8.log`、`client-reentry3/4/5/6.log`。 
+- 证据：`mod/run/logs/latest.log`（12:45 崩溃）、`client-ytop7/8.log`、`client-reentry3/4/5/6.log`。
+
+## 88. 重进编译修复：ViewArea 重建清表 + 渲染线程标脏 + 邻居同带（2026-10-24）
+
+- 诊断链：
+  - `[YF-REPOS] stillAbsent=true` 每 tick 复现 → 键查不到；
+  - 加 `RenderKeys.size()` 后确认：新建 ViewArea 后旧键仍在/新键未覆盖（`[YF-VA]` 每次重建）；
+  - `[YF-DIRTY]` 在客户端 tick 里始终为 0 → 客户端 **tick 已暂停**（窗口失焦），渲染线程仍在跑。
+- 修复：
+  1. `ViewAreaKeyMixin` 构造 TAIL：`RenderKeys.clear()`，保证查询永远落到当前 ViewArea 的段实例；
+  2. 标脏移到**渲染线程**（`RenderDiagMixin`，每秒一次）：相机段为 `null/UNCOMPILED` 时对玩家整列
+     `setSectionDirtyWithNeighbors`，打印 `[YF-DIRTY] render-thread re-mark`；
+  3. `WindowFollower` 对玩家周围 `followRadius`（默认 1，即 3×3）的区块也执行同带搬移，
+     满足客户端 `hasAllNeighbors` 的编译前置条件（`farlands.y.followRadius` 可调）。
+- 实测（重进同一世界，`y=2147483600`）：
+  - `YFOLLOW trigger=0`（带已在加载时正确，早加载生效）；
+  - `[YF-DIRTY] render-thread re-mark column 0,0 viewY=134217703..134217726`；
+  - `RDIAG camSection=origin=0 mesh=compiled`（修复前为 UNCOMPILED）；
+  - 截图 `2026-10-24_16.11.29.png`：可见地形方块与选中框（该点地形稀疏）。
+- 注意：`RDIAG` 的 `uncompiled` 统计遍历 `visibleSections()`，ViewArea 重建后该列表可能仍持有
+  旧实例，数值会虚高（6935）；判断应以 `camSection` 的 mesh 与截图为准。
+- 仍未完成：全视图（非 3×3）邻居同带、实体/光照的宽键迁移（B4 剩余）。 

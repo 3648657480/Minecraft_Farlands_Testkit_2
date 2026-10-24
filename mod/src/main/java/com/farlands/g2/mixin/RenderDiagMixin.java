@@ -23,6 +23,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LevelRenderer.class)
 public class RenderDiagMixin {
 
+    private static int farlands$dirtyMarks;
+
     // Read at call time: the flag is applied after some client classes are
     // loaded, so a static final captured too early stays false.
     private static int farlands$frames;
@@ -86,6 +88,21 @@ public class RenderDiagMixin {
             }
         }
         SectionRenderDispatcher.RenderSection cam = view.getRenderSectionAt(mc.player.blockPosition());
+        // Re-entry has the band right but nothing marks the sections dirty (no band
+        // bridge runs, and the client tick may be paused). The render thread always
+        // runs: re-mark the player's column once per diagnostic tick until compiled.
+        if (cam == null || cam.getSectionMesh() == CompiledSectionMesh.UNCOMPILED) {
+            int px = mc.player.blockPosition().getX() >> 4;
+            int pz = mc.player.blockPosition().getZ() >> 4;
+            for (int sy = view.minSectionY(); sy <= view.maxSectionY(); sy++) {
+                mc.level.setSectionDirtyWithNeighbors(px, sy, pz);
+            }
+            if (farlands$dirtyMarks++ % 5 == 0) {
+                System.out.println("[YF-DIRTY] render-thread re-mark column " + px + "," + pz
+                    + " viewY=" + view.minSectionY() + ".." + view.maxSectionY());
+                System.out.flush();
+            }
+        }
         String camInfo = cam == null ? "absent"
             : ("origin=" + cam.getRenderOrigin().getLongX()
                 + " mesh=" + (cam.getSectionMesh() == CompiledSectionMesh.UNCOMPILED ? "UNCOMPILED" : "compiled"));

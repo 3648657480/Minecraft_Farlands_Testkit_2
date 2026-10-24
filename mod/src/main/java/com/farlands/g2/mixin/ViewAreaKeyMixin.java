@@ -10,6 +10,9 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Overwrite;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Routes {@code ViewArea} lookups through the wide-key table so a section at a
@@ -21,6 +24,18 @@ import org.spongepowered.asm.mixin.Overwrite;
 public abstract class ViewAreaKeyMixin {
 
     @Shadow @Final private RotatingSectionStorage<SectionRenderDispatcher.RenderSection> sections;
+
+    /**
+     * A new ViewArea owns a new set of {@code RenderSection} instances. Drop the
+     * previous world's registrations so a lookup can never return a stale section
+     * (already compiled) from an earlier ViewArea.
+     */
+    @Inject(method = "<init>", at = @At("TAIL"))
+    private void farlands$resetKeys(CallbackInfo ci) {
+        RenderKeys.clear();
+        System.out.println("[YF-VA] new ViewArea, RenderKeys cleared");
+        System.out.flush();
+    }
 
     @Overwrite
     public SectionRenderDispatcher.RenderSection getRenderSection(long sectionNode) {
