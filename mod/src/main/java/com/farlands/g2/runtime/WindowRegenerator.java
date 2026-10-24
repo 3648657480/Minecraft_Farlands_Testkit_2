@@ -39,6 +39,10 @@ import net.minecraft.world.level.levelgen.blending.Blender;
  */
 public final class WindowRegenerator {
 
+    /** Only one Cwg fill at a time: each takes seconds of CPU. */
+    private static final java.util.concurrent.atomic.AtomicBoolean FILL_GATE =
+        new java.util.concurrent.atomic.AtomicBoolean();
+
     private WindowRegenerator() {
     }
 
@@ -62,31 +66,60 @@ public final class WindowRegenerator {
 
         // Optional noise source: the infs Cwg chain reproduces the dome/vertex-region
         // phenomenon at high Y (EXPERIMENTS §77); vanilla's graph cannot (it clamps).
+        // The fill is pure maths on a detached ProtoChunk, so it runs on a worker
+        // thread: doing it on the server thread froze the server for seconds per
+        // chunk (teleporting into a band looked like a one-minute hang).
         if (Boolean.getBoolean("farlands.gen.cwg")) {
-            try {
-                com.farlands.g2.runtime.noise.CwgTerrain terrain =
-                    com.farlands.g2.runtime.noise.CwgTerrain.create(level.getSeed(),
-                        randomState.router(), true);
-                int len = proto.getSections().length;
-                int minSy = centerSectionY - (len - 1) / 2;
-                long filled = terrain.fill(proto, minSy, minSy + len - 1);
-                transplant(chunk, proto, centerSectionY);
-                try {
-                    com.farlands.g2.client.ClientBandBridge.push(chunk.getPos(), centerSectionY,
-                        ((WindowedChunk) chunk).farlands$windowMinSectionY(),
-                        java.util.Arrays.asList(chunk.getSections()));
-                } catch (Throwable ignored) {
-                    // dedicated server: client classes absent
-                }
-                System.out.println("[REGEN] cwg pos=" + pos + " band=" + centerSectionY
-                    + " filled=" + filled);
-                System.out.flush();
-                done.accept(true);
+            if (!FILL_GATE.compareAndSet(false, true)) {
+                done.accept(false); // another fill is running; the cooldown retries
                 return;
-            } catch (Throwable t) {
-                System.out.println("[REGEN] cwg failed: " + t);
-                System.out.flush();
             }
+            final long seed = level.getSeed();
+            final var router = randomState.router();
+            final ProtoChunk fillProto = proto;
+            final int center = centerSectionY;
+            final net.minecraft.server.MinecraftServer server = level.getServer();
+            net.minecraft.util.Util.backgroundExecutor().execute(() -> {
+                long filled = -1L;
+                Throwable error = null;
+                try {
+                    com.farlands.g2.runtime.noise.CwgTerrain terrain =
+                        com.farlands.g2.runtime.noise.CwgTerrain.create(seed, router, true);
+                    int len = fillProto.getSections().length;
+                    int minSy = center - (len - 1) / 2;
+                    filled = terrain.fill(fillProto, minSy, minSy + len - 1);
+                } catch (Throwable t) {
+                    error = t;
+                }
+                final long filledFinal = filled;
+                final Throwable failure = error;
+                server.execute(() -> {
+                    try {
+                        if (failure != null) {
+                            throw new RuntimeException(failure);
+                        }
+                        transplant(chunk, fillProto, center);
+                        try {
+                            com.farlands.g2.client.ClientBandBridge.push(chunk.getPos(), center,
+                                ((WindowedChunk) chunk).farlands$windowMinSectionY(),
+                                java.util.Arrays.asList(chunk.getSections()));
+                        } catch (Throwable ignored) {
+                            // dedicated server: client classes absent
+                        }
+                        System.out.println("[REGEN] cwg pos=" + pos + " band=" + center
+                            + " filled=" + filledFinal);
+                        System.out.flush();
+                        done.accept(true);
+                    } catch (Throwable t) {
+                        System.out.println("[REGEN] cwg failed: " + t);
+                        System.out.flush();
+                        done.accept(false);
+                    } finally {
+                        FILL_GATE.set(false);
+                    }
+                });
+            });
+            return;
         }
 
         ServerChunkCache cacheSource = (ServerChunkCache) level.getChunkSource();
