@@ -34,6 +34,8 @@ public final class CwgTerrain {
     private final DensityFunction offsetSpline;
     private final DensityFunction factorSpline;
     private final Ctx context = new Ctx();
+    /** Built once: constructing it per block dominated the fill time (§95). */
+    private final CwgDensity densityOp;
 
     private CwgTerrain(CwgNoise selector, CwgNoise low, CwgNoise high, CwgNoise depth,
         CwgDensity.Ops ops, DensityFunction offsetSpline, DensityFunction factorSpline) {
@@ -44,6 +46,8 @@ public final class CwgTerrain {
         this.ops = ops;
         this.offsetSpline = offsetSpline;
         this.factorSpline = factorSpline;
+        this.densityOp = new CwgDensity(selector, low, high, depth, offsetSpline,
+            factorSpline, ops);
     }
 
     public static CwgTerrain create(long seed, NoiseRouter router, boolean farLands) {
@@ -74,8 +78,7 @@ public final class CwgTerrain {
         this.context.x = x;
         this.context.y = y;
         this.context.z = z;
-        return new CwgDensity(this.selector, this.low, this.high, this.depth,
-            this.offsetSpline, this.factorSpline, this.ops).compute(this.context);
+        return this.densityOp.compute(this.context);
     }
 
     /** 用 Cwg 密度填充一段窗口（正密度=石，否则空气）；返回填充的方块数。 */
