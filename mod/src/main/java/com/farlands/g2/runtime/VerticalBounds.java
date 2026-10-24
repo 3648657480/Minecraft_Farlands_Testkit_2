@@ -16,20 +16,22 @@ package com.farlands.g2.runtime;
 public final class VerticalBounds {
 
     /**
-     * Playable block range: the full int domain. Section 2^27-1 starts at
-     * 2^31-16, and its last block is 2^31-1, so {@code section << 4} stays inside
-     * int for every playable block (EXPERIMENTS §95).
+     * Playable block range for the global height predicate. Kept at 2^31-17:
+     * widening it to the full int domain made {@code isOutsideBuildHeight} return
+     * false for every Y, and generation/entity code then took blocking
+     * {@code getChunk} paths it normally skips (spawn freeze, EXPERIMENTS §97).
+     * The window clamp uses {@link #MAX_PLAYABLE_SECTION} separately.
      */
-    public static final int MAX_PLAYABLE_BLOCK = Integer.MAX_VALUE;
-    public static final int MIN_PLAYABLE_BLOCK = Integer.MIN_VALUE;
+    public static final int MAX_PLAYABLE_BLOCK = Integer.MAX_VALUE - 16;
+    public static final int MIN_PLAYABLE_BLOCK = ~MAX_PLAYABLE_BLOCK;
 
     /** Last representable section on the positive axis: 2^27-1. */
     public static final int MAX_SECTION = 134_217_727;
     public static final int MIN_SECTION = ~MAX_SECTION;
 
     /** Sections whose blocks all stay inside the playable block range. */
-    public static final int MAX_PLAYABLE_SECTION = MAX_SECTION;
-    public static final int MIN_PLAYABLE_SECTION = MIN_SECTION;
+    public static final int MAX_PLAYABLE_SECTION = MAX_SECTION - 1;
+    public static final int MIN_PLAYABLE_SECTION = ~MAX_PLAYABLE_SECTION;
 
     private VerticalBounds() {
     }
