@@ -50,7 +50,12 @@ public final class WindowFollower {
                 // Neighbouring chunks need the same band: the client marks a section
                 // dirty only when all four neighbours exist at that window, so a lone
                 // banded column never compiles on re-entry.
-                int radius = Integer.getInteger("farlands.y.followRadius", 4);
+                // Must cover the whole view: chunks left on the dimension band render
+                // at the wrong Y next to page chunks (mixed-band misalignment).
+                int view = server.getPlayerList().getViewDistance();
+                int radius = Math.min(Integer.getInteger("farlands.y.followRadius", view), 16);
+                int budget = Integer.getInteger("farlands.y.followBudget", 4);
+                int issued = 0;
                 int pcx = player.chunkPosition().x();
                 int pcz = player.chunkPosition().z();
                 int ps = player.blockPosition().getY() >> 4;
@@ -61,7 +66,12 @@ public final class WindowFollower {
                         }
                         if (level.getChunkSource().getChunkNow(pcx + dx, pcz + dz)
                             instanceof LevelChunk neighbour) {
-                            follow(neighbour, ps, tick);
+                            if (issued >= budget) {
+                                break;
+                            }
+                            if (follow(neighbour, ps, tick)) {
+                                issued++;
+                            }
                         }
                     }
                 }
@@ -148,6 +158,12 @@ public final class WindowFollower {
     /** Follow one chunk to a target section Y (also used by the testgen probe). */
     public static boolean follow(LevelChunk chunk, int targetSectionY, int tick) {
         if (!(chunk instanceof WindowedChunk windowed)) {
+            return false;
+        }
+        // Normal Y: the dimension band IS the page; never page-move there (a page
+        // move would put sections at 0..23 while the window stays at -4..19).
+        if (targetSectionY >= chunk.getLevel().getMinSectionY()
+            && targetSectionY <= chunk.getLevel().getMaxSectionY()) {
             return false;
         }
         int min = windowed.farlands$windowMinSectionY();
