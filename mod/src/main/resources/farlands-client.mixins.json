@@ -30,6 +30,7 @@
         "ClientBandFollowMixin",
         "ViewAreaKeyMixin",
         "RotatingSectionStorageKeyMixin",
+        "RotatingSectionStorageBandMixin",
         "RenderSectionKeyMixin",
         "SectionGuardMixin",
         "ViewAreaAccessor"

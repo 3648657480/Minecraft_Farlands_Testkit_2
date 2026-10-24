@@ -2189,3 +2189,20 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   `LevelExtractor` 的 `dirtyState != null` 门槛过不去 → 不编译。
 - 下一步（未做）：让 tracker 存储按窗口带重建（`@Mutable @Final` 换存储，相机段 ±11），
   或在 `LevelExtractor` 对"远带 + UNCOMPILED + 邻居齐全"的段跳过 dirty 门槛。
+
+## 90. tracker 带感化：RotatingSectionStorage 支持远 Y 基址（2026-10-24）
+
+- 实现 `RotatingSectionStorageBandMixin`：
+  - 当 `repositionCenter` 的中心远离且**不在**存储自带的 `[minY,maxY]` 内时，启用
+    `base = centerY - (gridY-1)/2`（钳制在可玩段内），否则保持 vanilla 路径；
+  - `repositionCenter/containsSection/getValue(int,int,int)/getValue(long)/getValueAt`
+    全部按 `base` 映射；`getValue(long)` 用 `y6` 对 64 取模匹配（一次只加载一个带）；
+  - 节点值通过缓存的反射字段读取（`Node` 是私有 record）。
+- 目的：让客户端 `SectionUpdateTracker` 在远 Y 也能给出 dirty 状态，解决 §89 的"不编译"。
+- 实测（`y=2147483100`，Cwg）：无 mixin 错误；`camSection=origin=0 mesh=compiled`（修复前
+  UNCOMPILED）；`[YF-DIRTY]` 正常；`[YBRIDGE] applied`。
+- 但 `RDIAG uncompiled` 仍显示 6935（该统计遍历 `visibleSections()`，重建后可能持旧实例），
+  且截图仍稀疏（`16.36.19.png`）——需人工确认实际画面。
+- 风险：该 mixin 与 `RotatingSectionStorageKeyMixin`（TAIL 赋 `SectionKey`）作用于同一方法，
+  `@Overwrite` 可能使后者的注入失效；若无键，`getRenderSectionAt` 会回退到 6 位打包解码而在
+  远 Y 失败。下一步应验证 `RenderKeys.size()` 或把赋键逻辑并入 `@Overwrite` 版本。
