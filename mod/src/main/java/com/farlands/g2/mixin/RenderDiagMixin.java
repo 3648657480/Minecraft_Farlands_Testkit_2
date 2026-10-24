@@ -115,6 +115,13 @@ public class RenderDiagMixin {
         }
         String camInfo = cam == null ? "absent"
             : ("origin=" + cam.getRenderOrigin().getLongX()
+                + "," + cam.getRenderOrigin().getLongY()
+                + "," + cam.getRenderOrigin().getLongZ()
+                + " aabb=" + cam.getBoundingBox()
+                + " emptySolid=" + (cam.getSectionMesh()
+                    instanceof net.minecraft.client.renderer.chunk.CompiledSectionMesh m
+                        ? m.isEmpty(net.minecraft.client.renderer.chunk.ChunkSectionLayer.SOLID)
+                        : "uncompiled")
                 + " mesh=" + (cam.getSectionMesh() == CompiledSectionMesh.UNCOMPILED ? "UNCOMPILED" : "compiled"));
         var below = mc.player.blockPosition().below(1);
         int clientNonAir = 0;

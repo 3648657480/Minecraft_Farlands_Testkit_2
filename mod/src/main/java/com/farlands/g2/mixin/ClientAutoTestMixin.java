@@ -53,7 +53,7 @@ public class ClientAutoTestMixin {
                     double tz = Double.parseDouble(System.getProperty("farlands.autotest.z", "0.5"));
                     farlands$holdX = tx; farlands$holdY = ty; farlands$holdZ = tz;
                     mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
-                        "tp @s %.1f %.1f %.1f 0 30", tx, ty, tz));
+                        "tp @s %.1f %.1f %.1f 0 90", tx, ty, tz));
                     farlands$phase = 1;
                     farlands$ticks = 0;
                     System.out.println("[AUTOTEST] teleport sent pos=" + mc.player.position()
