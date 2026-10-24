@@ -2178,4 +2178,14 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 待人工复测：
   - tp 上去后**加载应立即开始**（不再 ~1 分钟空白），约 8–10 秒内桥应用并开始编译；
   - 来回 tp 后检查是否仍错位；若仍错位，记录 `[YBRIDGE] push/applied` 与 `RDIAG` 的
-    `viewY`、`camSection` 及截图。 
+    `viewY`、`camSection` 及截图。
+- 实测（异步后，`y=2147483100`）：`tp` 16:25:36 → `[YFOLLOW] trigger` 16:25:58 → 填充 5 秒 →
+  `[YBRIDGE] applied` 16:26:04；**无 1 分钟冻结**。
+- 但不渲染的新根因：44 秒后 `RDIAG camSection=UNCOMPILED`、`uncompiled=6935`。
+  `SectionUpdateTracker` 的 `RotatingSectionStorage` 构造时用
+  `levelHeightAccessor.getMinSectionY()/getMaxSectionY()`（**维度**边界 −4…19），
+  `getValue/containsSection` 按打包 long 的 6 位 Y 判断：远 Y 只有 y6 落在 −4…19 的少数段能命中
+  （§83 能编译一小部分即此原因），其余段的 dirty 状态恒为 null →
+  `LevelExtractor` 的 `dirtyState != null` 门槛过不去 → 不编译。
+- 下一步（未做）：让 tracker 存储按窗口带重建（`@Mutable @Final` 换存储，相机段 ±11），
+  或在 `LevelExtractor` 对"远带 + UNCOMPILED + 邻居齐全"的段跳过 dirty 门槛。
