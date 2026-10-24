@@ -23,6 +23,7 @@ public class ClientBandFollowMixin {
     /** Last level the wide-key table was built for; cleared when the level changes. */
     private static Object farlands$lastLevel;
     private static boolean farlands$farReady;
+    private static int farlands$dirtyTicks;
 
     @Inject(method = "tick", at = @At("TAIL"))
     private void farlands$followBand(CallbackInfo ci) {
@@ -88,6 +89,26 @@ public class ClientBandFollowMixin {
             }
         }
         Camera camera = mc.gameRenderer.mainCamera();
+        // Re-entry loads chunks with the band already moved, so the packet path's
+        // dirty flags are consumed before the wide keys exist and nothing compiles.
+        // Re-mark the player's column whenever its section is still uncompiled.
+        var camSection = viewArea.getRenderSectionAt(mc.player.blockPosition());
+        if (camSection == null
+            || camSection.getSectionMesh()
+                == net.minecraft.client.renderer.chunk.CompiledSectionMesh.UNCOMPILED) {
+            if (farlands$dirtyTicks++ % 20 == 0) {
+                int px = mc.player.blockPosition().getX() >> 4;
+                int pz = mc.player.blockPosition().getZ() >> 4;
+                for (int sy = viewArea.minSectionY(); sy <= viewArea.maxSectionY(); sy++) {
+                    mc.level.setSectionDirtyWithNeighbors(px, sy, pz);
+                }
+                if (farlands$dirtyTicks % 200 == 0) {
+                    System.out.println("[YF-DIRTY] re-marked column " + px + "," + pz
+                        + " viewY=" + viewArea.minSectionY() + ".." + viewArea.maxSectionY());
+                    System.out.flush();
+                }
+            }
+        }
         // A ViewArea rebuilt while the camera was still uninitialised never got its
         // rotating centre, so every lookup returns null and nothing compiles.
         if (viewArea.getRenderSectionAt(mc.player.blockPosition()) == null) {

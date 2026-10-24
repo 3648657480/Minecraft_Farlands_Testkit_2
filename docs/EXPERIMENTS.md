@@ -2128,9 +2128,14 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   重进时客户端 chunk 窗口是低带、包里的高带段落不进数组。
   → `YBandOverrides.ensureLoaded(server)` + `MinecraftServerBandsMixin` 在
   `MinecraftServer.createLevels` HEAD 先加载覆盖表（按世界路径缓存）。
-- 仍未解决：重进时 `visible=6935`、带正确、但 `uncompiled≈6606` 不下降、
+- 仍未解决：重进时 `visible=6935`、带正确、但 `uncompiled≈6556` 不下降、
   `camSection=UNCOMPILED`——客户端段没有被排入编译（首进靠客户端桥的 `setSectionDirtyWithNeighbors`
-  触发；重进没有桥，赋键时的标脏/强制重建均未奏效）。下一步方向：
-  - 让 `LevelExtractor` 对"可见且 UNCOMPILED"的段无条件产出 update state（跳过 dirty 门槛）；
-  - 或给 `RotatingSectionStorage` 赋键后的 `reset()` 换成"仅 markDirty 不清网格"。
-- 证据：`mod/run/logs/latest.log`（12:45 崩溃）、`client-ytop7/8.log`、`client-reentry3/4/5.log`。 
+  触发；重进没有桥）。
+  - 已尝试但**未生效**：赋键后标脏；`[YF-ALLCHANGED]` 时 `invalidateCompiledGeometry` 重建；
+    相机段 UNCOMPILED 时每 20 tick 对玩家整列 `setSectionDirtyWithNeighbors`
+    （诊断计数 `[YF-DIRTY]` 为 0，说明该分支的条件在 tick 时并未成立，需下一步在 tick 里
+    无条件打印 `camSection` 的实际 mesh 状态来定位）。
+  - 候选根因：`RenderKeys` 表里同 key 的 `RenderSection` 实例可能与新 ViewArea 的实例不一致
+    （旧实例已 compiled，新实例 UNCOMPILED），导致 tick 侧判断为"已 compiled"而跳过。
+    下一步：让 `RenderKeys` 在 ViewArea 重建时清空/按新实例覆盖，或改为从 ViewArea 直接取段。
+- 证据：`mod/run/logs/latest.log`（12:45 崩溃）、`client-ytop7/8.log`、`client-reentry3/4/5/6.log`。 
