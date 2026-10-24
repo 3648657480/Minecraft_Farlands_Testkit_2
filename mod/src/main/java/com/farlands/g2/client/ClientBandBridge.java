@@ -117,8 +117,19 @@ public final class ClientBandBridge {
             lightEngine.queueSectionData(net.minecraft.world.level.LightLayer.SKY, sectionPos, skyLight);
             lightEngine.queueSectionData(net.minecraft.world.level.LightLayer.BLOCK, sectionPos, blockLight);
         }
+        int nonAir = 0;
+        for (var s : levelChunk.getSections()) {
+            if (s != null && !s.hasOnlyAir()) nonAir++;
+        }
+        int midSy = (int) windowed.farlands$windowMinSectionY() + levelChunk.getSections().length / 2;
+        var midPos = new net.minecraft.core.BlockPos(pos.x() * 16 + 8, midSy * 16 + 8, pos.z() * 16 + 8);
+        int idx = midSy - (int) windowed.farlands$windowMinSectionY();
+        var section = idx >= 0 && idx < levelChunk.getSections().length
+            ? levelChunk.getSections()[idx] : null;
         System.out.println("[YBRIDGE] applied pos=" + pos + " band=" + minSy
-            + ".." + windowed.farlands$windowMaxSectionY());
+            + ".." + windowed.farlands$windowMaxSectionY() + " nonAirSections=" + nonAir
+            + " readback=" + levelChunk.getBlockState(midPos)
+            + " secMid=" + (section == null ? "null" : section.getBlockState(8, 8, 8)));
         System.out.flush();
         return true;
     }

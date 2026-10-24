@@ -2243,3 +2243,22 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   该高度的 Cwg 地形本身稀疏（31×31 视野内仅少数区块被搬到远带，其余为空区块）。
 - 待办：把"视野内区块搬到远带"做得可接受（当前 `followRadius=2`、并发 3 约 40 秒填 25 块）；
   优化 Cwg 填充速度（插值/并行）是让画面成片的关键。
+
+## 93. 数据链验证与剩余症状（2026-10-24）
+
+- 填充加速：`CwgTerrain.fill` 改为**按段直接写**（绕过 `ChunkAccess.setBlockState` 的段查找/高度图），
+  单块 5s → **2.4s**（`[CWGFILL] ms=2340..2506`），填充量不变（如 `filled=52608`）。
+- 客户端/服务端数据一致性（`y=2147483100`）：
+  - `[REGEN] serverReadback pos=[0,0] sy=134217694 block=air`；
+  - `[YBRIDGE] applied pos=[0,0] nonAirSections=24 readback=air secMid=air`；
+  - `RDIAG ... clientNonAir=24 chunkWin=134217682..134217705`。
+  即：桥的映射、窗口、段数据在两端**一致**；该点密度本来就是空气（Cwg 48% 实心不是每点实心）。
+- 渲染管线：`uncompiled=0`、`queue=174`、`camSection=compiled`、`compileAsync` 2.4 万次。
+- 剩余症状：画面仍只见天空+零星柱状方块（`17.58.15.png`，即使 pitch=30 向下）。
+  当前最强假设：**段网格编译出的几何为空或位置错误**（`camSection` 的 origin 只打印了 X；
+  `SectionCompiler` 读区域时仍可能因高度/坐标路径判空），需要下一步直接 dump：
+  - `RenderSection` 的 `renderOrigin` 三个分量与 AABB；
+  - `CompiledSectionMesh` 是否为空（`isEmpty(...)`）；
+  - 在一个已知 stone 的绝对坐标上调 `region.getBlockState` 对比。
+- 已加入的诊断（可保留）：`RDIAG` 的 `below/clientNonAir/chunkWin`、`[YBRIDGE] applied` 的
+  `readback/secMid`、`[REGEN] serverReadback`、`[CWGFILL]` 计时。

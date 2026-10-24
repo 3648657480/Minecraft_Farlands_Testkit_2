@@ -103,6 +103,13 @@ public final class WindowRegenerator {
                             throw new RuntimeException(failure);
                         }
                         transplant(chunk, fillProto, center);
+                        int probeSy = ((WindowedChunk) chunk).farlands$windowMinSectionY()
+                            + chunk.getSections().length / 2;
+                        var probePos = new net.minecraft.core.BlockPos(pos.getMinBlockX() + 8,
+                            probeSy * 16 + 8, pos.getMinBlockZ() + 8);
+                        System.out.println("[REGEN] serverReadback pos=" + pos + " sy=" + probeSy
+                            + " block=" + chunk.getBlockState(probePos));
+                        System.out.flush();
                         try {
                             com.farlands.g2.client.ClientBandBridge.push(chunk.getPos(), center,
                                 ((WindowedChunk) chunk).farlands$windowMinSectionY(),

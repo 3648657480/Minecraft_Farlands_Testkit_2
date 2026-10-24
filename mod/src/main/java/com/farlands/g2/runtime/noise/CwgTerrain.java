@@ -80,27 +80,38 @@ public final class CwgTerrain {
 
     /** 用 Cwg 密度填充一段窗口（正密度=石，否则空气）；返回填充的方块数。 */
     public long fill(ChunkAccess chunk, int minSectionY, int maxSectionY) {
+        long startNanos = System.nanoTime();
         BlockState stone = Blocks.STONE.defaultBlockState();
         BlockState air = Blocks.AIR.defaultBlockState();
         int baseX = chunk.getPos().getMinBlockX();
         int baseZ = chunk.getPos().getMinBlockZ();
-        net.minecraft.core.BlockPos.MutableBlockPos pos = new net.minecraft.core.BlockPos.MutableBlockPos();
+        net.minecraft.world.level.chunk.LevelChunkSection[] sections = chunk.getSections();
+        int minChunkSectionY = chunk.getMinSectionY();
         long filled = 0;
         for (int sy = minSectionY; sy <= maxSectionY; sy++) {
+            int index = sy - minChunkSectionY;
+            if (index < 0 || index >= sections.length) {
+                continue;
+            }
+            net.minecraft.world.level.chunk.LevelChunkSection section = sections[index];
             for (int ly = 0; ly < 16; ly++) {
                 int y = sy * 16 + ly;
                 for (int x = 0; x < 16; x++) {
                     for (int z = 0; z < 16; z++) {
-                        double d = density(baseX + x, y, baseZ + z);
-                        pos.set(baseX + x, y, baseZ + z);
-                        chunk.setBlockState(pos, d > 0.0 ? stone : air, 2);
-                        if (d > 0.0) {
+                        boolean solid = density(baseX + x, y, baseZ + z) > 0.0;
+                        // Write the section directly: going through ChunkAccess per block
+                        // (section lookup + heightmap hooks) dominated the fill time.
+                        section.setBlockState(x, ly, z, solid ? stone : air);
+                        if (solid) {
                             filled++;
                         }
                     }
                 }
             }
         }
+        System.out.println("[CWGFILL] sy=" + minSectionY + ".." + maxSectionY + " filled=" + filled
+            + " ms=" + (System.nanoTime() - startNanos) / 1_000_000L);
+        System.out.flush();
         return filled;
     }
 

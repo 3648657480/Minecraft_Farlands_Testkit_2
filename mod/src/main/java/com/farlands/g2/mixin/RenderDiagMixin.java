@@ -116,12 +116,26 @@ public class RenderDiagMixin {
         String camInfo = cam == null ? "absent"
             : ("origin=" + cam.getRenderOrigin().getLongX()
                 + " mesh=" + (cam.getSectionMesh() == CompiledSectionMesh.UNCOMPILED ? "UNCOMPILED" : "compiled"));
+        var below = mc.player.blockPosition().below(1);
+        int clientNonAir = 0;
+        var clientChunk = mc.level.getChunkSource().getChunk(
+            mc.player.blockPosition().getX() >> 4, mc.player.blockPosition().getZ() >> 4,
+            net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false);
+        if (clientChunk != null) {
+            for (var s : clientChunk.getSections()) {
+                if (s != null && !s.hasOnlyAir()) clientNonAir++;
+            }
+        }
+        var clientBlock = mc.level.getBlockState(below);
         System.out.println("[RDIAG] visible=" + visible + "/" + total
             + " uncompiled=" + uncompiled
             + " east=" + east + " eastCompiled=" + eastCompiled
             + " queue=" + disp.getCompileQueueSize()
             + " player=" + mc.player.getX() + "," + mc.player.getY() + "," + mc.player.getZ()
             + " viewY=" + view.minSectionY() + ".." + view.maxSectionY()
+            + " below=" + clientBlock + " clientNonAir=" + clientNonAir
+            + " chunkWin=" + (clientChunk instanceof com.farlands.g2.runtime.WindowedChunk wc
+                ? (wc.farlands$windowMinSectionY() + ".." + wc.farlands$windowMaxSectionY()) : "none")
             + " camSection=" + camInfo);
         System.out.flush();
     }
