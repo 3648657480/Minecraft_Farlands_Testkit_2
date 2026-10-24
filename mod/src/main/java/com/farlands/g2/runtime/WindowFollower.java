@@ -49,7 +49,7 @@ public final class WindowFollower {
                 // Neighbouring chunks need the same band: the client marks a section
                 // dirty only when all four neighbours exist at that window, so a lone
                 // banded column never compiles on re-entry.
-                int radius = Integer.getInteger("farlands.y.followRadius", 1);
+                int radius = Integer.getInteger("farlands.y.followRadius", 0);
                 int pcx = player.chunkPosition().x();
                 int pcz = player.chunkPosition().z();
                 int ps = player.blockPosition().getY() >> 4;
