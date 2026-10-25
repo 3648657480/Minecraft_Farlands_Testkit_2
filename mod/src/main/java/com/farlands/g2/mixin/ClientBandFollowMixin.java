@@ -52,6 +52,31 @@ public class ClientBandFollowMixin {
         } catch (Throwable ignored) {
             // client classes only; never let the bridge break the tick
         }
+        // Chunks whose window is still on the dimension band hold ordinary terrain;
+        // drawing them at the page position paints that terrain at the far Y (the
+        // displaced-cliffs screenshot). Move them to the current page locally: the
+        // wide map has no sections there, so they render empty until the server
+        // pushes the real page. Guarded to far Y so normal worlds are untouched.
+        int blankSection = mc.player.blockPosition().getY() >> 4;
+        if (blankSection < mc.level.getMinSectionY() || blankSection > mc.level.getMaxSectionY()) {
+            int pageStart = com.farlands.g2.runtime.VerticalBounds.pageStart(blankSection, 24);
+            int radius = Math.min(8, mc.options.getEffectiveRenderDistance());
+            int pcx = mc.player.chunkPosition().x();
+            int pcz = mc.player.chunkPosition().z();
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    var clientChunk = mc.level.getChunkSource().getChunk(pcx + dx, pcz + dz,
+                        net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false);
+                    if (clientChunk instanceof com.farlands.g2.runtime.WindowedChunk wc
+                        && wc.farlands$windowMinSectionY() != pageStart) {
+                        wc.farlands$moveWindowToStart(pageStart);
+                        for (int i = 0; i < clientChunk.getSections().length; i++) {
+                            mc.level.setSectionDirtyWithNeighbors(pcx + dx, pageStart + i, pcz + dz);
+                        }
+                    }
+                }
+            }
+        }
         var viewArea = mc.levelRenderer.viewArea();
         if (viewArea == null) {
             return;
