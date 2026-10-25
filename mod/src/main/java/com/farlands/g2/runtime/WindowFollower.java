@@ -163,11 +163,31 @@ public final class WindowFollower {
         if (!(chunk instanceof WindowedChunk windowed)) {
             return false;
         }
-        // Normal Y: the dimension band IS the page; never page-move there (a page
-        // move would put sections at 0..23 while the window stays at -4..19).
+        // Normal Y: the dimension band IS the page. If the chunk is still on a far
+        // page (returning from high Y), move it back and re-prime the heightmaps.
         if (targetSectionY >= chunk.getLevel().getMinSectionY()
             && targetSectionY <= chunk.getLevel().getMaxSectionY()) {
-            return false;
+            int dimMin = chunk.getLevel().getMinSectionY();
+            if (windowed.farlands$windowMinSectionY() == dimMin) {
+                return false;
+            }
+            windowed.farlands$moveWindowToStart(dimMin);
+            com.farlands.g2.runtime.Heightmaps.primeFully(chunk, java.util.EnumSet.of(
+                net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE,
+                net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING,
+                net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR));
+            try {
+                com.farlands.g2.client.ClientBandBridge.push(chunk.getPos(),
+                    dimMin + (windowed.farlands$windowMaxSectionY() - dimMin) / 2, dimMin,
+                    java.util.Arrays.asList(chunk.getSections()));
+            } catch (Throwable ignored) {
+                // dedicated server: client classes absent
+            }
+            System.out.println("[YFOLLOW] back to dimension band pos=" + chunk.getPos()
+                + " band=" + dimMin + ".." + windowed.farlands$windowMaxSectionY());
+            System.out.flush();
+            return true;
         }
         int min = windowed.farlands$windowMinSectionY();
         int max = windowed.farlands$windowMaxSectionY();
