@@ -434,8 +434,7 @@ public abstract class MinecraftServerTestGenMixin {
                     && chunk instanceof net.minecraft.world.level.chunk.LevelChunk cmpChunk) {
                     int cmpSy = Integer.parseInt(colcmp.trim());
                     int cmpLen = cmpChunk.getSections().length;
-                    int pageMin = com.farlands.g2.runtime.VerticalBounds.pageMin(
-                        Math.floorDiv(cmpSy, cmpLen), cmpLen);
+                    int pageMin = com.farlands.g2.runtime.VerticalBounds.pageStart(cmpSy, cmpLen);
                     var cmpRouter = level.getChunkSource().randomState().router();
                     var cmpTerrain = com.farlands.g2.runtime.noise.CwgTerrain.create(
                         level.getSeed(), cmpRouter, true);
@@ -633,7 +632,7 @@ public abstract class MinecraftServerTestGenMixin {
             chunk.getPos(), net.minecraft.world.level.chunk.UpgradeData.EMPTY, level,
             level.palettedContainerFactory(), null);
         int len = proto.getSections().length;
-        int minSy = com.farlands.g2.runtime.VerticalBounds.pageMin(Math.floorDiv(centerSy, len), len);
+        int minSy = com.farlands.g2.runtime.VerticalBounds.pageStart(centerSy, len);
         long filled = terrain.fill(proto, minSy, minSy + len - 1);
         com.farlands.g2.runtime.WindowRegenerator.transplant(chunk, proto, centerSy);
         long ms = (System.nanoTime() - t0) / 1_000_000L;

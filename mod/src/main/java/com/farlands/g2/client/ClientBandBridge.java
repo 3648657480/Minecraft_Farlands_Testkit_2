@@ -31,7 +31,7 @@ public final class ClientBandBridge {
     private static final int MAX_ATTEMPTS = 400;
     private static final Map<Long, Pending> PENDING = new ConcurrentHashMap<>();
 
-    private record Pending(ChunkPos pos, int centerSectionY, byte[] data, int attempts) {
+    private record Pending(ChunkPos pos, int centerSectionY, int minSectionY, byte[] data, int attempts) {
     }
 
     private ClientBandBridge() {
@@ -54,7 +54,7 @@ public final class ClientBandBridge {
             sections.get(i).write(buffer);
         }
         byte[] data = ByteBufUtil.getBytes(buffer);
-        PENDING.put(key(pos), new Pending(pos, centerSectionY, data, 0));
+        PENDING.put(key(pos), new Pending(pos, centerSectionY, minSectionY, data, 0));
         System.out.println("[YBRIDGE] push pos=" + pos + " band=" + minSectionY + " sections=" + sections.size());
         System.out.flush();
         mc.execute(ClientBandBridge::retry);
@@ -78,7 +78,7 @@ public final class ClientBandBridge {
                     System.out.flush();
                 } else {
                     PENDING.put(entry.getKey(), new Pending(pending.pos(),
-                        pending.centerSectionY(), pending.data(), attempts));
+                        pending.centerSectionY(), pending.minSectionY(), pending.data(), attempts));
                 }
             }
         }
@@ -103,7 +103,7 @@ public final class ClientBandBridge {
             section.read(buffer);
             windowed.farlands$allSections().put(windowed.farlands$key(sectionY), section);
         }
-        windowed.farlands$moveWindowTo(pending.centerSectionY());
+        windowed.farlands$moveWindowToStart(pending.minSectionY());
         int minSy = windowed.farlands$windowMinSectionY();
         var lightEngine = mc.level.getLightEngine();
         var skyLight = new net.minecraft.world.level.chunk.DataLayer(15);

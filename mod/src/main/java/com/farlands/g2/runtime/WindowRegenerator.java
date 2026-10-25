@@ -91,7 +91,7 @@ public final class WindowRegenerator {
                         com.farlands.g2.runtime.noise.CwgTerrain.create(seed, router, true);
                     int len = fillProto.getSections().length;
                     // Page-aligned: minY = pageY * len (SEGMENT-PAGING §1).
-                    int minSy = com.farlands.g2.runtime.VerticalBounds.pageMin(Math.floorDiv(center, len), len);
+                    int minSy = com.farlands.g2.runtime.VerticalBounds.pageStart(center, len);
                     filled = terrain.fill(fillProto, minSy, minSy + len - 1);
                 } catch (Throwable t) {
                     error = t;
@@ -240,7 +240,7 @@ public final class WindowRegenerator {
         ServerLevel level = (ServerLevel) chunk.getLevel();
         int len = chunk.getSections().length;
         int pageY = Math.floorDiv(targetSectionY, len);
-        int pageMin = com.farlands.g2.runtime.VerticalBounds.pageMin(pageY, len);
+        int pageMin = com.farlands.g2.runtime.VerticalBounds.pageStart(targetSectionY, len);
         PageStore.Key key = new PageStore.Key(chunk.getPos().widePos(), pageY);
         if (!PageStore.begin(key)) {
             return;
@@ -328,7 +328,7 @@ public final class WindowRegenerator {
             all.put(windowed.farlands$key(min + i), sections[i]);
         }
         int center = min + (len - 1) / 2;
-        windowed.farlands$moveWindowTo(center);
+        windowed.farlands$moveWindowToStart(min);
         Heightmaps.primeFully(chunk, EnumSet.of(
             Heightmap.Types.WORLD_SURFACE,
             Heightmap.Types.MOTION_BLOCKING,
@@ -354,13 +354,13 @@ public final class WindowRegenerator {
         WindowedChunk windowed = (WindowedChunk) chunk;
         int len = chunk.getSections().length;
         // Page-aligned: minY = pageY * len (SEGMENT-PAGING §1).
-        int minSy = com.farlands.g2.runtime.VerticalBounds.pageMin(Math.floorDiv(centerSectionY, len), len);
+        int minSy = com.farlands.g2.runtime.VerticalBounds.pageStart(centerSectionY, len);
         Map<WideSectionKey2560, LevelChunkSection> all = windowed.farlands$allSections();
         LevelChunkSection[] protoSections = proto.getSections();
         for (int i = 0; i < len && i < protoSections.length; i++) {
             all.put(windowed.farlands$key(minSy + i), protoSections[i]);
         }
-        windowed.farlands$moveWindowTo(centerSectionY);
+        windowed.farlands$moveWindowToStart(minSy);
         Heightmaps.primeFully(chunk, EnumSet.of(
             Heightmap.Types.WORLD_SURFACE,
             Heightmap.Types.MOTION_BLOCKING,

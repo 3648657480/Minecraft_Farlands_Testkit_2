@@ -173,7 +173,7 @@ public final class WindowFollower {
         int max = windowed.farlands$windowMaxSectionY();
         int len = max - min + 1;
         int pageY = Math.floorDiv(targetSectionY, len);
-        int pageMin = com.farlands.g2.runtime.VerticalBounds.pageMin(pageY, len);
+        int pageMin = com.farlands.g2.runtime.VerticalBounds.pageStart(targetSectionY, len);
         if (pageMin == min) {
             maybePrefetch(chunk, targetSectionY, min, max, len, pageY);
             return false; // already on that page; moving inside a page is free

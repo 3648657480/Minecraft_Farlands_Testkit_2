@@ -30,6 +30,9 @@ public interface WindowedChunk {
     /** Move the window so that {@code center} (an int section Y) is its middle. */
     void farlands$moveWindowTo(int centerSectionY);
 
+    /** Move the window to an explicit page start (already clamped). */
+    void farlands$moveWindowToStart(int startSectionY);
+
     /** Wide key of an absolute section Y in this chunk's column. */
     WideSectionKey2560 farlands$key(int sectionY);
 }

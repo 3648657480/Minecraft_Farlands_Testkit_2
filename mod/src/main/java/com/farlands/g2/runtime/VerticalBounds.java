@@ -47,6 +47,20 @@ public final class VerticalBounds {
         return clamped * len;
     }
 
+    /**
+     * Canonical page start for a section Y: 24-aligned, but the last page is
+     * clamped to the playable top so the sections 134217720..126 are covered too
+     * (otherwise a player at 2^31-112..2^31-1 falls outside every page).
+     */
+    public static int pageStart(int sectionY, int len) {
+        int maxStart = MAX_PLAYABLE_SECTION - len + 1;
+        if (sectionY >= maxStart) {
+            return maxStart;
+        }
+        int start = Math.floorDiv(sectionY, len) * len;
+        return Math.max(start, MIN_PLAYABLE_SECTION);
+    }
+
     public static boolean inBuildHeight(int blockY) {
         return blockY >= MIN_PLAYABLE_BLOCK && blockY <= MAX_PLAYABLE_BLOCK;
     }

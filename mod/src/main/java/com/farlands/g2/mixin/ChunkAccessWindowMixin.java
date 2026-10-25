@@ -110,39 +110,44 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
     }
 
     /**
-     * Rebuild the page containing {@code centerSectionY}. Pages are aligned to
-     * 384 blocks (24 sections), so {@code minY = pageY * 384} is exact and never
-     * drifts between moves (SEGMENT-PAGING §1). No clamping: a page is always
-     * exactly one vanilla column height.
+     * Rebuild the page containing {@code centerSectionY} (dimension band for
+     * normal Y). Pages are page-aligned 384-block pages; the very top page is
+     * clamped so the sections above the last aligned page are still covered.
      */
     @Unique
     private void farlands$applyWindow(int centerSectionY) {
         int len = this.sections.length;
-        int half = (len - 1) / 2;
         int dimensionMin = this.levelHeightAccessor.getMinSectionY();
         int dimensionMax = this.levelHeightAccessor.getMaxSectionY();
-        int minSy;
-        int maxSy;
         if (len == dimensionMax - dimensionMin + 1
             && centerSectionY >= dimensionMin && centerSectionY <= dimensionMax) {
-            // Normal world: the page is the dimension band itself. Aligning this to
-            // a 24-page would shift every normal chunk by a few sections.
-            minSy = dimensionMin;
-            maxSy = dimensionMax;
-        } else {
-            // Far Y: page-aligned, minY = pageY * len (SEGMENT-PAGING §1).
-            int pageY = Math.floorDiv(centerSectionY, len);
-            minSy = VerticalBounds.pageMin(pageY, len);
-            maxSy = minSy + len - 1;
+            // Normal world: the page is the dimension band itself.
+            farlands$applyWindowStart(dimensionMin);
+            return;
         }
+        farlands$applyWindowStart(VerticalBounds.pageStart(centerSectionY, len));
+    }
+
+    /** Rebuild the window at an explicit (already clamped) page start. */
+    @Unique
+    private void farlands$applyWindowStart(int minSy) {
+        int len = this.sections.length;
+        int half = (len - 1) / 2;
+        int maxStart = VerticalBounds.MAX_PLAYABLE_SECTION - len + 1;
+        if (minSy > maxStart) {
+            minSy = maxStart;
+        }
+        if (minSy < VerticalBounds.MIN_PLAYABLE_SECTION) {
+            minSy = VerticalBounds.MIN_PLAYABLE_SECTION;
+        }
+        int maxSy = minSy + len - 1;
         this.farlands$minSy = minSy;
         this.farlands$maxSy = maxSy;
         this.farlands$centerY = WideSectionCoord512.of((long) minSy + half);
         this.farlands$windowReady = true;
         if (Boolean.getBoolean("farlands.y.diag")) {
             System.out.println("[YWIN] page pos=" + chunkPos.x() + "," + chunkPos.z()
-                + " band=" + minSy + ".." + maxSy
-                + " center=" + centerSectionY + " arrayLen=" + this.sections.length);
+                + " band=" + minSy + ".." + maxSy + " arrayLen=" + this.sections.length);
             System.out.flush();
         }
         for (int i = 0; i < len; i++) {
@@ -190,6 +195,11 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
     @Override
     public void farlands$moveWindowTo(int centerSectionY) {
         farlands$applyWindow(centerSectionY);
+    }
+
+    @Override
+    public void farlands$moveWindowToStart(int startSectionY) {
+        farlands$applyWindowStart(startSectionY);
     }
 
     @Override
