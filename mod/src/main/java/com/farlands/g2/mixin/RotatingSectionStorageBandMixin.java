@@ -83,17 +83,12 @@ public abstract class RotatingSectionStorageBandMixin {
         int base = Integer.MIN_VALUE;
         if (Math.abs(newCenterSectionPos.y()) > 1_000_000
             && (newCenterSectionPos.y() < this.minY || newCenterSectionPos.y() > this.maxY)) {
-            // Only for grids whose Y range is the dimension's (the client's update
-            // tracker). The ViewArea grid is already built around the window band.
-            base = newCenterSectionPos.y() - (this.sectionGridSizeY - 1) / 2;
-            int maxPlayable = VerticalBounds.MAX_PLAYABLE_SECTION;
-            int minPlayable = VerticalBounds.MIN_PLAYABLE_SECTION;
-            if (base + this.sectionGridSizeY - 1 > maxPlayable) {
-                base = maxPlayable - this.sectionGridSizeY + 1;
-            }
-            if (base < minPlayable) {
-                base = minPlayable;
-            }
+            // Page-aligned base: the ViewArea grid and the chunk window are both
+            // 384-block pages, so the dirty tracker must use the same keys. A
+            // camera-centred base made the tracker keys drift with the camera and
+            // left visible sections marked dirty/compiled inconsistently (§105).
+            int gridY = this.sectionGridSizeY;
+            base = VerticalBounds.pageMin(Math.floorDiv(newCenterSectionPos.y(), gridY), gridY);
         }
         this.farlands$base = base;
 

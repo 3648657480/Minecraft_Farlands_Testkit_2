@@ -2468,3 +2468,16 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 未解决：穹顶区（25M–2G）仍是 ~455ms/页，列式不适用；要再快需要噪声内部优化
   （缓存与 Y 无关的链/降低 octave），属于 R9 深层地形工作。
 - 证据：`exp-colcmp-*`、`exp-colgate.log`、`exp-colgate-normal.log`。
+
+## 105. 错位根因（客户端）：tracker 的带按相机中点算（2026-10-25）
+
+- 现状：`ViewArea` 的带来自 chunk 窗口（P1 起是 384 对齐页），但
+  `RotatingSectionStorageBandMixin` 里 **`SectionUpdateTracker` 的 base 仍按相机中点**：
+  `base = cameraY - (gridY-1)/2`。
+- 后果：tracker 的键随相机移动而变，而 ViewArea/数据固定在页上 → 脏段对不上，
+  可见段时脏时编译、位置随视角变化（"错位在视野内变化"）。
+- 修复：tracker 也改成页对齐
+  `base = VerticalBounds.pageMin(floorDiv(cameraY, gridY), gridY)`。
+- 验证：构建通过；正常世界不受影响（`|cameraY|<=1e6` 且维度带内不走该分支）。
+- 待测：客户端跨页/移动时错位是否消失。若仍存在，下一处是
+  "换页时强制重建 ViewArea"（`LevelRenderer.allChanged()` 路径），而不是再改设计。
