@@ -428,6 +428,52 @@ public abstract class MinecraftServerTestGenMixin {
                         + (System.nanoTime() - pt0) / 1_000_000L);
                     System.out.flush();
                 }
+                // Columnar fast-path comparison (full fill vs per-column fill).
+                String colcmp = System.getProperty("farlands.testgen.colcmp");
+                if (colcmp != null && !colcmp.isEmpty()
+                    && chunk instanceof net.minecraft.world.level.chunk.LevelChunk cmpChunk) {
+                    int cmpSy = Integer.parseInt(colcmp.trim());
+                    int cmpLen = cmpChunk.getSections().length;
+                    int pageMin = com.farlands.g2.runtime.VerticalBounds.pageMin(
+                        Math.floorDiv(cmpSy, cmpLen), cmpLen);
+                    var cmpRouter = level.getChunkSource().randomState().router();
+                    var cmpTerrain = com.farlands.g2.runtime.noise.CwgTerrain.create(
+                        level.getSeed(), cmpRouter, true);
+                    Integer prevBand = com.farlands.g2.runtime.SavedBandContext.get();
+                    com.farlands.g2.runtime.SavedBandContext.set(pageMin);
+                    var protoA = new net.minecraft.world.level.chunk.ProtoChunk(cmpChunk.getPos(),
+                        net.minecraft.world.level.chunk.UpgradeData.EMPTY, level,
+                        level.palettedContainerFactory(), null);
+                    var protoB = new net.minecraft.world.level.chunk.ProtoChunk(cmpChunk.getPos(),
+                        net.minecraft.world.level.chunk.UpgradeData.EMPTY, level,
+                        level.palettedContainerFactory(), null);
+                    if (prevBand != null) {
+                        com.farlands.g2.runtime.SavedBandContext.set(prevBand);
+                    } else {
+                        com.farlands.g2.runtime.SavedBandContext.clear();
+                    }
+                    long filledA = cmpTerrain.fill(protoA, pageMin, pageMin + cmpLen - 1);
+                    long filledB = cmpTerrain.fillColumnar(protoB, pageMin, pageMin + cmpLen - 1);
+                    com.farlands.g2.runtime.SavedBandContext.set(pageMin);
+                    var protoC = new net.minecraft.world.level.chunk.ProtoChunk(cmpChunk.getPos(),
+                        net.minecraft.world.level.chunk.UpgradeData.EMPTY, level,
+                        level.palettedContainerFactory(), null);
+                    long filledC = cmpTerrain.fillColumnarSection(protoC, pageMin, pageMin + cmpLen - 1);
+                    if (prevBand != null) {
+                        com.farlands.g2.runtime.SavedBandContext.set(prevBand);
+                    } else {
+                        com.farlands.g2.runtime.SavedBandContext.clear();
+                    }
+                    long hashC = farlands$digestProto(protoC);
+                    long hashA = farlands$digestProto(protoA);
+                    long hashB = farlands$digestProto(protoB);
+                    System.out.println("[COLCMP] sy=" + cmpSy + " pageMin=" + pageMin
+                        + " filledA=" + filledA + " filledB=" + filledB
+                        + " digestA=" + Long.toHexString(hashA) + " digestB=" + Long.toHexString(hashB)
+                        + " match=" + (hashA == hashB)
+                        + " sectionMatch=" + (hashA == hashC) + " digestC=" + Long.toHexString(hashC));
+                    System.out.flush();
+                }
                 // Y-D follow trigger: exercise the same code path players use.
                 String followSy = System.getProperty("farlands.testgen.followsy");
                 if (followSy != null && !followSy.isEmpty()
@@ -705,6 +751,23 @@ public abstract class MinecraftServerTestGenMixin {
 
     /** Sampled block-state digest of a chunk's window (for regeneration comparisons). */
     @Unique
+    private static long farlands$digestProto(net.minecraft.world.level.chunk.ChunkAccess chunk) {
+        long h = 1125899906842597L;
+        var sections = chunk.getSections();
+        int baseSection = chunk.getMinSectionY();
+        for (int i = 0; i < sections.length; i++) {
+            var section = sections[i];
+            for (int y = 0; y < 16; y++) {
+                for (int x = 0; x < 16; x++) {
+                    for (int z = 0; z < 16; z++) {
+                        h = h * 31L + (section.getBlockState(x, y, z).isAir() ? 0L : 1L);
+                    }
+                }
+            }
+        }
+        return h;
+    }
+
     private static long farlands$digest(net.minecraft.world.level.chunk.LevelChunk chunk) {
         long h = 1125899906842597L;
         int minY = chunk.getMinY();

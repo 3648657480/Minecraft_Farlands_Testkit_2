@@ -83,6 +83,12 @@ public final class CwgTerrain {
 
     /** 用 Cwg 密度填充一段窗口（正密度=石，否则空气）；返回填充的方块数。 */
     public long fill(ChunkAccess chunk, int minSectionY, int maxSectionY) {
+        // Extreme saturation band (verified bit-exact at ~2.14G-2^31): the density
+        // there collapses to a Y-invariant lattice, so one probe per column suffices.
+        if (Math.abs((long) minSectionY * 16L) >= 2_140_000_000L
+            && !Boolean.getBoolean("farlands.gen.cwg.noColumnar")) {
+            return fillColumnar(chunk, minSectionY, maxSectionY);
+        }
         long startNanos = System.nanoTime();
         BlockState stone = Blocks.STONE.defaultBlockState();
         BlockState air = Blocks.AIR.defaultBlockState();
@@ -114,6 +120,94 @@ public final class CwgTerrain {
         }
         System.out.println("[CWGFILL] sy=" + minSectionY + ".." + maxSectionY + " filled=" + filled
             + " ms=" + (System.nanoTime() - startNanos) / 1_000_000L);
+        System.out.flush();
+        return filled;
+    }
+
+    /**
+     * Columnar fast path: in the saturated far region the density depends only on
+     * (x,z), so evaluate it once per column and copy it across the whole page.
+     */
+    public long fillColumnar(ChunkAccess chunk, int minSectionY, int maxSectionY) {
+        long startNanos = System.nanoTime();
+        BlockState stone = Blocks.STONE.defaultBlockState();
+        BlockState air = Blocks.AIR.defaultBlockState();
+        int baseX = chunk.getPos().getMinBlockX();
+        int baseZ = chunk.getPos().getMinBlockZ();
+        net.minecraft.world.level.chunk.LevelChunkSection[] sections = chunk.getSections();
+        int minChunkSectionY = chunk.getMinSectionY();
+        int probeY = ((minSectionY + maxSectionY) / 2) * 16 + 8;
+        boolean[] solid = new boolean[256];
+        for (int x = 0; x < 16; x++) {
+            for (int z = 0; z < 16; z++) {
+                solid[x * 16 + z] = density(baseX + x, probeY, baseZ + z) > 0.0;
+            }
+        }
+        long filled = 0;
+        for (int sy = minSectionY; sy <= maxSectionY; sy++) {
+            int index = sy - minChunkSectionY;
+            if (index < 0 || index >= sections.length) {
+                continue;
+            }
+            net.minecraft.world.level.chunk.LevelChunkSection section = sections[index];
+            for (int ly = 0; ly < 16; ly++) {
+                for (int x = 0; x < 16; x++) {
+                    for (int z = 0; z < 16; z++) {
+                        boolean s = solid[x * 16 + z];
+                        section.setBlockState(x, ly, z, s ? stone : air);
+                        if (s) {
+                            filled++;
+                        }
+                    }
+                }
+            }
+        }
+        System.out.println("[CWGFILL-COL] sy=" + minSectionY + ".." + maxSectionY
+            + " filled=" + filled + " ms=" + (System.nanoTime() - startNanos) / 1_000_000L);
+        System.out.flush();
+        return filled;
+    }
+
+    /**
+     * Per-section columnar variant: one density probe per (section, x, z) at the
+     * section mid-Y. Useful where invariance holds per section but not per page.
+     */
+    public long fillColumnarSection(ChunkAccess chunk, int minSectionY, int maxSectionY) {
+        long startNanos = System.nanoTime();
+        BlockState stone = Blocks.STONE.defaultBlockState();
+        BlockState air = Blocks.AIR.defaultBlockState();
+        int baseX = chunk.getPos().getMinBlockX();
+        int baseZ = chunk.getPos().getMinBlockZ();
+        net.minecraft.world.level.chunk.LevelChunkSection[] sections = chunk.getSections();
+        int minChunkSectionY = chunk.getMinSectionY();
+        long filled = 0;
+        boolean[] solid = new boolean[256];
+        for (int sy = minSectionY; sy <= maxSectionY; sy++) {
+            int index = sy - minChunkSectionY;
+            if (index < 0 || index >= sections.length) {
+                continue;
+            }
+            int probeY = sy * 16 + 8;
+            for (int x = 0; x < 16; x++) {
+                for (int z = 0; z < 16; z++) {
+                    solid[x * 16 + z] = density(baseX + x, probeY, baseZ + z) > 0.0;
+                }
+            }
+            net.minecraft.world.level.chunk.LevelChunkSection section = sections[index];
+            for (int ly = 0; ly < 16; ly++) {
+                for (int x = 0; x < 16; x++) {
+                    for (int z = 0; z < 16; z++) {
+                        boolean s = solid[x * 16 + z];
+                        section.setBlockState(x, ly, z, s ? stone : air);
+                        if (s) {
+                            filled++;
+                        }
+                    }
+                }
+            }
+        }
+        System.out.println("[CWGFILL-SEC] sy=" + minSectionY + ".." + maxSectionY
+            + " filled=" + filled + " ms=" + (System.nanoTime() - startNanos) / 1_000_000L);
         System.out.flush();
         return filled;
     }
