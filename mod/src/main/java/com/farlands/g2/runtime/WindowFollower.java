@@ -50,10 +50,13 @@ public final class WindowFollower {
                 // Neighbouring chunks need the same band: the client marks a section
                 // dirty only when all four neighbours exist at that window, so a lone
                 // banded column never compiles on re-entry.
-                // Must cover the whole view: chunks left on the dimension band render
-                // at the wrong Y next to page chunks (mixed-band misalignment).
+                // Ticked chunks are bounded by the simulation distance; visible ones
+                // by the view distance — take the larger of the two.
                 int view = server.getPlayerList().getViewDistance();
-                int radius = Math.min(Integer.getInteger("farlands.y.followRadius", view), 16);
+                int sim = server.getPlayerList().getSimulationDistance();
+                int cap = Integer.getInteger("farlands.y.followRadiusMax", 16);
+                int radius = Math.min(Integer.getInteger("farlands.y.followRadius",
+                    Math.max(view, sim)), cap);
                 int budget = Integer.getInteger("farlands.y.followBudget", 4);
                 int issued = 0;
                 int pcx = player.chunkPosition().x();
