@@ -171,12 +171,18 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
 
     @Inject(method = "getSection", at = @At("HEAD"), cancellable = true)
     private void farlands$getSection(int sectionIndex, CallbackInfoReturnable<LevelChunkSection> cir) {
-        if (!Boolean.getBoolean("farlands.y.window")) {
+        if (!Boolean.getBoolean("farlands.y.window")
+            && !Boolean.getBoolean("farlands.y.abs")) {
             return;
         }
         if (sectionIndex < 0 || sectionIndex >= this.sections.length) {
-            // Outside the window: no section. Vanilla callers must see air, not
-            // an ArrayIndexOutOfBoundsException.
+            int absoluteSectionY = farlands$minSy + sectionIndex;
+            if (Math.abs((long) absoluteSectionY) > 1_000_000L) {
+                // Route D0: the data layer is absolute; the 24-slot array is only
+                // the current view. Out-of-view reads resolve by absolute section Y.
+                cir.setReturnValue(farlands$sectionAt(absoluteSectionY));
+                return;
+            }
             cir.setReturnValue(farlands$emptySection());
             return;
         }
@@ -225,5 +231,11 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
     @Override
     public WideSectionKey2560 farlands$key(int sectionY) {
         return WideSectionKey2560.of(chunkPos.xLong(), (long) sectionY, chunkPos.zLong());
+    }
+
+    @Override
+    public LevelChunkSection farlands$sectionAt(int absoluteSectionY) {
+        return this.farlands$all.computeIfAbsent(farlands$key(absoluteSectionY),
+            ignored -> new LevelChunkSection(this.farlands$factory));
     }
 }

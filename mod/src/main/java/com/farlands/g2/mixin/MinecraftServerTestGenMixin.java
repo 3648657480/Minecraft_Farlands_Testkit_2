@@ -473,6 +473,22 @@ public abstract class MinecraftServerTestGenMixin {
                         + " sectionMatch=" + (hashA == hashC) + " digestC=" + Long.toHexString(hashC));
                     System.out.flush();
                 }
+                // Route D0 probe: absolute-Y block write/read through the data layer.
+                String d0y = System.getProperty("farlands.testgen.absy");
+                if (d0y != null && !d0y.isEmpty()) {
+                    long y = Long.parseLong(d0y.trim());
+                    var p0 = new net.minecraft.core.BlockPos(8L, y, 8L);
+                    var stone0 = net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
+                    boolean set0 = level.setBlock(p0, stone0, 3);
+                    var read0 = level.getBlockState(p0);
+                    var chunk0 = level.getChunk(0, 0);
+                    int size0 = chunk0 instanceof com.farlands.g2.runtime.WindowedChunk w0
+                        ? w0.farlands$allSections().size() : -1;
+                    System.out.println("[D0] y=" + y + " getLongY=" + p0.getLongY()
+                        + " set=" + set0 + " read=" + read0 + " ok=" + read0.equals(stone0)
+                        + " absoluteSections=" + size0);
+                    System.out.flush();
+                }
                 // Y-D follow trigger: exercise the same code path players use.
                 String followSy = System.getProperty("farlands.testgen.followsy");
                 if (followSy != null && !followSy.isEmpty()

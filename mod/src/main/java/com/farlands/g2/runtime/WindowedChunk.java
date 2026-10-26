@@ -35,4 +35,7 @@ public interface WindowedChunk {
 
     /** Wide key of an absolute section Y in this chunk's column. */
     WideSectionKey2560 farlands$key(int sectionY);
+
+    /** Absolute data section (created on demand, never relocated). */
+    LevelChunkSection farlands$sectionAt(int absoluteSectionY);
 }
