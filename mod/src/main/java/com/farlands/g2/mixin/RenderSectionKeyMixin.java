@@ -46,11 +46,14 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
             return;
         }
         this.reset();
-        int x = key.x << 4;
-        int y = key.y << 4;
-        int z = key.z << 4;
-        this.renderOrigin.set(x, y, z);
-        this.bb = new AABB(x, y, z, x + 16.0, y + 16.0, z + 16.0);
+        // X/Z long->double, following the X/Z render solution: the AABB carries the
+        // exact position; the int origin is only a legacy view.
+        long lx = key.lx << 4;
+        long ly = key.ly << 4;
+        long lz = key.lz << 4;
+        this.renderOrigin.set((int) lx, (int) ly, (int) lz);
+        this.bb = new AABB((double) lx, (double) ly, (double) lz,
+            (double) (lx + 16L), (double) (ly + 16L), (double) (lz + 16L));
         RenderKeys.put(key, (SectionRenderDispatcher.RenderSection) (Object) this);
         // reset() dropped the mesh; mark only this section dirty. Marking the whole
         // 3x3x3 neighbourhood here floods the queue whenever the camera moves and

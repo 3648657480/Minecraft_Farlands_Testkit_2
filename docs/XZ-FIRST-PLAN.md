@@ -32,7 +32,7 @@ X/Z 的机制已经存在，而且**刚刚验证**：
 | 阶段 | 内容 | 产出 |
 |---|---|---|
 | X0 | 基线（本轮已完成） | gen/save at chunk 2^27 ✅ |
-| X1 | **渲染**：SectionKey 宽相等性、RenderKeys long 视图、origin/AABB 用 long→double | 客户端在 X=2^31 看到段 |
+| X1 | **渲染**：SectionKey 宽相等性、RenderKeys long 视图、origin/AABB 用 long→double | ✅ X=2^31−16 见截图；2^31+16 待 X1b |
 | X2 | 方块写读 + 存档往返 | 关服重开一致 |
 | X3 | 把三处改动抽成"轴无关"的公共路径 | X/Y/Z 共用 |
 | X4 | **反杀 Y**：数据层已绝对（D0），渲染复用 X1 的路径 | Y 远段可见 |

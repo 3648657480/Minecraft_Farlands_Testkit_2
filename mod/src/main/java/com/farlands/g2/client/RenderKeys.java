@@ -90,6 +90,21 @@ public final class RenderKeys {
         return key != null ? key.z : SectionPos.z(node);
     }
 
+    public static long xLong(long node) {
+        SectionKey key = keyOf(node);
+        return key != null ? key.lx : SectionPos.x(node);
+    }
+
+    public static long yLong(long node) {
+        SectionKey key = keyOf(node);
+        return key != null ? key.ly : SectionPos.y(node);
+    }
+
+    public static long zLong(long node) {
+        SectionKey key = keyOf(node);
+        return key != null ? key.lz : SectionPos.z(node);
+    }
+
     public static SectionPos pos(long node) {
         SectionKey key = keyOf(node);
         return key != null ? SectionPos.of(key.x, key.y, key.z) : SectionPos.of(node);

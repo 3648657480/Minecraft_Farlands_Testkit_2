@@ -24,6 +24,7 @@ public class ClientAutoTestMixin {
     private static BlockPos farlands$target;
     private static double farlands$holdX, farlands$holdY, farlands$holdZ;
     private static boolean farlands$logged;
+    private static boolean farlands$openedWorld;
     private static boolean farlands$shot;
 
     @Inject(method = "runTick", at = @At("HEAD"))
@@ -40,20 +41,46 @@ public class ClientAutoTestMixin {
         if (mc.options != null) {
             mc.options.pauseOnLostFocus = false;
         }
-        if (mc.player == null || mc.level == null || mc.gameMode == null) {
+        if (mc.level == null) {
+            String world = System.getProperty("farlands.autotest.world");
+            if (world != null && !world.isEmpty() && !farlands$openedWorld) {
+                farlands$openedWorld = true;
+                System.out.println("[AUTOTEST] opening world " + world);
+                System.out.flush();
+                mc.createWorldOpenFlows().openWorld(world,
+                    () -> System.out.println("[AUTOTEST] world opened"));
+            }
+            return;
+        }
+        if (mc.player == null || mc.gameMode == null) {
             return;
         }
         farlands$ticks++;
         switch (farlands$phase) {
             case 0 -> {
                 if (farlands$ticks > 100) {
-                    mc.player.connection.sendCommand("gamemode creative");
+                    mc.player.connection.sendCommand(Boolean.getBoolean("farlands.autotest.spectator")
+                        ? "gamemode spectator" : "gamemode creative");
                     double tx = Double.parseDouble(System.getProperty("farlands.autotest.x", "2147483648.0"));
                     double ty = Double.parseDouble(System.getProperty("farlands.autotest.y", "70"));
                     double tz = Double.parseDouble(System.getProperty("farlands.autotest.z", "0.5"));
                     farlands$holdX = tx; farlands$holdY = ty; farlands$holdZ = tz;
-                    mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
-                        "tp @s %.1f %.1f %.1f 0 90", tx, ty, tz));
+                    if (Boolean.getBoolean("farlands.autotest.directTp")) {
+                        var server = mc.getSingleplayerServer();
+                        final double dx = tx;
+                        final double dy = ty;
+                        final double dz = tz;
+                        if (server != null) {
+                            server.execute(() -> {
+                                var sp = server.getPlayerList().getPlayers().get(0);
+                                sp.teleportTo(dx, dy, dz);
+                                System.out.println("[AUTOTEST] direct tp sent x=" + dx);
+                            });
+                        }
+                    } else {
+                        mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
+                            "tp @s %.1f %.1f %.1f 0 90", tx, ty, tz));
+                    }
                     farlands$phase = 1;
                     farlands$ticks = 0;
                     System.out.println("[AUTOTEST] teleport sent pos=" + mc.player.position()

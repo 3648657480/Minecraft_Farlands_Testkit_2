@@ -15,7 +15,9 @@
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | D0 | 数据层：`WideSectionCoord512` 键 + 绝对段读写 | ✅ |
-| D1 | 渲染缓存：band 由相机决定、绝对 origin、补光 | ⏳ 下一步 |
+| X1 | X/Z 渲染：SectionKey 宽相等性、RenderKeys long、origin/AABB long→double | ✅（X≤2^31−16） |
+| X1b | X/Z 超过 int 上限（2^31+16）：相机段/段查找去 int | ⏳ 下一步 |
+| X2 | 存档宽 chunk 坐标 | 未开始 |
 | D2 | 生成：按页 Cwg → 客户端 upsert | 未开始 |
 | D3 | 存档：额外 NBT 列表 | 未开始 |
 | D4 | 生命周期：离屏卸载 | 未开始 |

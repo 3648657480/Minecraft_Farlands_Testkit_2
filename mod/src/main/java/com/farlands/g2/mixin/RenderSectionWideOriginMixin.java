@@ -26,10 +26,12 @@ public abstract class RenderSectionWideOriginMixin {
 
     @Inject(method = "setSectionNode", at = @At("TAIL"))
     private void farlands$wideOrigin(long sectionNode, CallbackInfo ci) {
-        long x = (long) SectionPos.x(sectionNode) * 16L;
-        long y = (long) SectionPos.y(sectionNode) * 16L;
-        long z = (long) SectionPos.z(sectionNode) * 16L;
-        this.renderOrigin.set(x, y, z);
+        // Decode through the wide render key (the X/Z recipe): SectionPos.y(long)
+        // is the 6-bit packed view and is wrong outside the dimension band.
+        long x = com.farlands.g2.client.RenderKeys.xLong(sectionNode) * 16L;
+        long y = com.farlands.g2.client.RenderKeys.yLong(sectionNode) * 16L;
+        long z = com.farlands.g2.client.RenderKeys.zLong(sectionNode) * 16L;
+        this.renderOrigin.set((int) x, (int) y, (int) z);
         this.bb = new AABB((double) x, (double) y, (double) z,
             (double) (x + 16L), (double) (y + 16L), (double) (z + 16L));
         if (x >= 2147483600L && x <= 2147483664L) {
