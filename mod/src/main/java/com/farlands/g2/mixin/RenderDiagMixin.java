@@ -83,6 +83,18 @@ public class RenderDiagMixin {
         for (Object ignored : view.getAllSections()) {
             total++;
         }
+        int chunkPresent = 0;
+        if (mc.level != null && mc.player != null) {
+            int cx = (int) Math.floorDiv((long) Math.floor(mc.player.getX()), 16L);
+            int cz = (int) Math.floorDiv((long) Math.floor(mc.player.getZ()), 16L);
+            for (int dx = -2; dx <= 2; dx++) {
+                for (int dz = -2; dz <= 2; dz++) {
+                    if (mc.level.getChunkSource().getChunk(cx + dx, cz + dz, false) != null) {
+                        chunkPresent++;
+                    }
+                }
+            }
+        }
         int uncompiled = 0;
         int innerUncompiled = 0;
         int east = 0;
@@ -173,7 +185,7 @@ public class RenderDiagMixin {
         var clientBlock = mc.level.getBlockState(below);
         System.out.println("[RDIAG] visible=" + visible + "/" + total
             + " uncompiled=" + uncompiled
-            + " innerUncompiled=" + innerUncompiled
+            + " innerUncompiled=" + innerUncompiled + " chunks5x5=" + chunkPresent
             + " east=" + east + " eastCompiled=" + eastCompiled
             + " queue=" + disp.getCompileQueueSize()
             + " player=" + mc.player.getX() + "," + mc.player.getY() + "," + mc.player.getZ()
