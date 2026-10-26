@@ -1,96 +1,80 @@
-# 项目状态台账（G2 / Y 轴路线 D）
+# G2 状态（唯一入口）
 
-> 更新时间：2026-10-26
-> 当前分支：`arch`（宽身份线，基 `77594fa`），HEAD `554d958`
-> 工作区：仅 `M LICENSE`，无未提交代码；最近一次构建通过。
+> 更新时间：2026-10-26　分支：`arch`（宽身份线）　HEAD：`3975408`+
 
-## 1. 这个分支现在有什么
+## 30 秒版
 
-相对基 `77594fa` 只有 3 个提交：
+- **目标**：远 Y（穹顶 25M、2^31）能生成、能渲染、能存档；正常世界逐位不变。
+- **已完成**：D0 数据层——512 位 Y 键、绝对段存储、远 Y 读写。
+- **下一步**：D1 渲染缓存——绝对 origin，让远段真正画出来。
+- **不要做**：不要再开新设计文档；旧设计全部在 `docs/archive/`。
+- **只看这一页**：其余文档都是参考，不是任务。
 
-| 提交 | 内容 |
-|---|---|
-| `a21b605` | 架构基准 `docs/ARCHITECTURE-WIDE.md`（身份/视图契约、epoch T1、Y 四路线、清理记录） |
-| `4d787a2` | **D0**：稀疏绝对段数据路由（见下） |
-| `554d958` | 文档修正：epoch 墓志铭属于 G2；D0..D5 是路线 D 阶段号 |
-
-D0 改动的文件（全部 `git show 4d787a2` 可查）：
-
-```text
-docs/Y-D-PLAN.md
-mod/.../mixin/ChunkAccessWindowMixin.java      +18/-3
-mod/.../mixin/LevelAbsYFastMixin.java          +72（新增）
-mod/.../mixin/MinecraftServerTestGenMixin.java +16
-mod/.../runtime/WindowedChunk.java             +3
-mod/.../resources/farlands-world.mixins.json   +1
-```
-
-## 2. D0 到底做了什么（行为）
-
-- 数据层：`ChunkAccess.farlands$all`（**512 位 Y 的宽键** → 段）按**绝对段号**存，永不搬移；
-- 数据层 API 用 `WideSectionCoord512`（`farlands$key/sectionAt` 的宽重载）；
-  `int` 重载只是视图；
-- 唯一转换点：`ChunkAccess.getSection(index)` 越界且 |绝对段号| > 1e6 时按绝对段查/建；
-- 入口：`Level.getBlockState/setBlock` 对 |Y| > 1e6 直达绝对段（非阻塞 chunk 查找，
-  读缺失返回空气）；
-- **只在 `-Dfarlands.y.abs=true` 时生效**；正常世界路径不变。
-
-## 3. 已验证 / 未验证
-
-| 项 | 状态 | 证据 |
-|---|---|---|
-| 正常世界逐位不变 | ✅ | `surf=b9216bad2029 floor=8936c275d063` |
-| 2^31+8 写/读（超过 int 方块上限） | ✅ | `[D0] y=2147483648 … set=true read=stone ok=true absoluteSections=25` |
-| 25M 写/读 | ✅ | `[D0] y=25165824 … set=true read=stone ok=true absoluteSections=25` |
-| **512 位 Y（section 2^31，块 Y=2^35）** | ✅ | `[D0] y=34359738368 … ok=true absoluteSections=25`（段号超过 int） |
-| 客户端渲染（D1） | ❌ 未做 | — |
-| 存档往返（D3） | ❌ 未做（spike 版本在 history 分支验证过） | `history/2026-10-26-abs-y` |
-| 真实地形生成→客户端（D2） | ❌ 未做 | — |
-| 远段卸载（D4） | ❌ 未做 | — |
-
-## 4. 路线 D 进度
+## 进度（路线 D）
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
-| D0 | 数据路由（绝对段卷/写/读） | ✅ 完成 |
-| D1 | 渲染缓存（band 由相机 double 决定、绝对 origin、补光） | ⏳ 下一步 |
-| D2 | 按页生成 Cwg → 客户端 upsert | 未开始 |
-| D3 | 存档（额外 NBT 列表） | 未开始 |
-| D4 | 生命周期（离屏卸载） | 未开始 |
-| D5 | 上限记录（≤2^31−1；更高需 long origin） | 文档已有 |
+| D0 | 数据层：`WideSectionCoord512` 键 + 绝对段读写 | ✅ |
+| D1 | 渲染缓存：band 由相机决定、绝对 origin、补光 | ⏳ 下一步 |
+| D2 | 生成：按页 Cwg → 客户端 upsert | 未开始 |
+| D3 | 存档：额外 NBT 列表 | 未开始 |
+| D4 | 生命周期：离屏卸载 | 未开始 |
+| D5 | 上限记录：≤2^31−1；更高需 long origin | 文档已有 |
 
-## 5. 历史与归档（不会丢）
+## 已验证（逐条可复现）
 
 ```text
-history/2026-10-26-abs-y   ← 旧 spike 全部补丁（P1/P2/P3、/absy、防卡死等）
-main                       ← 旧 epoch 线（无 TOMBSTONE，仅历史）
-tags: archive/2026-10-26-*（main / spike / w5-far-client / test-wide-overhaul / wip-m1）
+正常世界 (0,0)：surf=b9216bad2029 floor=8936c275d063   ← 逐位不变
+[D0] y=2147483648   set=true read=stone ok=true          ← 超过 int 方块上限
+[D0] y=25165824     set=true read=stone ok=true          ← 穹顶带
+[D0] y=34359738368  set=true read=stone ok=true          ← 段号 2^31，超过 int 段号
 ```
 
-旧 spike 已验证过的能力（供参考，不在当前分支）：
-绝对段写/读/存档往返、客户端解码、section 134217727 渲染（`emptySolid=false`）。
+## 现在代码里有什么（相对基线 77594fa）
 
-## 6. 怎么自己复查 D0
+- `a21b605` 架构基准（`docs/ARCHITECTURE.md`）
+- `3975408` D0：512 位 Y 数据层（`farlands$key/sectionAt` 宽重载；`Level` 远 Y 直达）
+- 文档/归档整理
+
+行为：
+
+- 数据层 `ChunkAccess.farlands$all`（宽键 → 段），**永不搬移**；
+- 唯一转换点 `ChunkAccess.getSection(index)` 越界 → 绝对段；
+- 入口 `Level.getBlockState/setBlock` 对 |Y| > 1e6 直达绝对段（非阻塞）；
+- 只在 `-Dfarlands.y.abs=true` 时生效，正常世界走原路径。
+
+## 怎么自己验证
 
 ```powershell
-# 构建
 .\gradlew.bat :mod:build --no-daemon
 
-# 无头验证（2^31+8）
-tools\exp-run.ps1 -Tag d0-231 -OutDir C:\Project-G2-aux\logs\d0-231 -TestGen "0,0" -TimeoutMin 4 -Settle 60 `
-  -Extra "-Dfarlands.test.allowDedicated=true -Dfarlands.y.abs=true -Dfarlands.testgen.absy=2147483648"
-
-# 无头验证（25M）
 tools\exp-run.ps1 -Tag d0-25m -OutDir C:\Project-G2-aux\logs\d0-25m -TestGen "0,0" -TimeoutMin 4 -Settle 60 `
   -Extra "-Dfarlands.test.allowDedicated=true -Dfarlands.y.abs=true -Dfarlands.testgen.absy=25165824"
 ```
 
-正常世界回归：同样的 exp-run 不带 absy/abs 参数，看 `[FarLands-Test] gen OK` 的
-`surf`/`floor` 哈希。
+看 `[D0] ... ok=true`，以及 `gen OK` 的 `surf`/`floor` 是否等于基线。
 
-## 7. 注意
+## 文档地图（只维护前两个）
 
-- 旧窗口/页代码仍在本分支（`WindowFollower`、`ClientBandBridge`、页对齐 band 等），
-  但只有开 `farlands.y.window` 才走；D1 会用"绝对段 + 渲染缓存"替换这条渲染路径。
-- `farlands.y.abs` 目前只覆盖数据层；D1 才覆盖渲染。
-- 增量结论都会记进本文件 + `docs/EXPERIMENTS.md`（编号）。
+| 文件 | 作用 |
+|---|---|
+| `docs/STATUS.md` | **本页**：状态与下一步 |
+| `docs/ARCHITECTURE.md` | 为什么这样分层（身份/视图/转换点、epoch 墓志铭、路线 A/B/C/D） |
+| `docs/TOMBSTONE.md` | 禁止复活的路线与 exhumation 规则 |
+| `docs/EXPERIMENTS.md` | 实验原始日志（§77–§105，查证据用） |
+| `docs/archive/` | 旧设计（窗口、页、宽 Y、渲染宽键、Y-D 计划），不再维护 |
+
+## 分支
+
+```text
+arch                         ← 工作分支（宽身份线）
+history/2026-10-26-abs-y     ← 旧 spike 封存（P1/P2/P3、/absy、防卡死）
+main                         ← 旧 epoch 线（仅历史，勿用）
+tags: archive/2026-10-26-*
+```
+
+## 规则（防止再乱）
+
+1. 一次只做一步（D0→D1→…），做完更新本页；
+2. 每条改动先写"预期结果"，再跑基线；
+3. 新文档一律进 `docs/archive/`，除非它要替代本页或 ARCHITECTURE。
