@@ -72,7 +72,9 @@
 | `ProtoChunk`/`LevelChunk` far 位置方块读写 | ✅ 已加宽路径（`WideBlockAccess`） |
 | `WorldCarver.getCarveState` 的 `RealContext(int...)` | ✅ 运行时 mixin 修复（长上下文） |
 | `SectionPos.asLong(BlockPos)` 走 int 视图（BulkSectionAccess/特征邻块） | ✅ mixin 用长字段打包 |
-| `ChunkGenerator.applyBiomeDecoration` 的 `origin.getX()` | ⏳ 下一个（装饰种子/特征原点仍 int） |
+| `ChunkGenerator.applyBiomeDecoration` 装饰种子 | ✅ 长原点 + 长域重算 `setDecorationSeed` |
+| 良性过滤（`packOffsetCoordinates` / `BulkSectionAccess.getBlockState` 的 &15） | ✅ 审计不再误报 |
+| `SurfaceSystem.topMaterial` 的 `pos.getX()` | ⏳ 下一个 |
 | 正常世界指纹 | ✅ `surf=b9216bad2029 floor=8936c275d063` 不变 |
 
 ## 7. 操作事实（重要）

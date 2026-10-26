@@ -23,6 +23,15 @@ public final class Narrowing {
             return;
         }
         StackTraceElement[] frames = Thread.currentThread().getStackTrace();
+        // Benign: masking with 15 keeps the low bits exact even for wrapped int views.
+        for (int i = 0; i < Math.min(frames.length, 8); i++) {
+            String cls = frames[i].getClassName();
+            String m = frames[i].getMethodName();
+            if ((cls.endsWith("ProtoChunk") && m.equals("packOffsetCoordinates"))
+                || (cls.endsWith("BulkSectionAccess") && m.equals("getBlockState"))) {
+                return; // low bits only: & 15 keeps them exact
+            }
+        }
         String site = api + " @ " + frame(frames, 2) + " <- " + frame(frames, 3);
         if (!WARNED.add(site)) {
             return;
