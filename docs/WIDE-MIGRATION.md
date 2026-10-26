@@ -50,7 +50,21 @@
 - 远 Y 的渲染上限仍受 double/相机精度约束（≥2^53 需 long 位置，另行立项）；
 - 任何批次失败都能回退到 `arch`（已冻结）。
 
-## 5. 立即开始
+## 5. W-1 结果（2026-10-26）
+
+告警钩子：`SectionPos.asLong(III)`、`LevelHeightAccessor.getSectionIndex(int)`、`Vec3i.getX/Y/Z()`（长字段 vs int 视图）。
+
+| 场景 | 结果 |
+|---|---|
+| 正常世界 (0,0) | 无窄化告警 |
+| 远 X：chunk 2^27 / 2^29 | `Structure.isValidBiome` 用 `pos.getX()`（真实漏点） |
+| 远 Y：25M | 无 `Vec3i.getY` / `getSectionIndex` 告警（走 LevelAbsYFast 宽路径） |
+| `SectionPos.asLong` | 受测路径未触发（X ≤ 2^29 chunk 在 29 位内；Y 远域不走它） |
+
+结论：受测路径的 int 消费者比预期少；W-2 先修 `Structure.isValidBiome`，
+并把未受测的存档/光照/实体路径纳入下一轮审计。
+
+## 6. 立即开始
 
 先做 W-1（契约 + 运行时告警），它能在一天内给出"真实窄化点清单"，
 避免 W-2..W-5 靠猜。随后按批次推进，中间不再插入零散补丁。

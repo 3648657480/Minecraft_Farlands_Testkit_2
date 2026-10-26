@@ -541,6 +541,10 @@ public abstract class MinecraftServerTestGenMixin {
                     System.out.println("[SEAM-CTRL] biomeMismatch=" + ctrlMismatch + "/" + samples);
                     System.out.flush();
                 }
+                if (Boolean.getBoolean("farlands.diag.narrow.selftest")) {
+                    net.minecraft.core.SectionPos.asLong(600000000, 0, 0);
+                    System.out.println("[NARROW] selftest done");
+                }
                 // Y-D follow trigger: exercise the same code path players use.
                 String followSy = System.getProperty("farlands.testgen.followsy");
                 if (followSy != null && !followSy.isEmpty()
