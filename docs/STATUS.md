@@ -18,6 +18,8 @@
 | X1 | X/Z 渲染：SectionKey 宽相等性、RenderKeys long、origin/AABB long→double | ✅（X≤2^31−16） |
 | X1b | X/Z 超过 int 上限（2^31+16）：相机段/段查找去 int | ⏳ 下一步 |
 | X2 | 存档宽 chunk 坐标 | 未开始 |
+| X1c | 2^31 缝的地形不连续（截图已确认） | ⏳ 待测
+| X1d | 渲染空洞（uncompiled≈4.9k、queue=0） | ⏳ 待测 |
 | D2 | 生成：按页 Cwg → 客户端 upsert | 未开始 |
 | D3 | 存档：额外 NBT 列表 | 未开始 |
 | D4 | 生命周期：离屏卸载 | 未开始 |

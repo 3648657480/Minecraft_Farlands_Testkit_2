@@ -489,6 +489,22 @@ public abstract class MinecraftServerTestGenMixin {
                         + " absoluteSections=" + size0);
                     System.out.flush();
                 }
+                // X/Z seam continuity probe: adjacent columns across block 2^31.
+                String seam = System.getProperty("farlands.testgen.seam");
+                if (seam != null && !seam.isEmpty()) {
+                    var left = level.getChunk(134217727, 0);
+                    var right = level.getChunk(134217728, 0);
+                    int maxDelta = 0;
+                    StringBuilder pairs = new StringBuilder();
+                    for (int zz = 0; zz < 16; zz++) {
+                        int h0 = left.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 15, zz);
+                        int h1 = right.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 0, zz);
+                        maxDelta = Math.max(maxDelta, Math.abs(h1 - h0));
+                        pairs.append(h0).append("/").append(h1).append(" ");
+                    }
+                    System.out.println("[SEAM] maxDelta=" + maxDelta + " pairs=" + pairs);
+                    System.out.flush();
+                }
                 // Y-D follow trigger: exercise the same code path players use.
                 String followSy = System.getProperty("farlands.testgen.followsy");
                 if (followSy != null && !followSy.isEmpty()

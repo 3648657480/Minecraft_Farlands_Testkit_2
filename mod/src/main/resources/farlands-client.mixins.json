@@ -27,6 +27,7 @@
         "TitleScreenMixin",
         "ScreenAccessor",
         "ViewAreaWindowMixin",
+        "ViewAreaWideLookupMixin",
         "ClientBandFollowMixin",
         "ViewAreaKeyMixin",
         "RotatingSectionStorageKeyMixin",

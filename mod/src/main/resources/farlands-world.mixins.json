@@ -10,6 +10,7 @@
         "ChunkAccessLightSourceGuardMixin",
         "ChunkSkyLightSourcesGuardMixin",
         "SectionPosWideHandleMixin",
+        "SectionPosDoubleMixin",
         "ProtoChunkMarkGuardMixin",
         "EntitySectionStorageRangeMixin",
         "NaturalSpawnerYSafeMixin",

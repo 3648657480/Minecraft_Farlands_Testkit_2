@@ -99,7 +99,34 @@ public class RenderDiagMixin {
                 }
             }
         }
-        SectionRenderDispatcher.RenderSection cam = view.getRenderSectionAt(mc.player.blockPosition());
+        // Diagnostic experiment: force a batch of uncompiled visible sections dirty
+        // through their wide keys (int BlockPos views wrap at 2^31, which made the
+        // old re-mark path target the wrong column).
+        if (Boolean.getBoolean("farlands.diag.dirtyAll") && uncompiled > 0) {
+            int marked = 0;
+            for (SectionRenderDispatcher.RenderSection section : self.visibleSections()) {
+                if (section.getSectionMesh() != CompiledSectionMesh.UNCOMPILED) {
+                    continue;
+                }
+                if (section instanceof com.farlands.g2.runtime.section.RenderSectionKeyAccessor accessor) {
+                    com.farlands.g2.runtime.section.SectionKey key = accessor.farlands$getKey();
+                    if (key != null) {
+                        mc.level.setSectionRangeDirty(key.x, key.y, key.z, key.x, key.y, key.z);
+                        marked++;
+                    }
+                }
+                if (marked >= 64) {
+                    break;
+                }
+            }
+            System.out.println("[DIRTYALL] marked=" + marked + " uncompiled=" + uncompiled);
+            System.out.flush();
+        }
+        net.minecraft.core.BlockPos camPos = new net.minecraft.core.BlockPos(
+            (long) Math.floor(mc.player.getX()),
+            (long) Math.floor(mc.player.getY()),
+            (long) Math.floor(mc.player.getZ()));
+        SectionRenderDispatcher.RenderSection cam = view.getRenderSectionAt(camPos);
         // Re-entry has the band right but nothing marks the sections dirty (no band
         // bridge runs, and the client tick may be paused). The render thread always
         // runs: re-mark the player's column once per diagnostic tick until compiled.
