@@ -492,17 +492,53 @@ public abstract class MinecraftServerTestGenMixin {
                 // X/Z seam continuity probe: adjacent columns across block 2^31.
                 String seam = System.getProperty("farlands.testgen.seam");
                 if (seam != null && !seam.isEmpty()) {
-                    var left = level.getChunk(134217727, 0);
-                    var right = level.getChunk(134217728, 0);
-                    int maxDelta = 0;
-                    StringBuilder pairs = new StringBuilder();
-                    for (int zz = 0; zz < 16; zz++) {
-                        int h0 = left.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 15, zz);
-                        int h1 = right.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 0, zz);
-                        maxDelta = Math.max(maxDelta, Math.abs(h1 - h0));
-                        pairs.append(h0).append("/").append(h1).append(" ");
+                    int zc = 1;
+                    try {
+                        zc = Math.max(1, Integer.parseInt(seam.trim()));
+                    } catch (NumberFormatException ignored) {
+                        // default 1 chunk
                     }
-                    System.out.println("[SEAM] maxDelta=" + maxDelta + " pairs=" + pairs);
+                    int maxDelta = 0;
+                    int maxDz = -1;
+                    int biomeMismatch = 0;
+                    int samples = 0;
+                    StringBuilder pairs = new StringBuilder();
+                    for (int cz = 0; cz < zc; cz++) {
+                        var left = level.getChunk(134217727, cz);
+                        var right = level.getChunk(134217728, cz);
+                        for (int zz = 0; zz < 16; zz++) {
+                            int h0 = left.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 15, zz);
+                            int h1 = right.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 0, zz);
+                            int delta = Math.abs(h1 - h0);
+                            if (delta > maxDelta) {
+                                maxDelta = delta;
+                                maxDz = cz * 16 + zz;
+                            }
+                            var b0 = left.getNoiseBiome(3, 16, zz >> 2);
+                            var b1 = right.getNoiseBiome(0, 16, zz >> 2);
+                            if (!b0.equals(b1)) {
+                                biomeMismatch++;
+                            }
+                            samples++;
+                            if (cz == 0) {
+                                pairs.append(h0).append("/").append(h1).append(" ");
+                            }
+                        }
+                    }
+                    System.out.println("[SEAM] zc=" + zc + " maxDelta=" + maxDelta + " atZ=" + maxDz
+                        + " biomeMismatch=" + biomeMismatch + "/" + samples + " firstChunkPairs=" + pairs);
+                    int ctrlMismatch = 0;
+                    for (int cz = 0; cz < zc; cz++) {
+                        var ctlLeft = level.getChunk(1000, cz);
+                        var ctlRight = level.getChunk(1001, cz);
+                        for (int zz = 0; zz < 16; zz++) {
+                            if (!ctlLeft.getNoiseBiome(3, 16, zz >> 2)
+                                .equals(ctlRight.getNoiseBiome(0, 16, zz >> 2))) {
+                                ctrlMismatch++;
+                            }
+                        }
+                    }
+                    System.out.println("[SEAM-CTRL] biomeMismatch=" + ctrlMismatch + "/" + samples);
                     System.out.flush();
                 }
                 // Y-D follow trigger: exercise the same code path players use.
