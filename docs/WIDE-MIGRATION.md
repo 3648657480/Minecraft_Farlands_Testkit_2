@@ -77,6 +77,18 @@
 | `SurfaceSystem.topMaterial` 的 `pos.getX()` | ⏳ 下一个 |
 | 正常世界指纹 | ✅ `surf=b9216bad2029 floor=8936c275d063` 不变 |
 
+## 6b. 远 X 不稳定的定位（2026-10-26）
+
+- 现象：同一 fresh world 的远 X（chunk 2^27）`floor` 高度图哈希多次运行不同（`aa106365`/`d8d5d2a2`/`c1665120`/`423372e9`…），`surf`/`biome` 稳定；
+  正常世界稳定。
+- 排除：邻居预加载（先加载西侧邻居）后仍不稳定。
+- **定位**：`-Dmax.bg.threads=1` 时两次运行哈希完全一致（`aa106365cee4`/floorWG=48）
+  → 不稳定来自并发。
+- 机制：`NoiseChunkPatch` 在 NoiseChunk 构造时写 `FarProjection.setGenerationOrigin`（ThreadLocal）；
+  同一线程内嵌套生成其它 chunk 会覆盖 origin，返回后继续用错的 origin 采样 → 取决于并发调度。
+- 结论：ThreadLocal origin 是远 X 非确定性的来源；正确修法是**去掉 origin 猜测**，
+  让噪声/气候/含水层都用精确 long 坐标（W-2c 及后续）。
+
 ## 7. 操作事实（重要）
 
 - 补丁集缓存由 `PATCH_REVISION` 控制；改了 patcher 必须递增，否则运行的是旧 jar。
