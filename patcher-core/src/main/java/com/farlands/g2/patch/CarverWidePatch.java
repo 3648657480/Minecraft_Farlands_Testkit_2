@@ -101,6 +101,7 @@ public final class CarverWidePatch implements ClassPatch {
         if (WORLD_CARVER.equals(node.name)) {
             changed |= rewriteCarveEllipsoid(node);
             changed |= widenMiddleBlockCalls(node);
+            changed |= widenCarveStateContext(node);
         } else if (CAVE_CARVER.equals(node.name) || CANYON_CARVER.equals(node.name)) {
             changed |= widenBlockCalls(node);
         } else if (NOISE_GEN.equals(node.name)) {
@@ -115,6 +116,72 @@ public final class CarverWidePatch implements ClassPatch {
         return cw.toByteArray();
     }
 
+    /**
+     * {@code getCarveState} built its aquifer context from the int views of the
+     * probe position. Read the long accessors and use the long RealContext ctor so
+     * the aquifer substance is sampled at the real column.
+     */
+    private static boolean widenCarveStateContext(ClassNode node) {
+        boolean changed = false;
+        for (MethodNode method : node.methods) {
+            if (!"getCarveState".equals(method.name)) {
+                continue;
+            }
+            org.objectweb.asm.tree.InsnList list = method.instructions;
+            for (org.objectweb.asm.tree.AbstractInsnNode insn = list.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof org.objectweb.asm.tree.MethodInsnNode ctor)
+                    || ctor.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                    || !"<init>".equals(ctor.name)
+                    || !"com/farlands/g2/runtime/RealContext".equals(ctor.owner)
+                    || !"(III)V".equals(ctor.desc)) {
+                    continue;
+                }
+                org.objectweb.asm.tree.AbstractInsnNode gz = ctor.getPrevious();
+                org.objectweb.asm.tree.AbstractInsnNode az = gz == null ? null : gz.getPrevious();
+                org.objectweb.asm.tree.AbstractInsnNode gy = az == null ? null : az.getPrevious();
+                org.objectweb.asm.tree.AbstractInsnNode ay = gy == null ? null : gy.getPrevious();
+                org.objectweb.asm.tree.AbstractInsnNode gx = ay == null ? null : ay.getPrevious();
+                org.objectweb.asm.tree.AbstractInsnNode ax = gx == null ? null : gx.getPrevious();
+                org.objectweb.asm.tree.AbstractInsnNode dup = ax == null ? null : ax.getPrevious();
+                org.objectweb.asm.tree.AbstractInsnNode newInsn = dup == null ? null : dup.getPrevious();
+                if (!isBlockPosCall(gx, "getX") || !isBlockPosCall(gy, "getY")
+                    || !isBlockPosCall(gz, "getZ")
+                    || !isALoad3(ax) || !isALoad3(ay) || !isALoad3(az)
+                    || dup == null || dup.getOpcode() != org.objectweb.asm.Opcodes.DUP
+                    || newInsn == null || newInsn.getOpcode() != org.objectweb.asm.Opcodes.NEW) {
+                    continue;
+                }
+                org.objectweb.asm.tree.InsnList repl = new org.objectweb.asm.tree.InsnList();
+                repl.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 3));
+                repl.add(new org.objectweb.asm.tree.MethodInsnNode(
+                    org.objectweb.asm.Opcodes.INVOKESTATIC,
+                    "com/farlands/g2/runtime/RealContext", "of",
+                    "(Lnet/minecraft/core/BlockPos;)Lcom/farlands/g2/runtime/RealContext;", false));
+                list.insert(newInsn, repl);
+                org.objectweb.asm.tree.AbstractInsnNode after = ctor.getNext();
+                for (org.objectweb.asm.tree.AbstractInsnNode n = newInsn; n != null && n != after; ) {
+                    org.objectweb.asm.tree.AbstractInsnNode nNext = n.getNext();
+                    list.remove(n);
+                    n = nNext;
+                }
+                changed = true;
+                insn = repl.getLast();
+            }
+        }
+        return changed;
+    }
+
+    private static boolean isALoad3(org.objectweb.asm.tree.AbstractInsnNode insn) {
+        return insn != null && insn.getOpcode() == org.objectweb.asm.Opcodes.ALOAD
+            && ((org.objectweb.asm.tree.VarInsnNode) insn).var == 3;
+    }
+
+    private static boolean isBlockPosCall(org.objectweb.asm.tree.AbstractInsnNode insn, String name) {
+        return insn instanceof org.objectweb.asm.tree.MethodInsnNode call
+            && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+            && "net/minecraft/core/BlockPos".equals(call.owner)
+            && name.equals(call.name) && "()I".equals(call.desc);
+    }
     @Override
     public String describe(String internalName) {
         return "CarverWidePatch (wide carver columns at 2^31)";

@@ -32,6 +32,10 @@ public final class RealContext implements DensityFunction.FunctionContext {
         this.exact = true;
     }
 
+    public static RealContext of(net.minecraft.core.BlockPos pos) {
+        return new RealContext(pos.getLongX(), pos.getLongY(), pos.getLongZ());
+    }
+
     @Override
     public int blockX() {
         return (int) lx;

@@ -64,7 +64,22 @@
 结论：受测路径的 int 消费者比预期少；W-2 先修 `Structure.isValidBiome`，
 并把未受测的存档/光照/实体路径纳入下一轮审计。
 
-## 6. 立即开始
+## 6. W-2 进度（2026-10-26）
+
+| 项 | 状态 |
+|---|---|
+| `Structure.isValidBiome` 用宽位置 | ✅ 已修（远 X 审计不再报该栈） |
+| `ProtoChunk`/`LevelChunk` far 位置方块读写 | ✅ 已加宽路径（`WideBlockAccess`） |
+| `WorldCarver.getCarveState` 的 `RealContext(int...)` | ⚠ 补丁已写（rev101）但审计仍报 `getX()`，尚未生效；下一步用字节码模式核对 |
+| 正常世界指纹 | ✅ `surf=b9216bad2029 floor=8936c275d063` 不变 |
+
+## 7. 操作事实（重要）
+
+- 补丁集缓存由 `PATCH_REVISION` 控制；改了 patcher 必须递增，否则运行的是旧 jar。
+- loom 的 patched jar 与 fork 源（`-aux/src/mc-26.2-patched/vf`）是两层：`vf` 已含历史补丁，
+  新补丁加在 patcher 里。
+
+## 8. 立即开始
 
 先做 W-1（契约 + 运行时告警），它能在一天内给出"真实窄化点清单"，
 避免 W-2..W-5 靠猜。随后按批次推进，中间不再插入零散补丁。
