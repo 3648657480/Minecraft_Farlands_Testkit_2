@@ -84,12 +84,20 @@ public class RenderDiagMixin {
             total++;
         }
         int uncompiled = 0;
+        int innerUncompiled = 0;
         int east = 0;
         int eastCompiled = 0;
         for (SectionRenderDispatcher.RenderSection section : self.visibleSections()) {
             boolean un = section.getSectionMesh() == CompiledSectionMesh.UNCOMPILED;
             if (un) {
                 uncompiled++;
+                if (section instanceof com.farlands.g2.runtime.section.RenderSectionKeyAccessor accessor) {
+                    com.farlands.g2.runtime.section.SectionKey k = accessor.farlands$getKey();
+                    if (k != null && mc.level != null
+                        && mc.level.getChunkSource().getChunk(k.x, k.z, false) != null) {
+                        innerUncompiled++;
+                    }
+                }
             }
             long ox = section.getRenderOrigin().getLongX();
             if (ox >= 2147483648L) {
@@ -165,6 +173,7 @@ public class RenderDiagMixin {
         var clientBlock = mc.level.getBlockState(below);
         System.out.println("[RDIAG] visible=" + visible + "/" + total
             + " uncompiled=" + uncompiled
+            + " innerUncompiled=" + innerUncompiled
             + " east=" + east + " eastCompiled=" + eastCompiled
             + " queue=" + disp.getCompileQueueSize()
             + " player=" + mc.player.getX() + "," + mc.player.getY() + "," + mc.player.getZ()
