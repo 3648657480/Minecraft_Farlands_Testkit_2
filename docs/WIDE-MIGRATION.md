@@ -89,6 +89,13 @@
 - 结论：ThreadLocal origin 是远 X 非确定性的来源；正确修法是**去掉 origin 猜测**，
   让噪声/气候/含水层都用精确 long 坐标（W-2c 及后续）。
 
+## 6c. 去 origin 第一步（2026-10-26）
+
+- `NoiseChunkRealCoordsMixin` 改用实例字段 `farlands$originX/Z`（构造参数）计算 `getBlockXDouble/ZDouble`，
+  不再用 ThreadLocal；正常坐标逐位不变。
+- 结果：远 X 仍不稳定（`aa106365` vs `5726fe89`）→ **aquifer 及其它 helper 仍在用 `unwrapX(int)`**；
+  `FarAquiferHelper.aquiferGridX/Z` 是下一个必须去 origin 的点。
+
 ## 7. 操作事实（重要）
 
 - 补丁集缓存由 `PATCH_REVISION` 控制；改了 patcher 必须递增，否则运行的是旧 jar。
