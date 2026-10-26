@@ -96,6 +96,14 @@
 - 结果：远 X 仍不稳定（`aa106365` vs `5726fe89`）→ **aquifer 及其它 helper 仍在用 `unwrapX(int)`**；
   `FarAquiferHelper.aquiferGridX/Z` 是下一个必须去 origin 的点。
 
+## 6d. 含水层诊断（2026-10-26）
+
+- 在 `Aquifer$NoiseBasedAquifer.computeSubstance` 入口对照：正常世界 `blockX()` 与 `getBlockXDouble()` **完全一致**，
+  `gridInt` 与 `gridCtx` 也一致。
+- 因此上次"正常世界被破坏"不是取值问题，而是补丁改写（POP/ALOAD 替换调用参数）的机械错误。
+- 下一步：用更安全的改写方式重放精确坐标（先保存 context，再替换两个 grid 调用），
+  验收 = 远 X 双跑一致 + 正常指纹 8936c275d063。
+
 ## 7. 操作事实（重要）
 
 - 补丁集缓存由 `PATCH_REVISION` 控制；改了 patcher 必须递增，否则运行的是旧 jar。
