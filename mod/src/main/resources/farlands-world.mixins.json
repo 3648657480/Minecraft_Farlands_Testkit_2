@@ -73,6 +73,8 @@
         "AquiferContextDiagMixin",
         "AquiferComputeWideMixin",
         "SurfaceSystemWideOriginMixin",
+        "SectionPosOriginWideMixin",
+        "BiomeManagerWideMixin",
         "SurfaceSystemRealCoordsMixin",
         "GeodeFeatureRealCoordsMixin",
         "StructureGenerationContextRealSeedMixin",

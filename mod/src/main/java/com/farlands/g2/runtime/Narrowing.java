@@ -28,7 +28,9 @@ public final class Narrowing {
             String cls = frames[i].getClassName();
             String m = frames[i].getMethodName();
             if ((cls.endsWith("ProtoChunk") && m.equals("packOffsetCoordinates"))
-                || (cls.endsWith("BulkSectionAccess") && m.equals("getBlockState"))) {
+                || (cls.endsWith("BulkSectionAccess") && m.equals("getBlockState"))
+                || (cls.endsWith("DiskFeature") && m.equals("place"))
+                || (cls.endsWith("ChunkGenerator") && m.equals("applyBiomeDecoration"))) {
                 return; // low bits only: & 15 keeps them exact
             }
         }

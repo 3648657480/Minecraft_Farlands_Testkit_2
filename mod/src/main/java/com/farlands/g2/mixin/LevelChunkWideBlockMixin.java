@@ -21,6 +21,15 @@ public class LevelChunkWideBlockMixin {
         }
     }
 
+    @Inject(method = "getFluidState", at = @At("HEAD"), cancellable = true)
+    private void farlands$wideFluid(BlockPos pos,
+        org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<net.minecraft.world.level.material.FluidState> cir) {
+        if (WideBlockAccess.isWide(pos.getLongX(), pos.getLongY(), pos.getLongZ())) {
+            cir.setReturnValue(WideBlockAccess.getFluid((net.minecraft.world.level.chunk.ChunkAccess) (Object) this,
+                pos.getLongX(), pos.getLongY(), pos.getLongZ()));
+        }
+    }
+
     @Inject(method = "setBlockState", at = @At("HEAD"), cancellable = true)
     private void farlands$wideSet(BlockPos pos, BlockState state, int flags,
         CallbackInfoReturnable<BlockState> cir) {

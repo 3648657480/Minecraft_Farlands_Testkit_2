@@ -40,6 +40,18 @@ public final class WideBlockAccess {
         return section.getBlockState(local(x), local(y), local(z));
     }
 
+    public static net.minecraft.world.level.material.FluidState getFluid(ChunkAccess chunk, long x, long y, long z) {
+        if (!(chunk instanceof WindowedChunk windowed)) {
+            return net.minecraft.world.level.material.Fluids.EMPTY.defaultFluidState();
+        }
+        LevelChunkSection section = windowed.farlands$allSections()
+            .get(windowed.farlands$key(com.scalarwide.mc.WideSectionCoord512.of(sectionY(y))));
+        if (section == null || section.hasOnlyAir()) {
+            return net.minecraft.world.level.material.Fluids.EMPTY.defaultFluidState();
+        }
+        return section.getFluidState(local(x), local(y), local(z));
+    }
+
     public static BlockState set(ChunkAccess chunk, long x, long y, long z, BlockState state) {
         if (!(chunk instanceof WindowedChunk windowed)) {
             return Blocks.VOID_AIR.defaultBlockState();
