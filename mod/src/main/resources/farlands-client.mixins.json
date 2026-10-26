@@ -16,6 +16,9 @@
         "RenderSectionWideOriginMixin",
         "GlobalSettingsUniformGrabMixin",
         "LevelRendererCamWrapMixin",
+        "LevelExtractorTrackerCapture",
+        "SectionUpdateTrackerGateMixin",
+
         "LevelExtractorFrustumResetMixin",
         "LevelExtractorDirtyMixin",
         "RenderDiagMixin",

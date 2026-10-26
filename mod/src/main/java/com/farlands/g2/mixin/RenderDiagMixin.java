@@ -97,6 +97,10 @@ public class RenderDiagMixin {
         }
         int uncompiled = 0;
         int innerUncompiled = 0;
+        int dirtyNull = 0;
+        int dirtyFalse = 0;
+        int noNeighbors = 0;
+        var tracker = com.farlands.g2.runtime.TrackerProbe.LAST;
         int east = 0;
         int eastCompiled = 0;
         for (SectionRenderDispatcher.RenderSection section : self.visibleSections()) {
@@ -104,6 +108,25 @@ public class RenderDiagMixin {
             if (un) {
                 uncompiled++;
                 if (section instanceof com.farlands.g2.runtime.section.RenderSectionKeyAccessor accessor) {
+                    long node = section.getSectionNode();
+                    var dirty = tracker == null ? null : tracker.getDirtyState(node);
+                    if (dirty == null) {
+                        dirtyNull++;
+                    } else if (!dirty.isDirty()) {
+                        dirtyFalse++;
+                    }
+                    if (tracker != null && mc.level != null && !tracker.hasAllNeighbors(mc.level, node)) {
+                        noNeighbors++;
+                        if (Boolean.getBoolean("farlands.diag.nodes") && noNeighbors == 1) {
+                            System.out.println("[NODE] raw=" + node
+                                + " x=" + net.minecraft.core.SectionPos.x(node)
+                                + " y=" + net.minecraft.core.SectionPos.y(node)
+                                + " z=" + net.minecraft.core.SectionPos.z(node)
+                                + " chunkPresent=" + (mc.level.getChunkSource().getChunk(
+                                    net.minecraft.core.SectionPos.x(node),
+                                    net.minecraft.core.SectionPos.z(node), false) != null));
+                        }
+                    }
                     com.farlands.g2.runtime.section.SectionKey k = accessor.farlands$getKey();
                     if (k != null && mc.level != null
                         && mc.level.getChunkSource().getChunk(k.x, k.z, false) != null) {
@@ -146,6 +169,25 @@ public class RenderDiagMixin {
             (long) Math.floor(mc.player.getX()),
             (long) Math.floor(mc.player.getY()),
             (long) Math.floor(mc.player.getZ()));
+        boolean lightCam = mc.level != null && camPos != null
+            && mc.level.getLightEngine().lightOnInColumn(net.minecraft.core.SectionPos.getZeroNode(
+                net.minecraft.core.SectionPos.asLong((int) Math.floorDiv((long) Math.floor(mc.player.getX()), 16L),
+                    (int) Math.floorDiv((long) Math.floor(mc.player.getY()), 16L),
+                    (int) Math.floorDiv((long) Math.floor(mc.player.getZ()), 16L))));
+        int light3x3 = 0;
+        if (mc.level != null && mc.player != null) {
+            int sx = (int) Math.floorDiv((long) Math.floor(mc.player.getX()), 16L);
+            int sy = (int) Math.floorDiv((long) Math.floor(mc.player.getY()), 16L);
+            int sz = (int) Math.floorDiv((long) Math.floor(mc.player.getZ()), 16L);
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    if (mc.level.getLightEngine().lightOnInColumn(net.minecraft.core.SectionPos.getZeroNode(
+                        net.minecraft.core.SectionPos.asLong(sx + dx, sy, sz + dz)))) {
+                        light3x3++;
+                    }
+                }
+            }
+        }
         SectionRenderDispatcher.RenderSection cam = view.getRenderSectionAt(camPos);
         // Re-entry has the band right but nothing marks the sections dirty (no band
         // bridge runs, and the client tick may be paused). The render thread always
@@ -186,6 +228,8 @@ public class RenderDiagMixin {
         System.out.println("[RDIAG] visible=" + visible + "/" + total
             + " uncompiled=" + uncompiled
             + " innerUncompiled=" + innerUncompiled + " chunks5x5=" + chunkPresent
+            + " dirtyNull=" + dirtyNull + " dirtyFalse=" + dirtyFalse + " noNeighbors=" + noNeighbors
+            + " lightCam=" + lightCam + " light3x3=" + light3x3
             + " east=" + east + " eastCompiled=" + eastCompiled
             + " queue=" + disp.getCompileQueueSize()
             + " player=" + mc.player.getX() + "," + mc.player.getY() + "," + mc.player.getZ()
@@ -285,4 +329,38 @@ public class RenderDiagMixin {
             + "\n[RDIAG-Y] " + yMin + ".." + yMax + " " + ys + samples);
         System.out.flush();
     }
+    private static int farlands$neighChunks(long node) {
+        int n = 0;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if (dx == 0 && dz == 0) {
+                    continue;
+                }
+                if (net.minecraft.client.Minecraft.getInstance().level.getChunkSource().getChunk(
+                    net.minecraft.core.SectionPos.x(node) + dx,
+                    net.minecraft.core.SectionPos.z(node) + dz, false) != null) {
+                    n++;
+                }
+            }
+        }
+        return n;
+    }
+
+    private static int farlands$neighLit(long node) {
+        int n = 0;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if (dx == 0 && dz == 0) {
+                    continue;
+                }
+                long off = net.minecraft.core.SectionPos.offset(node, dx, 0, dz);
+                if (net.minecraft.client.Minecraft.getInstance().level.getLightEngine()
+                    .lightOnInColumn(net.minecraft.core.SectionPos.getZeroNode(off))) {
+                    n++;
+                }
+            }
+        }
+        return n;
+    }
+
 }
