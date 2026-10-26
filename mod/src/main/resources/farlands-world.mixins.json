@@ -72,6 +72,7 @@
         "ChunkGeneratorDecorationMixin",
         "AquiferContextDiagMixin",
         "AquiferComputeWideMixin",
+        "SurfaceSystemWideOriginMixin",
         "SurfaceSystemRealCoordsMixin",
         "GeodeFeatureRealCoordsMixin",
         "StructureGenerationContextRealSeedMixin",

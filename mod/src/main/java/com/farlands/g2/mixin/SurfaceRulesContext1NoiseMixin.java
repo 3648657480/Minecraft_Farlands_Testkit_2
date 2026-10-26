@@ -22,6 +22,7 @@ public class SurfaceRulesContext1NoiseMixin {
         if (!FarProjection.isFarEngine()) {
             return noise.getValue(x, y, z);
         }
-        return noise.getValue(FarProjection.unwrapX((int) x), y, FarProjection.unwrapZ((int) z));
+        return noise.getValue(com.farlands.g2.runtime.SurfaceWide.unwrapX(x), y,
+            com.farlands.g2.runtime.SurfaceWide.unwrapZ(z));
     }
 }

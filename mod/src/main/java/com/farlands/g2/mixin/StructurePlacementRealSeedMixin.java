@@ -20,20 +20,20 @@ public class StructurePlacementRealSeedMixin {
         at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/level/levelgen/WorldgenRandom;setLargeFeatureWithSalt(JIII)V"))
     private static void farlands$salt1(WorldgenRandom random, long seed, int x, int z, int blend) {
-        random.setLargeFeatureWithSalt(seed + FarProjection.generationSeedOffset(), x, z, blend);
+        random.setLargeFeatureWithSalt(seed, x, z, blend);
     }
 
     @Redirect(method = "legacyProbabilityReducerWithDouble",
         at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/level/levelgen/WorldgenRandom;setLargeFeatureSeed(JII)V"))
     private static void farlands$seed(WorldgenRandom random, long seed, int x, int z) {
-        random.setLargeFeatureSeed(seed + FarProjection.generationSeedOffset(), x, z);
+        random.setLargeFeatureSeed(seed, x, z);
     }
 
     @Redirect(method = "legacyArbitrarySaltProbabilityReducer",
         at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/level/levelgen/WorldgenRandom;setLargeFeatureWithSalt(JIII)V"))
     private static void farlands$salt2(WorldgenRandom random, long seed, int x, int z, int blend) {
-        random.setLargeFeatureWithSalt(seed + FarProjection.generationSeedOffset(), x, z, blend);
+        random.setLargeFeatureWithSalt(seed, x, z, blend);
     }
 }

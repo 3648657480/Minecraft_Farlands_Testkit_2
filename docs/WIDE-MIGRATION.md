@@ -111,6 +111,13 @@
 - 远 X 仍不稳定（`8091a98d` vs `aa106365`）→ 下一来源确认在 **SurfaceRules 的噪声条件**：
   `SurfaceRulesContext1/2NoiseMixin` 仍用 `unwrapX((int) x)`（origin ThreadLocal）。
 
+## 6f. 远 X 确定性修复（2026-10-26）
+
+- 根因：`FarProjection.generationSeedOffset()` 读 ThreadLocal origin，被 carver/结构/位置随机（`FarRandom`）
+  折进种子；origin 在嵌套生成中被覆盖 → 种子随调度漂移。
+- 修法：真实坐标下这些调用点的 x/z 本身就是 chunk 坐标，直接去掉 origin offset（正常世界 offset=0，逐位不变）。
+- 结果：远 X（+134217728,0）连续三次 `floor=423372e9c845` 一致；正常世界 `8936c275d063` 不变。
+
 ## 7. 操作事实（重要）
 
 - 补丁集缓存由 `PATCH_REVISION` 控制；改了 patcher 必须递增，否则运行的是旧 jar。

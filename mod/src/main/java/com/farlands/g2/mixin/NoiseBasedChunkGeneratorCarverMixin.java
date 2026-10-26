@@ -23,6 +23,6 @@ public class NoiseBasedChunkGeneratorCarverMixin {
         at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/level/levelgen/WorldgenRandom;setLargeFeatureSeed(JII)V"))
     private void farlands$carverSeed(WorldgenRandom random, long seed, int x, int z) {
-        random.setLargeFeatureSeed(seed + FarProjection.generationSeedOffset(), x, z);
+        random.setLargeFeatureSeed(seed, x, z);
     }
 }
