@@ -21,7 +21,7 @@
 | X1c | 2^31 缝的地形不连续（截图已确认） | ⏳ 待测
 | X1d | 渲染空洞（uncompiled≈4.9k、queue=0） | ⏳ 待测 |
 | X1c | ✅ 缝：高度连续；群系差异落在自然边界分布内（非 bug） |
-| X1d | 渲染空洞：`innerUncompiled=336/384`；强制标脏无效、queue=0。已排查 `RotatingSectionStorage` 的键/包含判断（正常）；下一假设：编译门槛 `hasAllNeighbors`（远 X 缺对角邻居）或 `compileSections` 未消费脏状态 |
+| X1d | ✅ 根因=vanilla `hasAllNeighbors` 远 X 误判；远段放行 + 缺光补 14 级天光（沿用 band bridge 策略）→ `uncompiled 384→0`、空洞消失；远处仍有黑色区域（疑似未加载区块，待确认） |
 | 确定性 | ✅ 远 X 三次 `floor=423372e9c845` 一致；根因=origin 折进 carver/结构种子 |
 | D2 | 生成：按页 Cwg → 客户端 upsert | 未开始 |
 | D3 | 存档：额外 NBT 列表 | 未开始 |
