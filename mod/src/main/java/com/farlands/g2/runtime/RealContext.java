@@ -11,7 +11,7 @@ import net.minecraft.world.level.levelgen.DensityFunction;
  * cache indexing. The int constructor preserves the legacy origin-aware unwrap
  * for call sites that still pass wrapped ints.</p>
  */
-public final class RealContext implements DensityFunction.FunctionContext {
+public final class RealContext implements DensityFunction.FunctionContext, WideContext {
 
     private final long lx;
     private final long ly;

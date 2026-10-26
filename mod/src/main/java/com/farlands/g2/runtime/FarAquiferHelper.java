@@ -36,6 +36,16 @@ public final class FarAquiferHelper {
      * division. At normal coordinates it is the exact signed int, so the
      * result is bit-identical to {@code (blockX - 5) >> 4}.</p>
      */
+    public static int aquiferGridX(net.minecraft.world.level.levelgen.DensityFunction.FunctionContext context) {
+        double x = context instanceof WideContext wide ? wide.getBlockXDouble() : context.blockX();
+        return (int) Math.floorDiv((long) x - 5L, 16L);
+    }
+
+    public static int aquiferGridZ(net.minecraft.world.level.levelgen.DensityFunction.FunctionContext context) {
+        double z = context instanceof WideContext wide ? wide.getBlockZDouble() : context.blockZ();
+        return (int) Math.floorDiv((long) z - 5L, 16L);
+    }
+
     public static int aquiferGridX(int blockX) {
         long real = (long) com.farlands.g2.util.FarProjection.unwrapX(blockX);
         return (int) Math.floorDiv(real - 5L, 16L);

@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.Shadow;
  * applies, so one mod jar serves both client jar states.</p>
  */
 @Mixin(NoiseChunk.class)
-public abstract class NoiseChunkRealCoordsMixin {
+public abstract class NoiseChunkRealCoordsMixin implements com.farlands.g2.runtime.WideContext {
 
     @Shadow private int cellStartBlockX;
     @Shadow private int cellStartBlockY;
