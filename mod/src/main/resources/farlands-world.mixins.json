@@ -11,6 +11,8 @@
         "LevelHeightSectionIndexAuditMixin",
         "Vec3iViewAuditMixin",
         "StructureBiomeWideMixin",
+        "WorldCarverWideContextMixin",
+        "SectionPosWideAsLongMixin",
         "LevelChunkWideBlockMixin",
         "ProtoChunkWideBlockMixin",
         "ChunkAccessWindowMixin",
