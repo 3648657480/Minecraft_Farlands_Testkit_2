@@ -1,6 +1,7 @@
 # Y 轴路线 D：稀疏绝对段（计划）
 
-> 基准见 `docs/ARCHITECTURE-WIDE.md`。核心一句话：
+> 基准见 `docs/ARCHITECTURE-WIDE.md`。项目名是 **G2**；下面的 D0..D5 是"路线 D 的阶段号"，与项目名/旧称无关。
+> 核心一句话：
 > **数据按绝对段号存在；24 段数组和 ViewArea band 只是渲染缓存；唯一转换点在 `getSection`。**
 
 ## 1. 层契约

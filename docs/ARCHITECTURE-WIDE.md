@@ -44,7 +44,7 @@
 
 ## 5. epoch 墓志铭与本分支的关系
 
-`TOMBSTONE.md` T1（2026-10-22，`PATCH_REVISION 93→95`）已给 epoch 送终，死因：
+**G2 项目**的 `docs/TOMBSTONE.md` T1（2026-10-22，`PATCH_REVISION 93→95`）已给 epoch 送终，死因：
 
 1. **身份冲突**：local int 当身份，与宽身份并存 → 双重转换、键错乱；
 2. **能力上限**：local 域藏起真实距离，2^53 现象不可能发生；
