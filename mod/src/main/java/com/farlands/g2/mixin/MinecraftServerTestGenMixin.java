@@ -541,6 +541,24 @@ public abstract class MinecraftServerTestGenMixin {
                     System.out.println("[SEAM-CTRL] biomeMismatch=" + ctrlMismatch + "/" + samples);
                     System.out.flush();
                 }
+                String bb = System.getProperty("farlands.testgen.biomebounds");
+                if (bb != null && !bb.isEmpty()) {
+                    int bn = Integer.parseInt(bb.trim());
+                    StringBuilder counts = new StringBuilder();
+                    for (int i = 0; i < bn; i++) {
+                        var l = level.getChunk(1000 + i, 0);
+                        var r = level.getChunk(1001 + i, 0);
+                        int mm = 0;
+                        for (int zz = 0; zz < 16; zz++) {
+                            if (!l.getNoiseBiome(3, 16, zz >> 2).equals(r.getNoiseBiome(0, 16, zz >> 2))) {
+                                mm++;
+                            }
+                        }
+                        counts.append(mm).append(" ");
+                    }
+                    System.out.println("[BIOMEBOUNDS] n=" + bn + " perBoundary=" + counts);
+                    System.out.flush();
+                }
                 if (Boolean.getBoolean("farlands.diag.narrow.selftest")) {
                     net.minecraft.core.SectionPos.asLong(600000000, 0, 0);
                     System.out.println("[NARROW] selftest done");
