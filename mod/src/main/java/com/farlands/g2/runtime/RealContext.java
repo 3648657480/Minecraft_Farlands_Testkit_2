@@ -3,47 +3,59 @@ package com.farlands.g2.runtime;
 import net.minecraft.world.level.levelgen.DensityFunction;
 
 /**
- * FunctionContext whose double accessors reinterpret wrapped negative
- * coordinates as unsigned, keeping noise sampling continuous across the
- * +/-2^31 wrap. The int accessors preserve the wrapped view for int-domain
- * consumers (cache indexing etc.).
+ * FunctionContext for noise/climate sampling.
+ *
+ * <p>The long constructor is the authoritative one: block coordinates are kept
+ * exactly (no int wrap, no ThreadLocal origin guessing) and the double accessors
+ * feed the density/climate functions. The int accessors are views kept for
+ * cache indexing. The int constructor preserves the legacy origin-aware unwrap
+ * for call sites that still pass wrapped ints.</p>
  */
 public final class RealContext implements DensityFunction.FunctionContext {
 
-    private final int x;
-    private final int y;
-    private final int z;
+    private final long lx;
+    private final long ly;
+    private final long lz;
+    private final boolean exact;
 
     public RealContext(int x, int y, int z) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
+        this.lx = x;
+        this.ly = y;
+        this.lz = z;
+        this.exact = false;
+    }
+
+    public RealContext(long x, long y, long z) {
+        this.lx = x;
+        this.ly = y;
+        this.lz = z;
+        this.exact = true;
     }
 
     @Override
     public int blockX() {
-        return x;
+        return (int) lx;
     }
 
     @Override
     public int blockY() {
-        return y;
+        return (int) ly;
     }
 
     @Override
     public int blockZ() {
-        return z;
+        return (int) lz;
     }
 
     public double getBlockXDouble() {
-        return com.farlands.g2.util.FarProjection.unwrapX(x);
+        return this.exact ? (double) lx : com.farlands.g2.util.FarProjection.unwrapX((int) lx);
     }
 
     public double getBlockYDouble() {
-        return (double) y;
+        return (double) ly;
     }
 
     public double getBlockZDouble() {
-        return com.farlands.g2.util.FarProjection.unwrapZ(z);
+        return this.exact ? (double) lz : com.farlands.g2.util.FarProjection.unwrapZ((int) lz);
     }
 }

@@ -20,6 +20,7 @@
 | X2 | 存档宽 chunk 坐标 | 未开始 |
 | X1c | 2^31 缝的地形不连续（截图已确认） | ⏳ 待测
 | X1d | 渲染空洞（uncompiled≈4.9k、queue=0） | ⏳ 待测 |
+| X1c 修复 | `RealContext` 以 long 为权威 + `Climate.Sampler.sample` 用 long 块坐标（已验证 mixin 生效：qx=2^29 → bx=2147483648） | 待复测 biome 8/64 是否自然边界 |
 | D2 | 生成：按页 Cwg → 客户端 upsert | 未开始 |
 | D3 | 存档：额外 NBT 列表 | 未开始 |
 | D4 | 生命周期：离屏卸载 | 未开始 |

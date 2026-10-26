@@ -6,6 +6,7 @@
     "mixins": [
         "LevelMixin",
         "LevelAbsYFastMixin",
+        "ClimateSamplerWideMixin",
         "ChunkAccessWindowMixin",
         "ChunkAccessLightSourceGuardMixin",
         "ChunkSkyLightSourcesGuardMixin",
