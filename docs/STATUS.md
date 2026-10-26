@@ -27,7 +27,9 @@ mod/.../resources/farlands-world.mixins.json   +1
 
 ## 2. D0 到底做了什么（行为）
 
-- 数据层：`ChunkAccess.farlands$all`（宽键 → 段）按**绝对段号**存，永不搬移；
+- 数据层：`ChunkAccess.farlands$all`（**512 位 Y 的宽键** → 段）按**绝对段号**存，永不搬移；
+- 数据层 API 用 `WideSectionCoord512`（`farlands$key/sectionAt` 的宽重载）；
+  `int` 重载只是视图；
 - 唯一转换点：`ChunkAccess.getSection(index)` 越界且 |绝对段号| > 1e6 时按绝对段查/建；
 - 入口：`Level.getBlockState/setBlock` 对 |Y| > 1e6 直达绝对段（非阻塞 chunk 查找，
   读缺失返回空气）；
@@ -40,6 +42,7 @@ mod/.../resources/farlands-world.mixins.json   +1
 | 正常世界逐位不变 | ✅ | `surf=b9216bad2029 floor=8936c275d063` |
 | 2^31+8 写/读（超过 int 方块上限） | ✅ | `[D0] y=2147483648 … set=true read=stone ok=true absoluteSections=25` |
 | 25M 写/读 | ✅ | `[D0] y=25165824 … set=true read=stone ok=true absoluteSections=25` |
+| **512 位 Y（section 2^31，块 Y=2^35）** | ✅ | `[D0] y=34359738368 … ok=true absoluteSections=25`（段号超过 int） |
 | 客户端渲染（D1） | ❌ 未做 | — |
 | 存档往返（D3） | ❌ 未做（spike 版本在 history 分支验证过） | `history/2026-10-26-abs-y` |
 | 真实地形生成→客户端（D2） | ❌ 未做 | — |

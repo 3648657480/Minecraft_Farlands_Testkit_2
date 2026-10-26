@@ -41,8 +41,9 @@ public class LevelAbsYFastMixin {
             SectionPos.blockToSectionCoord(pos.getX()),
             SectionPos.blockToSectionCoord(pos.getZ()), ChunkStatus.FULL, false);
         if (chunk instanceof WindowedChunk windowed) {
-            LevelChunkSection section = windowed.farlands$allSections()
-                .get(windowed.farlands$key((int) Math.floorDiv(y, 16L)));
+            LevelChunkSection section = windowed.farlands$allSections().get(
+                windowed.farlands$key(com.scalarwide.mc.WideSectionCoord512
+                    .of(Math.floorDiv(y, 16L))));
             cir.setReturnValue(section == null ? Blocks.VOID_AIR.defaultBlockState()
                 : section.getBlockState(farlands$local(pos.getX()),
                     farlands$local(y), farlands$local(pos.getZ())));
@@ -63,7 +64,8 @@ public class LevelAbsYFastMixin {
             SectionPos.blockToSectionCoord(pos.getX()),
             SectionPos.blockToSectionCoord(pos.getZ()), ChunkStatus.FULL, false);
         if (chunk instanceof WindowedChunk windowed) {
-            LevelChunkSection section = windowed.farlands$sectionAt((int) Math.floorDiv(y, 16L));
+            LevelChunkSection section = windowed.farlands$sectionAt(
+                com.scalarwide.mc.WideSectionCoord512.of(Math.floorDiv(y, 16L)));
             BlockState old = section.setBlockState(farlands$local(pos.getX()),
                 farlands$local(y), farlands$local(pos.getZ()), state);
             cir.setReturnValue(!old.equals(state));

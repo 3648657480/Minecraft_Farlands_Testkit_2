@@ -180,7 +180,8 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
             if (Math.abs((long) absoluteSectionY) > 1_000_000L) {
                 // Route D0: the data layer is absolute; the 24-slot array is only
                 // the current view. Out-of-view reads resolve by absolute section Y.
-                cir.setReturnValue(farlands$sectionAt(absoluteSectionY));
+                cir.setReturnValue(farlands$sectionAt(
+                    WideSectionCoord512.of((long) absoluteSectionY)));
                 return;
             }
             cir.setReturnValue(farlands$emptySection());
@@ -230,11 +231,24 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
 
     @Override
     public WideSectionKey2560 farlands$key(int sectionY) {
-        return WideSectionKey2560.of(chunkPos.xLong(), (long) sectionY, chunkPos.zLong());
+        return farlands$key(WideSectionCoord512.of((long) sectionY));
+    }
+
+    @Override
+    public WideSectionKey2560 farlands$key(WideSectionCoord512 sectionY) {
+        // 512-bit Y identity. The scalar here is exact for every reachable value
+        // (block Y is bounded by double precision), so limb(0) is lossless.
+        return WideSectionKey2560.of(chunkPos.xLong(),
+            sectionY.toBigInteger().longValueExact(), chunkPos.zLong());
     }
 
     @Override
     public LevelChunkSection farlands$sectionAt(int absoluteSectionY) {
+        return farlands$sectionAt(WideSectionCoord512.of((long) absoluteSectionY));
+    }
+
+    @Override
+    public LevelChunkSection farlands$sectionAt(WideSectionCoord512 absoluteSectionY) {
         return this.farlands$all.computeIfAbsent(farlands$key(absoluteSectionY),
             ignored -> new LevelChunkSection(this.farlands$factory));
     }

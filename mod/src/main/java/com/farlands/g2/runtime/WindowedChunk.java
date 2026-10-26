@@ -36,6 +36,12 @@ public interface WindowedChunk {
     /** Wide key of an absolute section Y in this chunk's column. */
     WideSectionKey2560 farlands$key(int sectionY);
 
+    /** 512-bit Y identity: the authoritative data-layer key (int is only a view). */
+    WideSectionKey2560 farlands$key(WideSectionCoord512 sectionY);
+
     /** Absolute data section (created on demand, never relocated). */
     LevelChunkSection farlands$sectionAt(int absoluteSectionY);
+
+    /** 512-bit Y data section: the runtime scalar is only a view. */
+    LevelChunkSection farlands$sectionAt(WideSectionCoord512 absoluteSectionY);
 }
