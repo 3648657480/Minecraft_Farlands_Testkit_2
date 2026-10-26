@@ -71,6 +71,7 @@
         "NoiseBasedChunkGeneratorFarSpawnMixin",
         "ChunkGeneratorDecorationMixin",
         "AquiferContextDiagMixin",
+        "AquiferComputeWideMixin",
         "SurfaceSystemRealCoordsMixin",
         "GeodeFeatureRealCoordsMixin",
         "StructureGenerationContextRealSeedMixin",

@@ -104,6 +104,13 @@
 - 下一步：用更安全的改写方式重放精确坐标（先保存 context，再替换两个 grid 调用），
   验收 = 远 X 双跑一致 + 正常指纹 8936c275d063。
 
+## 6e. 含水层精确网格（2026-10-26）
+
+- `gridX/gridZ` 方法体改为读取本次 `computeSubstance` 入口发布的精确网格（ThreadLocal，作用域=一次调用，内部无嵌套生成）；
+  正常世界指纹保持 `8936c275d063`。
+- 远 X 仍不稳定（`8091a98d` vs `aa106365`）→ 下一来源确认在 **SurfaceRules 的噪声条件**：
+  `SurfaceRulesContext1/2NoiseMixin` 仍用 `unwrapX((int) x)`（origin ThreadLocal）。
+
 ## 7. 操作事实（重要）
 
 - 补丁集缓存由 `PATCH_REVISION` 控制；改了 patcher 必须递增，否则运行的是旧 jar。

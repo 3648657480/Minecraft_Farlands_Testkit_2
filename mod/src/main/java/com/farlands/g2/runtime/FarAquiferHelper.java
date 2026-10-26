@@ -1,59 +1,49 @@
 package com.farlands.g2.runtime;
 
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.levelgen.PositionalRandomFactory;
+import net.minecraft.world.level.levelgen.DensityFunction;
 
 /**
- * Positional random factory entry with unsigned coordinate normalization.
- * The aquifer seeds its random cells from int grid coordinates; converting
- * the wrapped negative band to the positive unsigned domain keeps the seeds
- * continuous across +/-2^31.
+ * Aquifer grid coordinates for the current {@code computeSubstance} call.
+ *
+ * <p>Vanilla's {@code gridX(int)} receives a wrapped block coordinate. The
+ * exact grid is computed once at method entry from the context's wide
+ * coordinates and published on the calling thread; {@code gridX/gridZ} read it
+ * while the call is active. The scope is one method call with no nested
+ * generation inside it, so this cannot be clobbered the way a chunk-wide
+ * generation origin can.</p>
  */
 public final class FarAquiferHelper {
+
+    private static final ThreadLocal<Long> GRID_X = new ThreadLocal<>();
+    private static final ThreadLocal<Long> GRID_Z = new ThreadLocal<>();
 
     private FarAquiferHelper() {
     }
 
-    public static RandomSource at(PositionalRandomFactory factory, int x, int y, int z) {
-        if (x < -100_000_000) {
-            x = (int) ((long) x + 4294967296L);
+    public static void begin(DensityFunction.FunctionContext context) {
+        if (context instanceof WideContext wide) {
+            GRID_X.set(Math.floorDiv((long) wide.getBlockXDouble() - 5L, 16L));
+            GRID_Z.set(Math.floorDiv((long) wide.getBlockZDouble() - 5L, 16L));
+        } else {
+            GRID_X.set(Math.floorDiv((long) context.blockX() - 5L, 16L));
+            GRID_Z.set(Math.floorDiv((long) context.blockZ() - 5L, 16L));
         }
-        if (z < -100_000_000) {
-            z = (int) ((long) z + 4294967296L);
-        }
-        return factory.at(x, y, z);
     }
 
-    /**
-     * Aquifer X grid index ({@code Aquifer$NoiseBasedAquifer.gridX(blockX-5)})
-     * computed from the WIDE block coordinate.
-     *
-     * <p>The int {@code blockX} the aquifer is handed wraps at +/-2^31, so
-     * {@code blockX - 5} overflows on the high edge of a chunk and the grid
-     * index lands on the wrong lattice cell (the trench). {@link
-     * com.farlands.g2.util.FarProjection#unwrapX(int)} restores the real
-     * coordinate from the generation origin before the long-domain floor
-     * division. At normal coordinates it is the exact signed int, so the
-     * result is bit-identical to {@code (blockX - 5) >> 4}.</p>
-     */
-    public static int aquiferGridX(net.minecraft.world.level.levelgen.DensityFunction.FunctionContext context) {
-        double x = context instanceof WideContext wide ? wide.getBlockXDouble() : context.blockX();
-        return (int) Math.floorDiv((long) x - 5L, 16L);
+    public static void end() {
+        GRID_X.remove();
+        GRID_Z.remove();
     }
 
-    public static int aquiferGridZ(net.minecraft.world.level.levelgen.DensityFunction.FunctionContext context) {
-        double z = context instanceof WideContext wide ? wide.getBlockZDouble() : context.blockZ();
-        return (int) Math.floorDiv((long) z - 5L, 16L);
+    /** Called by the patched {@code gridX}; {@code blockCoord} is already offset by -5. */
+    public static int gridX(int blockCoord) {
+        Long wide = GRID_X.get();
+        return wide != null ? (int) (long) wide : blockCoord >> 4;
     }
 
-    public static int aquiferGridX(int blockX) {
-        long real = (long) com.farlands.g2.util.FarProjection.unwrapX(blockX);
-        return (int) Math.floorDiv(real - 5L, 16L);
-    }
-
-    /** Aquifer Z grid index; see {@link #aquiferGridX(int)}. */
-    public static int aquiferGridZ(int blockZ) {
-        long real = (long) com.farlands.g2.util.FarProjection.unwrapZ(blockZ);
-        return (int) Math.floorDiv(real - 5L, 16L);
+    /** Called by the patched {@code gridZ}; {@code blockCoord} is already offset by -5. */
+    public static int gridZ(int blockCoord) {
+        Long wide = GRID_Z.get();
+        return wide != null ? (int) (long) wide : blockCoord >> 4;
     }
 }

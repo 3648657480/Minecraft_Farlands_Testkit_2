@@ -96,14 +96,11 @@ public final class AquiferLatticePatch implements ClassPatch {
             changed = true;
         }
 
-        // computeSubstance: route the cache grid coords through the wide
-        // helpers instead of gridX/gridZ of the wrapped block coordinate.
-        for (MethodNode m : node.methods) {
-            if ("computeSubstance".equals(m.name)) {
-                changed |= replaceGridCall(m, "gridX", "aquiferGridX");
-                changed |= replaceGridCall(m, "gridZ", "aquiferGridZ");
-            }
-        }
+        // Route the private gridX/gridZ through the helper: the helper returns the
+        // exact grid published for the current computeSubstance call, falling back
+        // to vanilla int arithmetic.
+        changed |= rewriteGridMethod(node, "gridX", "gridX");
+        changed |= rewriteGridMethod(node, "gridZ", "gridZ");
 
         if (!changed) {
             return original;
@@ -214,6 +211,24 @@ public final class AquiferLatticePatch implements ClassPatch {
             m.instructions.remove(bipush);
             m.instructions.set(insn,
                 new MethodInsnNode(Opcodes.INVOKESTATIC, HELPER, helperName, "(I)I", false));
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean rewriteGridMethod(ClassNode node, String name, String helper) {
+        for (MethodNode m : node.methods) {
+            if (!name.equals(m.name) || !"(I)I".equals(m.desc)) {
+                continue;
+            }
+            if (m.instructions.size() > 0 && m.instructions.getFirst() instanceof MethodInsnNode first
+                && HELPER.equals(first.owner)) {
+                return false;
+            }
+            m.instructions.clear();
+            m.instructions.add(new VarInsnNode(Opcodes.ILOAD, 0));
+            m.instructions.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HELPER, helper, "(I)I", false));
+            m.instructions.add(new InsnNode(Opcodes.IRETURN));
             return true;
         }
         return false;
