@@ -563,6 +563,24 @@ public abstract class MinecraftServerTestGenMixin {
                     net.minecraft.core.SectionPos.asLong(600000000, 0, 0);
                     System.out.println("[NARROW] selftest done");
                 }
+                String pair = System.getProperty("farlands.testgen.seampair");
+                if (pair != null && !pair.isEmpty() && chunk != null) {
+                    int base = Integer.parseInt(pair.trim());
+                    var west = level.getChunk(base - 1, 0);
+                    var mid = level.getChunk(base, 0);
+                    var east = level.getChunk(base + 1, 0);
+                    int da = 0;
+                    int db = 0;
+                    for (int zz = 0; zz < 16; zz++) {
+                        da = Math.max(da, Math.abs(mid.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 0, zz) - west.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 15, zz)));
+                        db = Math.max(db, Math.abs(east.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 0, zz) - mid.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 15, zz)));
+                    }
+                    System.out.println("[SEAMPAIR] base=" + base + " westMid=" + da + " midEast=" + db
+                        + " surfaces=" + west.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 8, 8)
+                        + "/" + mid.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 8, 8)
+                        + "/" + east.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 8, 8));
+                    System.out.flush();
+                }
                 // Y-D follow trigger: exercise the same code path players use.
                 String followSy = System.getProperty("farlands.testgen.followsy");
                 if (followSy != null && !followSy.isEmpty()
