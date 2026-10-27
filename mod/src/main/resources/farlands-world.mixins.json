@@ -75,6 +75,7 @@
         "SurfaceSystemWideOriginMixin",
         "SectionPosOriginWideMixin",
         "BiomeManagerWideMixin",
+
         "SurfaceSystemRealCoordsMixin",
         "GeodeFeatureRealCoordsMixin",
         "StructureGenerationContextRealSeedMixin",
