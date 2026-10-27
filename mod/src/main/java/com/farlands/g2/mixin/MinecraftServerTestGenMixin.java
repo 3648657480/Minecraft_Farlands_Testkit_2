@@ -852,23 +852,26 @@ public abstract class MinecraftServerTestGenMixin {
                     }
                     System.out.flush();
                 }
-                // Full density y-scan at one column: router.finalDensity per y.
+                // Full density y-scan at columns: router.finalDensity per y.
+                // Format: x,z,y0,y1[,x2,z2,y0,y1,...]
                 String densityscan = System.getProperty("farlands.testgen.densityscan");
                 if (densityscan != null && !densityscan.isEmpty()) {
                     String[] dparts = densityscan.split(",");
-                    long dscX = Long.parseLong(dparts[0].trim());
-                    int dscZ = Integer.parseInt(dparts[1].trim());
-                    int dscY0 = Integer.parseInt(dparts[2].trim());
-                    int dscY1 = Integer.parseInt(dparts[3].trim());
                     var dscRouter = level.getChunkSource().randomState().router();
-                    StringBuilder dsb = new StringBuilder();
-                    for (int dscY = dscY0; dscY <= dscY1; dscY++) {
-                        dsb.append(dscY).append(':').append(String.format(java.util.Locale.ROOT, "%.3f",
-                            dscRouter.finalDensity().compute(
-                                new com.farlands.g2.runtime.RealContext(dscX, dscY, dscZ))))
-                            .append(' ');
+                    for (int scanIdx = 0; scanIdx + 3 < dparts.length; scanIdx += 4) {
+                        long dscX = Long.parseLong(dparts[scanIdx].trim());
+                        int dscZ = Integer.parseInt(dparts[scanIdx + 1].trim());
+                        int dscY0 = Integer.parseInt(dparts[scanIdx + 2].trim());
+                        int dscY1 = Integer.parseInt(dparts[scanIdx + 3].trim());
+                        StringBuilder dsb = new StringBuilder();
+                        for (int dscY = dscY0; dscY <= dscY1; dscY++) {
+                            dsb.append(dscY).append(':').append(String.format(java.util.Locale.ROOT, "%.3f",
+                                dscRouter.finalDensity().compute(
+                                    new com.farlands.g2.runtime.RealContext(dscX, dscY, dscZ))))
+                                .append(' ');
+                        }
+                        System.out.println("[DENSITYSCAN] x=" + dscX + " z=" + dscZ + " " + dsb);
                     }
-                    System.out.println("[DENSITYSCAN] x=" + dscX + " z=" + dscZ + " " + dsb);
                     System.out.flush();
                 }
                 // Structure-start scan around the seam chunk: print boxes, flag inverted spans.

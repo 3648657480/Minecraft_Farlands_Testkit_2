@@ -74,6 +74,7 @@
         "NoiseBasedChunkGeneratorFarSpawnMixin",
         "ChunkGeneratorDecorationMixin",
         "AquiferContextDiagMixin",
+        "AquiferSubstanceDiagMixin",
         "AquiferComputeWideMixin",
         "SurfaceSystemWideOriginMixin",
         "SurfaceSystemSeamDiagMixin",
