@@ -900,6 +900,16 @@ public abstract class MinecraftServerTestGenMixin {
                     System.out.println("[STARTSCAN] done hits=" + hits);
                     System.out.flush();
                 }
+                if (Boolean.getBoolean("farlands.diag.codec")) {
+                    var buf = io.netty.buffer.Unpooled.buffer();
+                    var pos = new net.minecraft.core.BlockPos(2147483648L, 100L, 7L);
+                    net.minecraft.network.FriendlyByteBuf.writeBlockPos(buf, pos);
+                    var back = net.minecraft.network.FriendlyByteBuf.readBlockPos(buf);
+                    System.out.println("[CODEC] out=" + pos.getLongX() + "," + pos.getY() + "," + pos.getLongZ()
+                        + " bytes=" + buf.readableBytes() + " back=" + back.getLongX() + "," + back.getY() + "," + back.getLongZ()
+                        + " ok=" + (back.getLongX() == 2147483648L && back.getY() == 100 && back.getLongZ() == 7L));
+                    System.out.flush();
+                }
                 // Y-D follow trigger: exercise the same code path players use.
                 String followSy = System.getProperty("farlands.testgen.followsy");
                 if (followSy != null && !followSy.isEmpty()

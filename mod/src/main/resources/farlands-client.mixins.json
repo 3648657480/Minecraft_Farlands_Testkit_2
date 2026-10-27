@@ -40,7 +40,8 @@
         "SectionUpdateTrackerFarMixin",
         "RenderSectionKeyMixin",
         "SectionGuardMixin",
-        "ViewAreaAccessor"
+        "ViewAreaAccessor",
+        "LevelExtractorFarDirtyMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }
