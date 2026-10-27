@@ -575,6 +575,13 @@ public abstract class MinecraftServerTestGenMixin {
                         da = Math.max(da, Math.abs(mid.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 0, zz) - west.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 15, zz)));
                         db = Math.max(db, Math.abs(east.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 0, zz) - mid.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 15, zz)));
                     }
+                    var cW = level.getChunk(base - 1, 0);
+                    var cM = level.getChunk(base, 0);
+                    var cNeg = level.getChunk(-base, 0);
+                    String bW = cW.getNoiseBiome(3, 25, 0).unwrapKey().map(Object::toString).orElse("?");
+                    String bM = cM.getNoiseBiome(0, 25, 0).unwrapKey().map(Object::toString).orElse("?");
+                    String bNeg = cNeg.getNoiseBiome(0, 25, 0).unwrapKey().map(Object::toString).orElse("?");
+                    System.out.println("[SEAMBIOME] west=" + bW + " mid=" + bM + " negMirror=" + bNeg);
                     System.out.println("[SEAMPAIR] base=" + base + " westMid=" + da + " midEast=" + db
                         + " surfaces=" + west.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 8, 8)
                         + "/" + mid.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 8, 8)

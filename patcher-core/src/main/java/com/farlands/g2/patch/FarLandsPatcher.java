@@ -41,7 +41,7 @@ public final class FarLandsPatcher {
      * to the patch set (not just the wide/continuity/epoch/unlock flags) must
      * bump it, otherwise dev runs silently reuse a stale patched jar.
      */
-    public static final int PATCH_REVISION = 104;
+    public static final int PATCH_REVISION = 106;
 
     private final List<ClassPatch> patches = new ArrayList<>();
 
@@ -128,6 +128,7 @@ public final class FarLandsPatcher {
             p.register(new FeatureOriginWidePatch());
             p.register(new StructureWidePatch());
             p.register(new CarverWidePatch());
+            p.register(new ChunkAccessBiomeQuartPatch());
             p.register(new MonsterRoomFeaturePatch());
             p.register(new NaturalSpawnerWidePatch());
         }
