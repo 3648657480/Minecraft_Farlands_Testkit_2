@@ -644,6 +644,64 @@ public abstract class MinecraftServerTestGenMixin {
                         + "/" + east.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 8, 8));
                     System.out.flush();
                 }
+                String seamzArg = System.getProperty("farlands.testgen.seamz");
+                if (seamzArg != null && !seamzArg.isEmpty() && chunk != null) {
+                    int base = Integer.parseInt(seamzArg.trim());
+                    var south = level.getChunk(0, base - 1);
+                    var north = level.getChunk(0, base);
+                    int dz = 0;
+                    for (int xx = 0; xx < 16; xx++) {
+                        dz = Math.max(dz, Math.abs(north.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, xx, 0)
+                            - south.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, xx, 15)));
+                    }
+                    System.out.println("[SEAMZ] base=" + base + " maxFloorDeltaZ=" + dz);
+                    System.out.flush();
+                }
+                String sw = System.getProperty("farlands.testgen.seamwide");
+                if (sw != null && !sw.isEmpty()) {
+                    int r = Integer.parseInt(sw.trim());
+                    int max = 0; int maxZ = 0; int maxL = 0; int maxR = 0;
+                    int nat = 0;
+                    for (int cz = -r; cz <= r; cz++) {
+                        var left = level.getChunk(134217727, cz);
+                        var right = level.getChunk(134217728, cz);
+                        for (int zz = 0; zz < 16; zz++) {
+                            int hl = left.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, 15, zz);
+                            int hr = right.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, 0, zz);
+                            int d = Math.abs(hr - hl);
+                            if (d > max) { max = d; maxZ = cz * 16 + zz; maxL = hl; maxR = hr; }
+                            nat = Math.max(nat, Math.abs(left.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, 14, zz) - hl));
+                        }
+                    }
+                    System.out.println("[SEAMWIDE] r=" + r + " maxDelta=" + max + " atZ=" + maxZ
+                        + " L=" + maxL + " R=" + maxR + " naturalInteriorMax=" + nat);
+                    System.out.flush();
+                }
+                String sa = System.getProperty("farlands.testgen.seamalign");
+                if (sa != null && !sa.isEmpty()) {
+                    int r = Integer.parseInt(sa.trim());
+                    int base = Integer.getInteger("farlands.testgen.seamalignbase", 134217728);
+                    int bad = 0; int total = 0; int maxBad = 0;
+                    for (int cz = -r; cz <= r; cz++) {
+                        var left = level.getChunk(base - 1, cz);
+                        var right = level.getChunk(base, cz);
+                        for (int zz = 0; zz < 16; zz++) {
+                            int l15 = left.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, 15, zz);
+                            int l14 = left.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, 14, zz);
+                            int r0 = right.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, 0, zz);
+                            int r1 = right.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, 1, zz);
+                            int d0 = Math.abs(r0 - l15);
+                            int dL = Math.abs(l15 - l14);
+                            int dR = Math.abs(r1 - r0);
+                            total++;
+                            if (d0 > Math.max(dL, dR) + 2) {
+                                bad++; maxBad = Math.max(maxBad, d0);
+                            }
+                        }
+                    }
+                    System.out.println("[SEAMALIGN] r=" + r + " bad=" + bad + "/" + total + " maxBad=" + maxBad);
+                    System.out.flush();
+                }
                 // Y-D follow trigger: exercise the same code path players use.
                 String followSy = System.getProperty("farlands.testgen.followsy");
                 if (followSy != null && !followSy.isEmpty()
