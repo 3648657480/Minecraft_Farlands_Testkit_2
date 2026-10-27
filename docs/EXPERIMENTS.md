@@ -2585,5 +2585,22 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 
 - 现象：x<=2^31-1 正常；x>=2^31 碰撞、挖掘、放置全失效。
 - 根因：BlockCollisions 构造器 Mth.floor(box.maxX+1e-7)+1 在 2^31 处溢出成 -2147483648 → Cursor3D 区间反转 → 无碰撞体；拾取链 VoxelShape.clip/AABB.clip 用 pos.getX() int 回绕扣局部坐标。
-- 修复：BlockCollisionsPatch 改 long 算范围 + arlands/frameZ 帧 + 相对游标，computeNext 用真实 long 坐标；VoxelShapeClipPatch 与 AabbClipPatch 改用 getLongX/getLongZ；PATCH_REVISION 118。
+- 修复：BlockCollisionsPatch 改 long 算范围 + `farlands$frameX/farlands$frameZ` 帧 + 相对游标，computeNext 用真实 long 坐标；VoxelShapeClipPatch 与 AabbClipPatch 改用 getLongX/getLongZ；PATCH_REVISION 118。
 - 验收（无头，chunk 134217728,0）：x=2147483648 时 [COLL] n: 0→2、[COLLBLK] n: 0→1、[CLIP] miss:true→false，hit=(2147483648,99,0) dir=up；x=1000 与 2147483647 前后一致；正常世界 surf=b9216bad2029 floor=8936c275d063 不变。
+- 工具：`-Dfarlands.diag.collision=true`（`MinecraftServerTestGenMixin.farlands$collisionProbe`，三锚点 1000 / 2147483647 / 2147483648，z=0）；证据 `exp-coll-base1`、`exp-coll-base2`、`exp-coll-fix1`（VerifyError：`LSHR` 移位量误用 long，已改 `iconst_4`）、`exp-coll-fix2`、`exp-norm-collfix`（均在 `%TEMP%\opencode\`）。
+- 运行 jar 核对：`mod\build\loom-cache\argFiles\runServer` → `minecraft-merged-d39021f108`；javap 确认 `farlands$frameX/frameZ`、`getChunk(JJ)`、`AABB.clip`/`VoxelShape.clip` 的 `getLongX` 均在该 jar 内。
+- 阶段结论（X/Z 碰撞/拾取收口）：碰撞（`BlockCollisions`）与拾取（`BlockGetter.clip → VoxelShape.clip → AABB.clip`）两条链在 2^31 缝已与相邻列一致；`setBlockAndUpdate` 在 2^31 本来就成功（修复前就 `placed=stone` 读回成功），玩家侧“不能放置/挖掘”是拾取选不中目标方块导致，不是写入失败。
+- X/Z 仍未改的边界（转 Y 前必须记住）：
+  1) `CollisionGetter.getChunkForCollisions(int,int)` 仍是 int chunk 坐标 → block ≥ 2^35（chunk ≥ 2^31）会再次失效，需要 wide 化这个接口；
+  2) 竖向（Y）范围整体仍是 int 域，本阶段一行未动；
+  3) 客户端与服务器共用同一批 patched 类，但本次只有无头服务端验收，客户端拾取/碰撞仍是“待人工实测”。
+- 流程教训（下阶段沿用）：只改 patch 实现而不 bump `PATCH_REVISION` 时 `:mod:build` 会静默复用旧 patched jar（22 s 构建、无 patch 报告）；bump 后必须用 `argFiles\runServer` 指向的那个 jar 做 javap 复核，不要用时间最新的 jar 判断。
+- 约定（本条目存在的原因）：先把 X/Z 全链路（渲染 + 数据 + 碰撞/拾取）做完全，再移动到 Y；本条是 X/Z 的收口点，Y 阶段另起编号。
+
+#### 107.1 待人工实测（X/Z 碰撞/拾取）
+
+- 先决：`.\gradlew.bat :mod:build --no-daemon`；确认 `argFiles\runServer` 指向 revision 118 的 jar（`minecraft-merged-d39021f108`）。
+- 客户端步骤：进入 test2.1 世界 → `/tp @s 2147483648 99 0`（或 tp 到 2147483647 再向东走一格）→ 检查：站在地表不下陷；准星对准方块时轮廓线出现；左键能挖掉、右键能放置；上下跳跃不穿地。
+- 对照：同一世界里 `x=1000` 与 `x=2147483647` 的行为应与 `x=2147483648` 一致。
+- 通过判据：2^31 两侧碰撞/拾取体感一致，无“方块挖掘不了/放置不了/掉出世界”。
+- 不通过时的第一手证据：`-Dfarlands.diag.collision=true` 的 `[COLL]/[COLLBLK]/[CLIP]` 三行（服务端自动化已覆盖，若服务端仍 n=0 则说明是另一条链，不是这两处补丁）。

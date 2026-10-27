@@ -1,12 +1,12 @@
 # G2 状态（唯一入口）
 
-> 更新时间：2026-10-26　分支：`arch`（宽身份线）　HEAD：`3975408`+
+> 更新时间：2026-10-27　分支：`wide`（宽身份线）　HEAD：`e26f510`+
 
 ## 30 秒版
 
 - **目标**：远 Y（穹顶 25M、2^31）能生成、能渲染、能存档；正常世界逐位不变。
 - **已完成**：D0 数据层——512 位 Y 键、绝对段存储、远 Y 读写。
-- **下一步**：D1 渲染缓存——绝对 origin，让远段真正画出来。
+- **下一步**：X/Z 碰撞/拾取已收口（2^31 缝，服务端自动化已过）→ 等客户端人工实测；通过后再把同一套 long 帧做法移到 Y 域。
 - **不要做**：不要再开新设计文档；旧设计全部在 `docs/archive/`。
 - **只看这一页**：其余文档都是参考，不是任务。
 
@@ -30,6 +30,9 @@
 | +16 断崖 | ✅ 根因：G2 自加的 FlatCache long 补丁在远 origin 下返回陈旧列值（jaggedness 错 ~0.45）→ fill 把 solid 写到 y=120。FlatCache 只是 2D memoization，远 origin 直接调用被缓存函数：SURFBEFORE 120→71，+16 边界 maxDelta 59→5（自然量级 4），生成耗时不变（3.0s） |
 | 缝总验收 | maxFloorDelta=1、biomeMismatch=0/256、+16 边界 maxDelta=5、正常世界指纹不变、双跑一致 |
 | 2^31 碰撞/拾取 | ✅ 根因：BlockCollisions 构造器 int floor 溢出致 Cursor3D 区间反转；VoxelShape.clip/AABB.clip 用 int 局部坐标。改为 long 帧 + 相对游标 + 真实 long 坐标；COLL 0→2、COLLBLK 0→1、CLIP miss→hit（x=2147483648），正常世界不变 |
+| X/Z 收口 | ✅ 碰撞/拾取两条链（服务端）：三锚点 1000 / 2147483647 / 2147483648 数值一致；`setBlockAndUpdate` 本来就成功（修复前 `placed=stone` 已读回），“挖不动/放不了”是拾取选不中，不是写入失败 |
+| X/Z 未改边界 | ⚠ block ≥ 2^35（chunk ≥ 2^31）的 `getChunkForCollisions(int,int)` 仍是 int；竖向 Y 整体仍 int；客户端未实测（只有无头服务端验收） |
+| 下一步 | 用户客户端实测 X/Z（碰撞/挖掘/放置，见 EXPERIMENTS §107.1）→ 通过后进入 Y 阶段（远 Y 碰撞 + 竖向范围） |
 | 缝 | 受控种子 16 z 区块 `maxDelta=0`（西/中/东三块都连续）；用户世界（test0 种子）在 2^31 附近出现过渡带，需在同世界内测 |
 | 确定性 | ✅ 远 X 三次 `floor=423372e9c845` 一致；根因=origin 折进 carver/结构种子 |
 | D2 | 生成：按页 Cwg → 客户端 upsert | 未开始 |
@@ -44,6 +47,9 @@
 [D0] y=2147483648   set=true read=stone ok=true          ← 超过 int 方块上限
 [D0] y=25165824     set=true read=stone ok=true          ← 穹顶带
 [D0] y=34359738368  set=true read=stone ok=true          ← 段号 2^31，超过 int 段号
+2^31 碰撞/拾取 (PATCH_REVISION 118)：x=2147483648 时
+  [COLL] n 0→2、[COLLBLK] n 0→1、[CLIP] miss:true→false hit=(2147483648,99,0) up
+  （x=1000 / 2147483647 前后一致；chunk 134217728 生成指纹不变）
 ```
 
 ## 现在代码里有什么（相对基线 77594fa）
