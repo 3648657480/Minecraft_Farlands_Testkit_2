@@ -2481,3 +2481,51 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 验证：构建通过；正常世界不受影响（`|cameraY|<=1e6` 且维度带内不走该分支）。
 - 待测：客户端跨页/移动时错位是否消失。若仍存在，下一处是
   "换页时强制重建 ViewArea"（`LevelRenderer.allChanged()` 路径），而不是再改设计。
+
+## 106. x=2^31+16 断崖归因：不是雕刻器（2026-10-27）
+
+- 背景：任务假设 x=2147483664（2^31+16）的断崖由 carver 造成。核对探针后发现
+  `SEAMWIDE`/`SEAMALIGN` 实际只比较 chunk 134217727 与 134217728 之间的
+  **x=2^31 = 2147483648** 边界，从未测过 +16 边界；两者不是同一处。
+- 新增诊断探针（`MinecraftServerTestGenMixin`，均由系统属性门控）：
+  - `farlands.testgen.seamcols=<z>`：打印 chunk 134217726..134217731 的
+    `posX/xLong/minBlockX/minBlockXLong`、结构起点包围盒、每列
+    `OCEAN_FLOOR_WG/WORLD_SURFACE`，并在 x=2147483664 打印 y=55..122 的方块序列；
+  - `farlands.testgen.fieldcols=x0,x1,z`：同一列上密度场顶 vs 生成顶；
+  - `farlands.testgen.fieldonly=x0,x1,z`：只算密度场顶（不生成 chunk）；
+  - `farlands.testgen.startscan=<z>`：扫 134217721..737 的结构起点。
+  `NoiseChunkRealCoordsMixin` 增加 `-Dfarlands.diag.noisex2`：若填充采样列越出本 chunk
+  （134217729 的 2147483664..3680）就打印，用于排除坐标截断。
+- 实测（种子 test2.1，fresh overworld，`-Dfarlands.diag.noFeatures=true`，z=293）：
+  | 条件 | x=2147483648（2^31 边界） | x=2147483664（+16 边界） |
+  |---|---|---|
+  | carvers 开 | 左 68 / 右 52，`maxDelta=16`（海底 52、水面 62 的水潭） | 71 → 120 |
+  | `noCarvers` | 67 | 71 → 120（不变） |
+  即 2^31 的 16 格是 carver+含水层造成的**天然水潭**（关 carver 即消失；普通坐标边界
+  对照 bad=15/784 maxBad=23，反而比 seam 的 11/784 maxBad=16 更差），而 +16 的
+  49 格墙在 noCarvers 下逐位不变，**与 carver 无关**。
+- +16 墙的数据：x=2147483664,z=293 列 = stone ≤116、dirt 117..119、grass 120；
+  而同一坐标的 `finalDensity` 顶 = 71，且 x=2147483660..3672 逐列与生成顶一致
+  （72/71/71/71），说明填充用的密度场在 x≥2^31+16 被算成高出 ~49 格。
+  结构起点 0（`startscan hits=0`）→ beardifier 可排除。
+- 噪声采样坐标已核对：chunk 134217729 的 `farlands$originX` 与
+  `farlands$cellStartBlockXLong` 均为 2147483664（正确），`noisex2` 只打印到本 chunk 东边界
+  角 +4（2147483680），没有负值/回绕 → 不是 BlockPos/ChunkPos/QuartPos 截断。
+- 单变量隔离：`-Dfarlands.continuity=false`（关掉 AquiferContextPatch /
+  AquiferLatticePatch / NoiseChunkFlatCacheLongPatch）后，+16 仍为 118（field=63），
+  即异常与这三个 continuity 补丁无关；同时 134217728 整块崩坏（`-65/62`），说明
+  continuity 补丁本身不能关。异常属于 wide 基础管线（NoiseChunk 宽构造/宽采样混入）。
+- 形态线索：x=2147483664 列在 y=116 以下全是 stone，117..119 dirt、120 grass、121 起 air，
+  即"密度面 71 + 表面规则把 117-120 当成了地表"。这与表面规则读取的
+  **preliminary surface level**（约 117，接近负侧镜像列的地表）一致，而密度面本身
+  并未抬高。下一步应直接打印 `NoiseChunk.preliminarySurfaceLevel(x,z)` 与
+  `fullNoiseDensity.compute(NoiseChunk)`，确认是 preliminary surface 用 int 镜像列、
+  还是 fill 的密度被抬高。
+- 正常世界指纹逐位不变：`surf=b9216bad2029 floor=8936c275d063`。
+- 下一步：在 fill 内对固定 (x,y,z) 同时打印 `fullNoiseDensity.compute(NoiseChunk)` 与
+  `router.finalDensity().compute(RealContext)`，以及 `preliminarySurfaceLevel`，
+  定位是哪个节点把 71 变成 120，再修 +16 墙；不要按"carver 墙"处理。
+- 证据：`exp-carv-diag1`、`exp-carv-f1`、`exp-carv-f1-nc`、`exp-carv-pos`、
+  `exp-carv-mirrorgen`、`exp-carv-xrange`、`exp-carv-starts`、`exp-carv-colblk`、
+  `exp-carv-nocont`、`exp-norm-carvdiag`（均在 `%TEMP%\opencode\`）。
+

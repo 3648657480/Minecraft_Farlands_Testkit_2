@@ -702,6 +702,164 @@ public abstract class MinecraftServerTestGenMixin {
                     System.out.println("[SEAMALIGN] r=" + r + " bad=" + bad + "/" + total + " maxBad=" + maxBad);
                     System.out.flush();
                 }
+                // Seam column dump: per-column heights and top block across x=2^31.
+                String seamcols = System.getProperty("farlands.testgen.seamcols");
+                if (seamcols != null && !seamcols.isEmpty()) {
+                    int zz = Integer.parseInt(seamcols.trim());
+                    int czCol = zz >> 4;
+                    int lzCol = zz & 15;
+                    for (long cx : new long[] {134217726L, 134217727L, 134217728L, 134217729L,
+                            134217730L, 134217731L}) {
+                        var c = level.getChunk((int) cx, czCol);
+                        StringBuilder sbCols = new StringBuilder();
+                        for (int lx = 0; lx < 16; lx++) {
+                            sbCols.append(c.getHeight(
+                                net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, lx, lzCol))
+                                .append('/')
+                                .append(c.getHeight(
+                                    net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, lx, lzCol))
+                                .append(' ');
+                        }
+                        var cpos = c.getPos();
+                        var starts = c.getAllStarts();
+                        StringBuilder startBoxes = new StringBuilder();
+                        for (var start : starts.values()) {
+                            var sbox = start.getBoundingBox();
+                            startBoxes.append('[').append(sbox.minX()).append("..").append(sbox.maxX())
+                                .append(",y").append(sbox.minY()).append("..").append(sbox.maxY())
+                                .append(",z").append(sbox.minZ()).append("..").append(sbox.maxZ())
+                                .append("] ");
+                        }
+                        System.out.println("[SEAMCOLS] chunk=" + cx + " z=" + zz
+                            + " posX=" + cpos.x() + " posXLong=" + cpos.xLong()
+                            + " minBlockX=" + cpos.getMinBlockX()
+                            + " minBlockXLong=" + cpos.getMinBlockXLong()
+                            + " starts=" + starts.size() + " " + startBoxes
+                            + " " + sbCols);
+                    }
+                    for (long wx = 2147483644L; wx <= 2147483670L; wx++) {
+                        long cxw = wx >> 4;
+                        int lxw = (int) (wx & 15L);
+                        var c = level.getChunk((int) cxw, czCol);
+                        int topCol = -1;
+                        String topBlock = "?";
+                        for (int y = 120; y >= 0; y--) {
+                            var st = c.getBlockState(new net.minecraft.core.BlockPos(lxw, y, lzCol));
+                            if (!st.isAir()) {
+                                topCol = y;
+                                topBlock = st.getBlock().toString();
+                                break;
+                            }
+                        }
+                        int air = 0;
+                        int firstAir = -1;
+                        for (int y = 40; y <= 100; y++) {
+                            if (c.getBlockState(new net.minecraft.core.BlockPos(lxw, y, lzCol)).isAir()) {
+                                air++;
+                                if (firstAir < 0) {
+                                    firstAir = y;
+                                }
+                            }
+                        }
+                        System.out.println("[SEAMCOL] x=" + wx + " top=" + topCol + " firstAir=" + firstAir
+                            + " air40_100=" + air + " block=" + topBlock);
+                    }
+                    for (long wbx : new long[] {2147483663L, 2147483664L, 2147483665L, 2147483680L}) {
+                        var wst80 = level.getBlockState(
+                            new net.minecraft.core.BlockPos(wbx, 80L, (long) zz));
+                        var wst120 = level.getBlockState(
+                            new net.minecraft.core.BlockPos(wbx, 120L, (long) zz));
+                        System.out.println("[WORLDBLK] x=" + wbx + " y80=" + wst80.getBlock()
+                            + " y120=" + wst120.getBlock());
+                        if (wbx == 2147483664L) {
+                            StringBuilder col = new StringBuilder();
+                            for (int cy = 55; cy <= 122; cy++) {
+                                col.append(cy).append(':').append(level.getBlockState(
+                                    new net.minecraft.core.BlockPos(wbx, (long) cy, (long) zz))
+                                    .getBlock().toString().replace("Block{minecraft:", "").replace("}", ""))
+                                    .append(' ');
+                            }
+                            System.out.println("[COLBLK] x=" + wbx + " " + col);
+                        }
+                    }
+                    System.out.flush();
+                }
+                // Field-vs-generated column dump: noise-only top vs heightmap.
+                String fieldcols = System.getProperty("farlands.testgen.fieldcols");
+                if (fieldcols != null && !fieldcols.isEmpty()) {
+                    String[] fparts = fieldcols.split(",");
+                    long fx0 = Long.parseLong(fparts[0].trim());
+                    long fx1 = Long.parseLong(fparts[1].trim());
+                    int fz = Integer.parseInt(fparts[2].trim());
+                    int fcz = fz >> 4;
+                    int flz = fz & 15;
+                    var fRouter = level.getChunkSource().randomState().router();
+                    for (long fx = fx0; fx <= fx1; fx++) {
+                        int fieldTop = -999;
+                        for (int fy = 40; fy <= 200; fy++) {
+                            if (fRouter.finalDensity().compute(
+                                new com.farlands.g2.runtime.RealContext(fx, fy, fz)) > 0.0) {
+                                fieldTop = fy;
+                            }
+                        }
+                        long fcx = fx >> 4;
+                        int flx = (int) (fx & 15L);
+                        var fc = level.getChunk((int) fcx, fcz);
+                        int genFloor = fc.getHeight(
+                            net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, flx, flz);
+                        int genSurf = fc.getHeight(
+                            net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, flx, flz);
+                        System.out.println("[FIELDCOL] x=" + fx + " chunk=" + fcx + " lx=" + flx
+                            + " field=" + fieldTop + " genFloor=" + genFloor + " genSurf=" + genSurf);
+                    }
+                    System.out.flush();
+                }
+                // Field-only column dump (no chunk generation): density top.
+                String fieldonly = System.getProperty("farlands.testgen.fieldonly");
+                if (fieldonly != null && !fieldonly.isEmpty()) {
+                    String[] oparts = fieldonly.split(",");
+                    long ox0 = Long.parseLong(oparts[0].trim());
+                    long ox1 = Long.parseLong(oparts[1].trim());
+                    int oz = Integer.parseInt(oparts[2].trim());
+                    var oRouter = level.getChunkSource().randomState().router();
+                    for (long ox = ox0; ox <= ox1; ox++) {
+                        int oTop = -999;
+                        for (int oy = 40; oy <= 200; oy++) {
+                            if (oRouter.finalDensity().compute(
+                                new com.farlands.g2.runtime.RealContext(ox, oy, oz)) > 0.0) {
+                                oTop = oy;
+                            }
+                        }
+                        System.out.println("[FIELDONLY] x=" + ox + " z=" + oz + " field=" + oTop);
+                    }
+                    System.out.flush();
+                }
+                // Structure-start scan around the seam chunk: print boxes, flag inverted spans.
+                String startscan = System.getProperty("farlands.testgen.startscan");
+                if (startscan != null && !startscan.isEmpty()) {
+                    int ssz = Integer.parseInt(startscan.trim());
+                    int sscz = ssz >> 4;
+                    int hits = 0;
+                    for (long scx = 134217721L; scx <= 134217737L; scx++) {
+                        var sc = level.getChunk((int) scx, sscz);
+                        var sstarts = sc.getAllStarts();
+                        if (sstarts.isEmpty()) {
+                            continue;
+                        }
+                        for (var st : sstarts.values()) {
+                            var box = st.getBoundingBox();
+                            boolean inverted = box.minX() > box.maxX() || box.minZ() > box.maxZ();
+                            System.out.println("[STARTSCAN] xchunk=" + scx + " zchunk=" + sscz
+                                + " box=" + box.minX() + ".." + box.maxX()
+                                + "/y" + box.minY() + ".." + box.maxY()
+                                + "/z" + box.minZ() + ".." + box.maxZ()
+                                + " inverted=" + inverted);
+                            hits++;
+                        }
+                    }
+                    System.out.println("[STARTSCAN] done hits=" + hits);
+                    System.out.flush();
+                }
                 // Y-D follow trigger: exercise the same code path players use.
                 String followSy = System.getProperty("farlands.testgen.followsy");
                 if (followSy != null && !followSy.isEmpty()
