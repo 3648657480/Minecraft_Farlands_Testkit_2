@@ -12,10 +12,13 @@ public abstract class NoiseChunkDiagAccessMixin implements NoiseChunkDiagAccess 
     @Shadow private int inCellX;
     @Shadow private int inCellY;
     @Shadow private int inCellZ;
+    @Shadow private int cellStartBlockX;
     @Shadow private int cellStartBlockY;
+    @Shadow private int cellStartBlockZ;
     @Shadow private int cellWidth;
     @Shadow private int cellHeight;
     @Shadow private long farlands$cellStartBlockXLong;
+    @Shadow private long farlands$cellStartBlockZLong;
     @Shadow private long farlands$originX;
 
     public int farlands$inCellX() {
@@ -30,8 +33,16 @@ public abstract class NoiseChunkDiagAccessMixin implements NoiseChunkDiagAccess 
         return this.inCellZ;
     }
 
+    public int farlands$cellStartBlockX() {
+        return this.cellStartBlockX;
+    }
+
     public int farlands$cellStartBlockY() {
         return this.cellStartBlockY;
+    }
+
+    public int farlands$cellStartBlockZ() {
+        return this.cellStartBlockZ;
     }
 
     public int farlands$cellWidth() {
@@ -44,6 +55,10 @@ public abstract class NoiseChunkDiagAccessMixin implements NoiseChunkDiagAccess 
 
     public long farlands$cellStartBlockXLong() {
         return this.farlands$cellStartBlockXLong;
+    }
+
+    public long farlands$cellStartBlockZLong() {
+        return this.farlands$cellStartBlockZLong;
     }
 
     public long farlands$originX() {

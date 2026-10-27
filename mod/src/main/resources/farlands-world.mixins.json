@@ -67,6 +67,7 @@
         "NoiseChunkFlatCacheDiagMixin",
         "NoiseChunkCacheDiagMixin",
         "NoiseChunkCacheFillDiagMixin",
+        "NoiseChunkSliceProviderDiagMixin",
         "NoiseChunkDiagAccessMixin",
         "FlatCacheCornerDiagMixin",
         "NoiseChunkPrelimDiagMixin",

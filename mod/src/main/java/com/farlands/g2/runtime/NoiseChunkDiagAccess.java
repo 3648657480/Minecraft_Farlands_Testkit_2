@@ -9,13 +9,19 @@ public interface NoiseChunkDiagAccess {
 
     int farlands$inCellZ();
 
+    int farlands$cellStartBlockX();
+
     int farlands$cellStartBlockY();
+
+    int farlands$cellStartBlockZ();
 
     int farlands$cellWidth();
 
     int farlands$cellHeight();
 
     long farlands$cellStartBlockXLong();
+
+    long farlands$cellStartBlockZLong();
 
     long farlands$originX();
 }
