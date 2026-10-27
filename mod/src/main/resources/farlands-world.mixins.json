@@ -64,6 +64,7 @@
         "NoiseChunkMixin",
         "NoiseChunkRealCoordsMixin",
         "NoiseChunkFillDiagMixin",
+        "NoiseChunkFlatCacheDiagMixin",
         "NoiseChunkPrelimDiagMixin",
         "FunctionContextMixin",
         "PerlinNoiseWrapDiagMixin",
@@ -103,7 +104,9 @@
         "SurfaceRulesContextFrameMixin",
         "AquiferSkipDiagMixin",
         "SurfaceSystemSkipDiagMixin",
-        "BeardifierSkipDiagMixin"
+        "BeardifierSkipDiagMixin",
+        "SetBlockStackDiagMixin",
+        "SurfaceBeforeDiagMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }
