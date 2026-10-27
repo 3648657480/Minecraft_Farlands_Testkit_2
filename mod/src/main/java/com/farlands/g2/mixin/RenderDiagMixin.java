@@ -169,6 +169,27 @@ public class RenderDiagMixin {
             (long) Math.floor(mc.player.getX()),
             (long) Math.floor(mc.player.getY()),
             (long) Math.floor(mc.player.getZ()));
+        int dataSections = 0;
+        int meshSections = 0;
+        if (mc.level != null && mc.player != null) {
+            int ccx = (int) Math.floorDiv((long) Math.floor(mc.player.getX()), 16L);
+            int ccz = (int) Math.floorDiv((long) Math.floor(mc.player.getZ()), 16L);
+            var cc = mc.level.getChunkSource().getChunk(ccx, ccz, false);
+            if (cc != null) {
+                for (var s : cc.getSections()) {
+                    if (!s.hasOnlyAir()) {
+                        dataSections++;
+                    }
+                }
+            }
+            for (var s : self.visibleSections()) {
+                var k = s instanceof com.farlands.g2.runtime.section.RenderSectionKeyAccessor a ? a.farlands$getKey() : null;
+                if (k != null && k.x == ccx && k.z == ccz
+                    && s.getSectionMesh() != CompiledSectionMesh.UNCOMPILED) {
+                    meshSections++;
+                }
+            }
+        }
         boolean lightCam = mc.level != null && camPos != null
             && mc.level.getLightEngine().lightOnInColumn(net.minecraft.core.SectionPos.getZeroNode(
                 net.minecraft.core.SectionPos.asLong((int) Math.floorDiv((long) Math.floor(mc.player.getX()), 16L),
@@ -229,7 +250,7 @@ public class RenderDiagMixin {
             + " uncompiled=" + uncompiled
             + " innerUncompiled=" + innerUncompiled + " chunks5x5=" + chunkPresent
             + " dirtyNull=" + dirtyNull + " dirtyFalse=" + dirtyFalse + " noNeighbors=" + noNeighbors
-            + " lightCam=" + lightCam + " light3x3=" + light3x3
+            + " lightCam=" + lightCam + " light3x3=" + light3x3 + " dataSec=" + dataSections + " meshSec=" + meshSections
             + " east=" + east + " eastCompiled=" + eastCompiled
             + " queue=" + disp.getCompileQueueSize()
             + " player=" + mc.player.getX() + "," + mc.player.getY() + "," + mc.player.getZ()
