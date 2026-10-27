@@ -31,6 +31,20 @@ public class DensityTreeDiffMixin {
             return;
         }
         farlands$done = true;
+        try {
+            Object cache = this.fullNoiseDensity;
+            java.lang.reflect.Field fillerField = cache.getClass().getDeclaredField("noiseFiller");
+            fillerField.setAccessible(true);
+            Object add = fillerField.get(cache);
+            java.lang.reflect.Field a1 = add.getClass().getDeclaredField("argument1");
+            a1.setAccessible(true);
+            DensityFunction wrappedFinal = (DensityFunction) a1.get(add);
+            System.out.println("[TREEDIFF] wrappedFinal=" + wrappedFinal.getClass().getName()
+                + " value=" + wrappedFinal.compute(new RealContext(2147483664L, 120L, 292L))
+                + " rawValue=" + raw.compute(new RealContext(2147483664L, 120L, 292L)));
+        } catch (Throwable t) {
+            System.out.println("[TREEDIFF] reflect failed: " + t);
+        }
         farlands$budget = 400;
         RealContext ctx = new RealContext(2147483664L, 120L, 292L);
         System.out.println("[TREEDIFF] wrapped=" + this.fullNoiseDensity.getClass().getName()
