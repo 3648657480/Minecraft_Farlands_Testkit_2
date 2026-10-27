@@ -660,11 +660,12 @@ public abstract class MinecraftServerTestGenMixin {
                 String sw = System.getProperty("farlands.testgen.seamwide");
                 if (sw != null && !sw.isEmpty()) {
                     int r = Integer.parseInt(sw.trim());
+                    int swBase = Integer.getInteger("farlands.testgen.seamwidebase", 134217728);
                     int max = 0; int maxZ = 0; int maxL = 0; int maxR = 0;
                     int nat = 0;
                     for (int cz = -r; cz <= r; cz++) {
-                        var left = level.getChunk(134217727, cz);
-                        var right = level.getChunk(134217728, cz);
+                        var left = level.getChunk(swBase - 1, cz);
+                        var right = level.getChunk(swBase, cz);
                         for (int zz = 0; zz < 16; zz++) {
                             int hl = left.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, 15, zz);
                             int hr = right.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, 0, zz);
@@ -673,8 +674,9 @@ public abstract class MinecraftServerTestGenMixin {
                             nat = Math.max(nat, Math.abs(left.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, 14, zz) - hl));
                         }
                     }
-                    System.out.println("[SEAMWIDE] r=" + r + " maxDelta=" + max + " atZ=" + maxZ
-                        + " L=" + maxL + " R=" + maxR + " naturalInteriorMax=" + nat);
+                    System.out.println("[SEAMWIDE] base=" + swBase + " r=" + r + " maxDelta=" + max
+                        + " atZ=" + maxZ + " L=" + maxL + " R=" + maxR
+                        + " naturalInteriorMax=" + nat);
                     System.out.flush();
                 }
                 String sa = System.getProperty("farlands.testgen.seamalign");
@@ -771,16 +773,32 @@ public abstract class MinecraftServerTestGenMixin {
                             new net.minecraft.core.BlockPos(wbx, 120L, (long) zz));
                         System.out.println("[WORLDBLK] x=" + wbx + " y80=" + wst80.getBlock()
                             + " y120=" + wst120.getBlock());
-                        if (wbx == 2147483664L) {
-                            StringBuilder col = new StringBuilder();
-                            for (int cy = 55; cy <= 122; cy++) {
-                                col.append(cy).append(':').append(level.getBlockState(
-                                    new net.minecraft.core.BlockPos(wbx, (long) cy, (long) zz))
-                                    .getBlock().toString().replace("Block{minecraft:", "").replace("}", ""))
-                                    .append(' ');
+                    }
+                    // Full-column run-length dump at the seam column and its int mirror.
+                    for (long wbx : new long[] {2147483664L, -2147483664L}) {
+                        long mcx = wbx >> 4;
+                        int mlx = (int) (wbx & 15L);
+                        var mcc = level.getChunk((int) mcx, czCol);
+                        int cy0 = -64;
+                        int cy1 = 125;
+                        StringBuilder rle = new StringBuilder();
+                        String prev = null;
+                        int runStart = cy0;
+                        for (int cy = cy0; cy <= cy1; cy++) {
+                            String cur = mcc.getBlockState(new net.minecraft.core.BlockPos(mlx, cy, lzCol))
+                                .getBlock().toString().replace("Block{minecraft:", "").replace("}", "");
+                            if (prev == null) {
+                                prev = cur;
+                                runStart = cy;
+                            } else if (!cur.equals(prev)) {
+                                rle.append(prev).append('[').append(runStart).append("..")
+                                    .append(cy - 1).append("] ");
+                                prev = cur;
+                                runStart = cy;
                             }
-                            System.out.println("[COLBLK] x=" + wbx + " " + col);
                         }
+                        rle.append(prev).append('[').append(runStart).append("..").append(cy1).append(']');
+                        System.out.println("[MIRRORCOL] x=" + wbx + " chunk=" + mcx + " z=" + zz + " " + rle);
                     }
                     System.out.flush();
                 }
@@ -832,6 +850,25 @@ public abstract class MinecraftServerTestGenMixin {
                         }
                         System.out.println("[FIELDONLY] x=" + ox + " z=" + oz + " field=" + oTop);
                     }
+                    System.out.flush();
+                }
+                // Full density y-scan at one column: router.finalDensity per y.
+                String densityscan = System.getProperty("farlands.testgen.densityscan");
+                if (densityscan != null && !densityscan.isEmpty()) {
+                    String[] dparts = densityscan.split(",");
+                    long dscX = Long.parseLong(dparts[0].trim());
+                    int dscZ = Integer.parseInt(dparts[1].trim());
+                    int dscY0 = Integer.parseInt(dparts[2].trim());
+                    int dscY1 = Integer.parseInt(dparts[3].trim());
+                    var dscRouter = level.getChunkSource().randomState().router();
+                    StringBuilder dsb = new StringBuilder();
+                    for (int dscY = dscY0; dscY <= dscY1; dscY++) {
+                        dsb.append(dscY).append(':').append(String.format(java.util.Locale.ROOT, "%.3f",
+                            dscRouter.finalDensity().compute(
+                                new com.farlands.g2.runtime.RealContext(dscX, dscY, dscZ))))
+                            .append(' ');
+                    }
+                    System.out.println("[DENSITYSCAN] x=" + dscX + " z=" + dscZ + " " + dsb);
                     System.out.flush();
                 }
                 // Structure-start scan around the seam chunk: print boxes, flag inverted spans.

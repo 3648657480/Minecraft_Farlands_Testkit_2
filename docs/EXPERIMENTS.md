@@ -2493,9 +2493,13 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
     `OCEAN_FLOOR_WG/WORLD_SURFACE`，并在 x=2147483664 打印 y=55..122 的方块序列；
   - `farlands.testgen.fieldcols=x0,x1,z`：同一列上密度场顶 vs 生成顶；
   - `farlands.testgen.fieldonly=x0,x1,z`：只算密度场顶（不生成 chunk）；
-  - `farlands.testgen.startscan=<z>`：扫 134217721..737 的结构起点。
+  - `farlands.testgen.startscan=<z>`：扫 134217721..737 的结构起点；
+  - `farlands.testgen.seamwidebase=<chunk>`：`seamwide` 的边界基准（默认 134217728，
+    设 134217729 可量 +16 边界）；`seamcols` 另外输出 x=±2147483664 的 y=-64..125
+    RLE 整列（`[MIRRORCOL]`）与 `densityscan=x,z,y0,y1`（`[DENSITYSCAN]`）。
   `NoiseChunkRealCoordsMixin` 增加 `-Dfarlands.diag.noisex2`：若填充采样列越出本 chunk
-  （134217729 的 2147483664..3680）就打印，用于排除坐标截断。
+  （134217729 的 2147483664..3680）就打印，用于排除坐标截断；
+  `FarProjection` 增加 `-Dfarlands.diag.unwraplog`（远 int 回绕展开时打印 origin）。
 - 实测（种子 test2.1，fresh overworld，`-Dfarlands.diag.noFeatures=true`，z=293）：
   | 条件 | x=2147483648（2^31 边界） | x=2147483664（+16 边界） |
   |---|---|---|
@@ -2521,11 +2525,57 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   并未抬高。下一步应直接打印 `NoiseChunk.preliminarySurfaceLevel(x,z)` 与
   `fullNoiseDensity.compute(NoiseChunk)`，确认是 preliminary surface 用 int 镜像列、
   还是 fill 的密度被抬高。
+- 量化 +16 边界（新增 `farlands.testgen.seamwidebase`，默认 134217728）：
+  `[SEAMWIDE] base=134217729 maxDelta=59 atZ=332 L=53 R=112 naturalInteriorMax=4`，
+  `[SEAMALIGN] bad=673/784 maxBad=59`。这是真正的墙；2^31 的 16 只是水潭。
+- 镜像列对照（`[MIRRORCOL]`，y=-64..125 RLE）：x=2147483664 列 =
+  `bedrock[-64..-62] … stone[19..60] water[61..62] air[63] stone[64..69] air[70..71]
+  stone[72..116] dirt[117..119] grass[120] air[121..125]`；镜像 x=-2147483664 列 =
+  `… stone[17..121] dirt[122..124] grass[125]`。即坏列不是整列 Y 偏移（真实地形到 71 仍在，
+  64..69 有石、63/70..71 是空腔），而是**在真实地形之上又叠了一段 72..116 的实心体**。
+- 密度扫描（`densityscan`）：x=2147483664,z=293 的 `router.finalDensity` 在 y=71→72
+  过零（0.005 → -0.004），到 y=125 单调到 -0.458；填充却把 72..116 写成 stone。
+  → 不是 Y 段错位，也不是密度场顶被抬高（密度场顶仍是 71）。
+- 采样坐标无误（`noisex2`）：填充时 `cellStartBlockXLong` 全在 2147483664..3680，
+  没有负值/回绕；所以"密度函数拿到错坐标"不成立。
+- `-Dfarlands.diag.unwraplog=true`：生成期间出现
+  `[UNWRAP] axis=X v=-2147483616 origin=null => -2.147483616E9` —— surface 等阶段
+  在线程上没有 `FarProjection` 的 generation origin，`RealContext(int)` 不回绕展开。
+- 但 `preliminarySurfaceLevel` 的调用栈（`[PRELIMQ]`）显示：`buildSurface` →
+  `SurfaceRules$Context$AbovePreliminarySurfaceCondition` → `preliminarySurfaceLevel`，
+  对 **chunk 134217728（origin=2147483648）** 的查询 x=-2147483648/-2147483632
+  返回 80/72（已由 epoch 修正）；从未观察到 chunk 134217729（origin=2147483664）
+  自己的 surface 查询。另有一类 origin=0 的 `iterateNoiseColumn`（结构 placement
+  的 fake chunk）会以回绕 x 调 `maxPreliminarySurfaceLevel`，属结构路径。
+- 试验性修复（已回退）：给 `NoiseChunk.computePreliminarySurfaceLevel` 注入
+  epoch 修正（用 NoiseChunk 自己的 `farlands$originX/Z` 选最近 2^32 纪元）。
+  结果 +16 列仍为 stone≤116/dirt/grass 120，`SEAMWIDE base=134217729` 仍 59 →
+  单靠 preliminary surface 修正不能解释 72..116 的实心体，已回退，未提交。
+- 决定性证据 1（`-Dfarlands.diag.filldiag`）：在坏 chunk 的 fill 里，探针体素
+  (int -2147483632, 90, 293)（=真实 2147483664）的 `getInterpolatedState` 返回
+  **null**（fill 不写方块 → 应为空气），但最终该列 y=90 是 stone。
+- 决定性证据 2（`-Dfarlands.diag.surfdiag`，surface 阶段 HEAD）：
+  `chunk=134217727,18 wsWG(0,5)=69`、`134217728 wsWG=67`、
+  **`134217729 wsWG(0,5)=120 floorWG=120`**、`134217730 wsWG=116`。
+  即 surface 阶段开始前，坏 chunk 的高度图**已经是 120**。所以 72..116 的实心体
+  不是 surface 规则抬高密度面，而是填充阶段某次写入把高度图顶到 120，随后
+  surface 阶段从 121 往下按规则铺 stone/dirt/grass。
+- 补充：`[PRELIMQ]`（坏 chunk 列）显示这些查询来自 origin=0,0 的 fake NoiseChunk
+  （`iterateNoiseColumn`/结构 placement 路径），返回 48..56，**不是** 117 →
+  preliminary surface 不是 72..116 的直接来源（与上面回退的修复一致）。
+- 结论（当前证据）：+16 墙的根因在**填充阶段某一次高 y 写入**（heightmap 被顶到
+  ~120），不是密度面本身（密度场顶仍 71）、不是 Y 段错位、不是 carver、不是
+  beard、不是 continuity 补丁。下一步唯一该做的：在 `ProtoChunk.setBlockState`
+  上对坏 chunk 列 (x=2147483664,z=293, y>72) 打一次带调用栈的日志，抓出第一个
+  把方块写到 y>72 的调用方。
 - 正常世界指纹逐位不变：`surf=b9216bad2029 floor=8936c275d063`。
-- 下一步：在 fill 内对固定 (x,y,z) 同时打印 `fullNoiseDensity.compute(NoiseChunk)` 与
-  `router.finalDensity().compute(RealContext)`，以及 `preliminarySurfaceLevel`，
-  定位是哪个节点把 71 变成 120，再修 +16 墙；不要按"carver 墙"处理。
+- 下一步（按优先级）：(1) 在 `ProtoChunk.setBlockState`/`ChunkAccess.setBlockState` 上
+  对坏 chunk 列 (x=2147483664, z=293, y>72) 打带调用栈的一次性日志，抓第一个高 y 写入者
+  （fill 的 blockStateRule、aquifer、结构三者之一）；(2) 若写入来自 fill 的
+  `blockStateRule`，检查它用的 `SurfaceRules.Context` 是否拿到了 *别的* NoiseChunk
+  （当前 `[PRELIMQ]` 只看到 origin=0 的 fake chunk）；(3) 修好后再谈"carver 墙"。
 - 证据：`exp-carv-diag1`、`exp-carv-f1`、`exp-carv-f1-nc`、`exp-carv-pos`、
   `exp-carv-mirrorgen`、`exp-carv-xrange`、`exp-carv-starts`、`exp-carv-colblk`、
-  `exp-carv-nocont`、`exp-norm-carvdiag`（均在 `%TEMP%\opencode\`）。
+  `exp-carv-nocont`、`exp-carv-disc`、`exp-carv-unwrap2`、`exp-carv-prelimq3`、
+  `exp-carv-fix1`、`exp-norm-carvdiag`（均在 `%TEMP%\opencode\`）。
 

@@ -63,6 +63,8 @@
         "AquiferIndexMixin",
         "NoiseChunkMixin",
         "NoiseChunkRealCoordsMixin",
+        "NoiseChunkFillDiagMixin",
+        "NoiseChunkPrelimDiagMixin",
         "FunctionContextMixin",
         "PerlinNoiseWrapDiagMixin",
         "DensityFunctionsEndIslandMixin",
@@ -73,6 +75,7 @@
         "AquiferContextDiagMixin",
         "AquiferComputeWideMixin",
         "SurfaceSystemWideOriginMixin",
+        "SurfaceSystemSeamDiagMixin",
         "SectionPosOriginWideMixin",
         "BiomeManagerWideMixin",
 

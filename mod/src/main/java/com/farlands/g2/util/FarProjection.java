@@ -59,6 +59,7 @@ public final class FarProjection {
      */
     public static double unwrapX(int v) {
         Long origin = ORIGIN_X.get();
+        farlands$logUnwrap(0, v, origin);
         if (origin != null && (origin < -100_000_000L || origin > 100_000_000L)) {
             return applySamplePolicy((double) (origin + (v - (int) (long) origin)), 0);
         }
@@ -67,10 +68,30 @@ public final class FarProjection {
 
     public static double unwrapZ(int v) {
         Long origin = ORIGIN_Z.get();
+        farlands$logUnwrap(1, v, origin);
         if (origin != null && (origin < -100_000_000L || origin > 100_000_000L)) {
             return applySamplePolicy((double) (origin + (v - (int) (long) origin)), 1);
         }
         return (double) v;
+    }
+
+    /** Diagnostic for -Dfarlands.diag.unwraplog: catches far unwraps with no generation origin. */
+    private static final java.util.concurrent.atomic.AtomicInteger farlands$unwrapLogs =
+        Boolean.getBoolean("farlands.diag.unwraplog")
+            ? new java.util.concurrent.atomic.AtomicInteger() : null;
+
+    private static void farlands$logUnwrap(int axis, int v, Long origin) {
+        if (farlands$unwrapLogs == null || v > -1_000_000_000) {
+            return;
+        }
+        if (farlands$unwrapLogs.incrementAndGet() > 60) {
+            return;
+        }
+        System.out.println("[UNWRAP] axis=" + (axis == 1 ? "Z" : "X") + " v=" + v
+            + " origin=" + origin
+            + " => " + (origin == null ? (double) v
+                : (double) (origin + (v - (int) (long) origin))));
+        System.out.flush();
     }
 
     /**
