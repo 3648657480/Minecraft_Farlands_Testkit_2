@@ -499,6 +499,7 @@ public abstract class MinecraftServerTestGenMixin {
                         // default 1 chunk
                     }
                     int maxDelta = 0;
+                    int maxFloor = 0;
                     int maxDz = -1;
                     int biomeMismatch = 0;
                     int samples = 0;
@@ -510,6 +511,9 @@ public abstract class MinecraftServerTestGenMixin {
                             int h0 = left.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 15, zz);
                             int h1 = right.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 0, zz);
                             int delta = Math.abs(h1 - h0);
+                            int f0 = left.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, 15, zz);
+                            int f1 = right.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, 0, zz);
+                            maxFloor = Math.max(maxFloor, Math.abs(f1 - f0));
                             if (delta > maxDelta) {
                                 maxDelta = delta;
                                 maxDz = cz * 16 + zz;
@@ -526,7 +530,8 @@ public abstract class MinecraftServerTestGenMixin {
                         }
                     }
                     System.out.println("[SEAM] zc=" + zc + " maxDelta=" + maxDelta + " atZ=" + maxDz
-                        + " biomeMismatch=" + biomeMismatch + "/" + samples + " firstChunkPairs=" + pairs);
+                        + " biomeMismatch=" + biomeMismatch + "/" + samples
+                        + " maxFloorDelta=" + maxFloor + " firstChunkPairs=" + pairs);
                     int ctrlMismatch = 0;
                     for (int cz = 0; cz < zc; cz++) {
                         var ctlLeft = level.getChunk(1000, cz);

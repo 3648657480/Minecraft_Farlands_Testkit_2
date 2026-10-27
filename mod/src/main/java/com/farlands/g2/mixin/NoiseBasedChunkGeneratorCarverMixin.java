@@ -19,6 +19,13 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(NoiseBasedChunkGenerator.class)
 public class NoiseBasedChunkGeneratorCarverMixin {
 
+    @org.spongepowered.asm.mixin.injection.Inject(method = "applyCarvers", at = @At("HEAD"), cancellable = true)
+    private void farlands$maybeSkip(org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
+        if (Boolean.getBoolean("farlands.diag.noCarvers")) {
+            ci.cancel();
+        }
+    }
+
     @Redirect(method = "applyCarvers",
         at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/level/levelgen/WorldgenRandom;setLargeFeatureSeed(JII)V"))
