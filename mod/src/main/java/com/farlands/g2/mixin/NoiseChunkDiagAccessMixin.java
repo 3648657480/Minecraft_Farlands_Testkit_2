@@ -18,6 +18,9 @@ public abstract class NoiseChunkDiagAccessMixin implements NoiseChunkDiagAccess 
     @Shadow private int cellWidth;
     @Shadow private int cellHeight;
     @Shadow private int cellNoiseMinY;
+    @Shadow private boolean fillingCell;
+    @Shadow private int firstCellX;
+    @Shadow private int firstCellZ;
     @Shadow private long farlands$cellStartBlockXLong;
     @Shadow private long farlands$cellStartBlockZLong;
     @Shadow private long farlands$originX;
@@ -56,6 +59,18 @@ public abstract class NoiseChunkDiagAccessMixin implements NoiseChunkDiagAccess 
 
     public int farlands$cellNoiseMinY() {
         return this.cellNoiseMinY;
+    }
+
+    public boolean farlands$fillingCell() {
+        return this.fillingCell;
+    }
+
+    public int farlands$firstCellX() {
+        return this.firstCellX;
+    }
+
+    public int farlands$firstCellZ() {
+        return this.firstCellZ;
     }
 
     public long farlands$cellStartBlockXLong() {

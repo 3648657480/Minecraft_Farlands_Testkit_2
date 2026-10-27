@@ -21,6 +21,12 @@ public interface NoiseChunkDiagAccess {
 
     int farlands$cellNoiseMinY();
 
+    boolean farlands$fillingCell();
+
+    int farlands$firstCellX();
+
+    int farlands$firstCellZ();
+
     long farlands$cellStartBlockXLong();
 
     long farlands$cellStartBlockZLong();
