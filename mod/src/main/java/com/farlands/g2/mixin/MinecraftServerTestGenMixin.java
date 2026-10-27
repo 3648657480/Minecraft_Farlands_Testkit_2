@@ -503,6 +503,9 @@ public abstract class MinecraftServerTestGenMixin {
                     int maxDz = -1;
                     int biomeMismatch = 0;
                     int samples = 0;
+                    int maxLeftIntra = 0;
+                    int maxRightIntra = 0;
+                    int crossOver2 = 0;
                     StringBuilder pairs = new StringBuilder();
                     for (int cz = 0; cz < zc; cz++) {
                         var left = level.getChunk(134217727, cz);
@@ -514,6 +517,17 @@ public abstract class MinecraftServerTestGenMixin {
                             int f0 = left.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, 15, zz);
                             int f1 = right.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, 0, zz);
                             maxFloor = Math.max(maxFloor, Math.abs(f1 - f0));
+                            if (Math.abs(f1 - f0) > 2) {
+                                crossOver2++;
+                            }
+                            for (int lx = 1; lx < 16; lx++) {
+                                maxLeftIntra = Math.max(maxLeftIntra, Math.abs(
+                                    left.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, lx, zz)
+                                        - left.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, lx - 1, zz)));
+                                maxRightIntra = Math.max(maxRightIntra, Math.abs(
+                                    right.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, lx, zz)
+                                        - right.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, lx - 1, zz)));
+                            }
                             if (delta > maxDelta) {
                                 maxDelta = delta;
                                 maxDz = cz * 16 + zz;
@@ -532,6 +546,43 @@ public abstract class MinecraftServerTestGenMixin {
                     System.out.println("[SEAM] zc=" + zc + " maxDelta=" + maxDelta + " atZ=" + maxDz
                         + " biomeMismatch=" + biomeMismatch + "/" + samples
                         + " maxFloorDelta=" + maxFloor + " firstChunkPairs=" + pairs);
+                    System.out.println("[SEAMINTRA] zc=" + zc + " maxLeftIntra=" + maxLeftIntra
+                        + " maxRightIntra=" + maxRightIntra + " crossOver2=" + crossOver2 + "/" + samples);
+                    System.out.flush();
+                    if (Boolean.getBoolean("farlands.diag.seamsurface")) {
+                        var router = level.getChunkSource().randomState().router();
+                        var seLeft = level.getChunk(134217727, 0);
+                        var seRight = level.getChunk(134217728, 0);
+                        long[] xs = {2147483632L, 2147483640L, 2147483644L, 2147483646L,
+                            2147483647L, 2147483648L, 2147483652L, 2147483664L};
+                        int[] zs = {0, 1, 2, 4};
+                        for (long sfsX : xs) {
+                            StringBuilder sfsRow = new StringBuilder();
+                            for (int sfsZ : zs) {
+                                int sfsTop = -999;
+                                for (int sfsY = 70; sfsY <= 160; sfsY++) {
+                                    if (router.finalDensity().compute(
+                                        new com.farlands.g2.runtime.RealContext(sfsX, sfsY, sfsZ)) > 0.0) {
+                                        sfsTop = sfsY;
+                                    }
+                                }
+                                int sfsGen = -1;
+                                if (sfsX < 2147483648L) {
+                                    sfsGen = seLeft.getHeight(
+                                        net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG,
+                                        (int) (sfsX - 2147483632L), sfsZ);
+                                } else {
+                                    sfsGen = seRight.getHeight(
+                                        net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG,
+                                        (int) (sfsX - 2147483648L), sfsZ);
+                                }
+                                sfsRow.append("z").append(sfsZ).append(":field=").append(sfsTop)
+                                    .append("/gen=").append(sfsGen).append(' ');
+                            }
+                            System.out.println("[SEAMSURF] x=" + sfsX + " " + sfsRow);
+                        }
+                        System.out.flush();
+                    }
                     int ctrlMismatch = 0;
                     for (int cz = 0; cz < zc; cz++) {
                         var ctlLeft = level.getChunk(1000, cz);
