@@ -309,6 +309,12 @@ public final class NoiseChunkPatch implements ClassPatch {
         il.add(new VarInsnNode(Opcodes.LLOAD, 11));
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g2/util/FarProjection",
             "setGenerationOrigin", "(JJ)V", false));
+        // publish the raw router so far-origin chunks can sample it directly
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/world/level/levelgen/RandomState",
+            "router", "()Lnet/minecraft/world/level/levelgen/NoiseRouter;", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g2/util/FarProjection",
+            "setRawRouter", "(Lnet/minecraft/world/level/levelgen/NoiseRouter;)V", false));
         // construct
         il.add(new org.objectweb.asm.tree.TypeInsnNode(Opcodes.NEW, TARGET));
         il.add(new InsnNode(Opcodes.DUP));

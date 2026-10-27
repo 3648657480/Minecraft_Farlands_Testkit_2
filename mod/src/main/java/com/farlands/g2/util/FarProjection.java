@@ -13,6 +13,24 @@ package com.farlands.g2.util;
  */
 public final class FarProjection {
 
+    /** Raw (unwrapped) router finalDensity for the current generation thread. */
+    private static final ThreadLocal<net.minecraft.world.level.levelgen.DensityFunction> RAW_FINAL = new ThreadLocal<>();
+
+    public static void setRawRouter(net.minecraft.world.level.levelgen.NoiseRouter router) {
+        RAW_FINAL.set(router.finalDensity());
+    }
+
+    public static net.minecraft.world.level.levelgen.DensityFunction rawFinal() {
+        return RAW_FINAL.get();
+    }
+
+    /** True when the current generation origin cannot be expressed as an int. */
+    public static boolean isFarOrigin() {
+        Long ox = ORIGIN_X.get();
+        Long oz = ORIGIN_Z.get();
+        return ox != null && oz != null && ((long) (int) (long) ox != ox || (long) (int) (long) oz != oz);
+    }
+
     /** Generation origin for the current chunk (set by the NoiseChunk patch). */
     private static final ThreadLocal<Long> ORIGIN_X = new ThreadLocal<>();
     private static final ThreadLocal<Long> ORIGIN_Z = new ThreadLocal<>();

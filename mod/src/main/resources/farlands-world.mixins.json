@@ -119,7 +119,8 @@
         "SurfaceSystemSkipDiagMixin",
         "BeardifierSkipDiagMixin",
         "SetBlockStackDiagMixin",
-        "SurfaceBeforeDiagMixin"
+        "SurfaceBeforeDiagMixin",
+        "NoiseChunkFarDensityMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }
