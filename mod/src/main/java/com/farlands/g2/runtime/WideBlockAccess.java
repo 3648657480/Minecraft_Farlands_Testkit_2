@@ -17,7 +17,11 @@ public final class WideBlockAccess {
     }
 
     public static boolean isWide(long x, long y, long z) {
-        return x != (long) (int) x || y != (long) (int) y || z != (long) (int) z;
+        // Only far Y needs the absolute-section store. For far X/Z the vanilla section
+        // path is correct: local coords use x & 15 (preserved by the int wrap) and the
+        // section index depends on Y only. Routing X/Z here used to read/write the
+        // absolute map (empty for normal Y) and made carvers carve a different shape.
+        return y != (long) (int) y;
     }
 
     private static int sectionY(long y) {
