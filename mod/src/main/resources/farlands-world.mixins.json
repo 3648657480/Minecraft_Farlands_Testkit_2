@@ -93,7 +93,14 @@
         "FarReadDiagMixin",
         "PlaceOnGroundDecoratorMixin",
         "SnowAndFreezeFeatureGuardMixin",
-        "TreeFeatureSeamGuardMixin"
+        "TreeFeatureSeamGuardMixin",
+        "ChunkPosWideWorldPositionMixin",
+        "FindTopSurfaceWideMixin",
+        "NoiseChunkFrameMixin",
+        "SurfaceRulesContextFrameMixin",
+        "AquiferSkipDiagMixin",
+        "SurfaceSystemSkipDiagMixin",
+        "BeardifierSkipDiagMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }

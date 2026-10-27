@@ -21,7 +21,9 @@
 | X1c | 2^31 缝的地形不连续（截图已确认） | ⏳ 待测
 | X1d | 渲染空洞（uncompiled≈4.9k、queue=0） | ⏳ 待测 |
 | X1c | ✅ 缝：高度连续；群系差异落在自然边界分布内（非 bug） |
-| X1d | ✅ 空洞修复（远段放行 + 补 14 天光，uncompiled 0）；用户截图仍有"整面墙未渲染 + 一区块宽过渡带"，新世界 fresh3 复现，待用同世界探针确认 |
+| X1d | ✅ 空洞修复（远段放行 + 补 14 天光，uncompiled 0） |
+| 缝 | ✅ NoiseChunk long 晶格（a19d94a）：maxFloorDelta 8→1（密度场本身差 1）、biomeMismatch 0/256、unsafe 镜像读 952→0、双跑一致；正常指纹不变 |
+| Mixin 注册 | ⚠ 教训：新增 mixin 必须核对 5 个 `farlands-*.mixins.json`；此前 8 个未注册导致"实验无效果"误判，已修 |
 | 缝 | 受控种子 16 z 区块 `maxDelta=0`（西/中/东三块都连续）；用户世界（test0 种子）在 2^31 附近出现过渡带，需在同世界内测 |
 | 确定性 | ✅ 远 X 三次 `floor=423372e9c845` 一致；根因=origin 折进 carver/结构种子 |
 | D2 | 生成：按页 Cwg → 客户端 upsert | 未开始 |
