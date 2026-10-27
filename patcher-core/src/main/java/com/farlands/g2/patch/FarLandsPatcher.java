@@ -41,7 +41,7 @@ public final class FarLandsPatcher {
      * to the patch set (not just the wide/continuity/epoch/unlock flags) must
      * bump it, otherwise dev runs silently reuse a stale patched jar.
      */
-    public static final int PATCH_REVISION = 114;
+    public static final int PATCH_REVISION = 118;
 
     private final List<ClassPatch> patches = new ArrayList<>();
 
@@ -140,6 +140,7 @@ public final class FarLandsPatcher {
         }
         p.register(new GsuPatch());
         p.register(new AabbClipPatch());
+        p.register(new VoxelShapeClipPatch());
         p.register(new BlockCollisionsPatch());
         p.register(new BoundingBoxPatch());
         p.register(new ClientChunkCachePatch());

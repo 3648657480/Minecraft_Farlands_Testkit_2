@@ -12,18 +12,23 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.VarInsnNode;
 
 /**
- * Fixes {@code AABB.clip(Iterable, Vec3, Vec3, BlockPos)} for coordinates
- * below -2^31.
+ * Fixes {@code AABB.clip(Iterable, Vec3, Vec3, BlockPos)} for coordinates whose
+ * block X/Z does not fit an int.
  *
- * <p>Vanilla moves each candidate box by the (wrapped, negative) block
- * position, so the DDA ray-vs-box tests all miss and entity picking fails.
- * This patch moves boxes by the true unsigned x/z instead (via the
- * {@code getRealX/getRealZ} accessors added by {@link Vec3iPatch}),
- * matching the behavior of the working fork build.</p>
+ * <p>Vanilla moves each candidate box by {@code pos.getX()/getZ()} (int
+ * accessors), so at {@code block >= 2^31} (block 2147483648 = chunk 134217728)
+ * the box is translated to {@code -2147483648} and the DDA ray-vs-box tests all
+ * miss: block picking returns MISS east of the seam.</p>
+ *
+ * <p>This patch moves the candidates by the true long block coordinate
+ * ({@code Vec3i.getLongX/getLongZ}, added by
+ * {@link Vec3iWidePatch}), which equals the int accessor everywhere the
+ * coordinate fits an int, so normal-world picking is unchanged.</p>
  */
 public final class AabbClipPatch implements ClassPatch {
 
     private static final String TARGET = "net/minecraft/world/phys/AABB";
+    private static final String VEC3I = "net/minecraft/core/Vec3i";
     private static final String CLIP_DESC =
         "(Ljava/lang/Iterable;Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;"
             + "Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/phys/BlockHitResult;";
@@ -49,13 +54,13 @@ public final class AabbClipPatch implements ClassPatch {
             throw new IllegalStateException(TARGET + "#clip" + CLIP_DESC + " not found");
         }
 
-        // Idempotency: key on our own injected call (Vec3i.getRealX, added by
-        // Vec3iPatch). Do NOT key on move(DDD): vanilla clip already contains a
-        // move(DDD) call, so that check would falsely mark this class patched
-        // (the same class of bug as the old WgrPatch).
+        // Idempotency: key on our own injected call (Vec3i.getLongX, added by
+        // Vec3iWidePatch). Do NOT key on move(DDD): vanilla clip already
+        // contains a move(DDD) call, so that check would falsely mark this
+        // class patched (the same class of bug as the old WgrPatch).
         for (AbstractInsnNode n : clip.instructions) {
-            if (n instanceof MethodInsnNode min && "net/minecraft/core/Vec3i".equals(min.owner)
-                && "getRealX".equals(min.name)) {
+            if (n instanceof MethodInsnNode min && VEC3I.equals(min.owner)
+                && "getLongX".equals(min.name)) {
                 return original; // already patched
             }
         }
@@ -84,10 +89,12 @@ public final class AabbClipPatch implements ClassPatch {
         // New locals: ux = 14, uz = 16 (vanilla uses 0..13).
         InsnList head = new InsnList();
         head.add(new VarInsnNode(Opcodes.ALOAD, 3));
-        head.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Vec3i", "getRealX", "()D", false));
+        head.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLongX", "()J", false));
+        head.add(new InsnNode(Opcodes.L2D));
         head.add(new VarInsnNode(Opcodes.DSTORE, 14));
         head.add(new VarInsnNode(Opcodes.ALOAD, 3));
-        head.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/Vec3i", "getRealZ", "()D", false));
+        head.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLongZ", "()J", false));
+        head.add(new InsnNode(Opcodes.L2D));
         head.add(new VarInsnNode(Opcodes.DSTORE, 16));
         clip.instructions.insert(head);
 

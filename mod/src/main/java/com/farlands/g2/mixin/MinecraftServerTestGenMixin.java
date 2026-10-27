@@ -944,6 +944,11 @@ public abstract class MinecraftServerTestGenMixin {
                         + " before=" + before + " atOld=" + atOld + " atNew=" + atNew
                         + " back=" + back + " minY=" + chunk.getMinY());
                 }
+                // Collision (BlockCollisions) + picking (AABB.clip / VoxelShape.clip)
+                // across the x = 2^31 seam.
+                if (Boolean.getBoolean("farlands.diag.collision")) {
+                    farlands$collisionProbe(level);
+                }
                 System.out.flush();
             }
             if (FarConfig.testgenStop()) {
@@ -954,6 +959,85 @@ public abstract class MinecraftServerTestGenMixin {
         } catch (Throwable t) {
             System.out.println("[FarLands-Test] gen FAILED: " + t);
             t.printStackTrace(System.out);
+            System.out.flush();
+        }
+    }
+
+    /**
+     * Collision / picking probe for the x = 2^31 seam
+     * ({@code -Dfarlands.diag.collision=true}).
+     *
+     * <p>Three x anchors at z = 0: control {@code 1000}, the last block that
+     * still fits an int ({@code 2147483647}) and the first block that does not
+     * ({@code 2147483648}). For each anchor:</p>
+     * <ul>
+     *   <li>{@code [COLL]} - {@code level.getBlockCollisions} for a box sitting
+     *       in the topmost solid terrain block of that column (expect n &gt; 0);</li>
+     *   <li>{@code [COLLBLK]} - the same box around a stone block placed a fixed
+     *       offset above the surface. Terrain differs per column, so the
+     *       comparable expectation is exactly 1 at ALL three anchors;</li>
+     *   <li>{@code [CLIP]} - {@code level.clip} straight down onto that placed
+     *       block (expect a hit on that block, i.e. not MISS).</li>
+     * </ul>
+     *
+     * <p>The probe writes blocks into the scratch world copy; it never runs
+     * unless the flag is set.</p>
+     */
+    @Unique
+    private static void farlands$collisionProbe(ServerLevel level) {
+        final int pz = 0;
+        long[] anchors = {1000L, 2147483647L, 2147483648L};
+        for (long px : anchors) {
+            try {
+                int pcx = (int) (px >> 4);
+                int plx = (int) (px & 15L);
+                ChunkAccess pchunk = level.getChunk(pcx, pz >> 4);
+                int surf = pchunk.getHeight(Heightmap.Types.WORLD_SURFACE, plx, pz & 15);
+                net.minecraft.core.BlockPos terrainPos =
+                    new net.minecraft.core.BlockPos(px, surf - 1, pz);
+                net.minecraft.world.phys.AABB terrainBox = new net.minecraft.world.phys.AABB(
+                    px + 0.2, surf - 1, pz + 0.2, px + 0.8, surf + 0.8, pz + 0.8);
+                int tn = 0;
+                for (var ignored : level.getBlockCollisions(null, terrainBox)) {
+                    tn++;
+                }
+                System.out.println("[COLL] x=" + px + " y=" + (surf - 1) + " surf=" + surf
+                    + " state=" + level.getBlockState(terrainPos).getBlock()
+                    + " n=" + tn);
+
+                int py = surf + 6;
+                net.minecraft.core.BlockPos bp = new net.minecraft.core.BlockPos(px, py, pz);
+                boolean set = level.setBlockAndUpdate(bp, net.minecraft.world.level.block.Blocks.STONE
+                    .defaultBlockState());
+                String placed = level.getBlockState(bp).getBlock().toString();
+                net.minecraft.world.phys.AABB blockBox = new net.minecraft.world.phys.AABB(
+                    px + 0.2, py, pz + 0.2, px + 0.8, py + 1.8, pz + 0.8);
+                int bn = 0;
+                for (var ignored : level.getBlockCollisions(null, blockBox)) {
+                    bn++;
+                }
+                System.out.println("[COLLBLK] x=" + px + " y=" + py + " set=" + set
+                    + " placed=" + placed + " n=" + bn);
+
+                net.minecraft.world.phys.BlockHitResult hit = level.clip(
+                    new net.minecraft.world.level.ClipContext(
+                        new net.minecraft.world.phys.Vec3(px + 0.5, py + 3.0, pz + 0.5),
+                        new net.minecraft.world.phys.Vec3(px + 0.5, py - 1.0, pz + 0.5),
+                        net.minecraft.world.level.ClipContext.Block.OUTLINE,
+                        net.minecraft.world.level.ClipContext.Fluid.NONE,
+                        net.minecraft.world.phys.shapes.CollisionContext.empty()));
+                boolean miss = hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS;
+                System.out.println("[CLIP] x=" + px + " rayY=" + (py + 3) + ".." + (py - 1)
+                    + " miss=" + miss
+                    + (miss ? "" : (" hitBlock=" + hit.getBlockPos().getLongX() + ","
+                        + hit.getBlockPos().getLongY() + ","
+                        + hit.getBlockPos().getLongZ()
+                        + " dir=" + hit.getDirection()
+                        + " loc=" + hit.getLocation())));
+            } catch (Throwable t) {
+                System.out.println("[COLL] x=" + px + " FAILED: " + t);
+                t.printStackTrace(System.out);
+            }
             System.out.flush();
         }
     }
