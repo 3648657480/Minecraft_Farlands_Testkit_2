@@ -10,6 +10,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Collections;
@@ -28,6 +29,8 @@ public abstract class NoiseChunkInterpolatorComputeDiagMixin {
 
     @Shadow @Final private NoiseChunk this$0;
     @Shadow private DensityFunction noiseFiller;
+    @Shadow private double[][] slice0;
+    @Shadow private double[][] slice1;
     @Shadow private double noise000;
     @Shadow private double noise100;
     @Shadow private double noise010;
@@ -91,7 +94,19 @@ public abstract class NoiseChunkInterpolatorComputeDiagMixin {
             + acc.farlands$cellStartBlockY() + ","
             + acc.farlands$cellStartBlockZ() + "/"
             + acc.farlands$cellStartBlockZLong()
-            + " firstCellX/Z=" + acc.farlands$firstCellX() + "/" + acc.farlands$firstCellZ());
+            + " firstCellX/Z=" + acc.farlands$firstCellX() + "/" + acc.farlands$firstCellZ()
+            + " slice0Hash=" + System.identityHashCode(this.slice0)
+            + " slice1Hash=" + System.identityHashCode(this.slice1));
+        System.out.flush();
+    }
+
+    @Inject(method = "swapSlices", at = @At("HEAD"))
+    private void farlands$logSwap(CallbackInfo ci) {
+        if (!FARLANDS$INTERP) {
+            return;
+        }
+        System.out.println("[SLICEID] swapSlices before slice0=" + System.identityHashCode(this.slice0)
+            + " slice1=" + System.identityHashCode(this.slice1));
         System.out.flush();
     }
 }
