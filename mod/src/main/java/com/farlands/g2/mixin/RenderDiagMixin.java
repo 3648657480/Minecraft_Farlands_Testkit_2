@@ -171,6 +171,7 @@ public class RenderDiagMixin {
             (long) Math.floor(mc.player.getZ()));
         int dataSections = 0;
         int meshSections = 0;
+        int meshNonEmpty = 0;
         if (mc.level != null && mc.player != null) {
             int ccx = (int) Math.floorDiv((long) Math.floor(mc.player.getX()), 16L);
             int ccz = (int) Math.floorDiv((long) Math.floor(mc.player.getZ()), 16L);
@@ -187,7 +188,42 @@ public class RenderDiagMixin {
                 if (k != null && k.x == ccx && k.z == ccz
                     && s.getSectionMesh() != CompiledSectionMesh.UNCOMPILED) {
                     meshSections++;
+                    if (s.getSectionMesh().hasRenderableLayers()) {
+                        meshNonEmpty++;
+                    }
                 }
+            }
+        }
+        if (Boolean.getBoolean("farlands.diag.sections") && mc.level != null && mc.player != null) {
+            int sx = (int) Math.floorDiv((long) Math.floor(mc.player.getX()), 16L);
+            int sz = (int) Math.floorDiv((long) Math.floor(mc.player.getZ()), 16L);
+            var ch = mc.level.getChunkSource().getChunk(sx, sz, false);
+            if (ch != null) {
+                StringBuilder sb = new StringBuilder("[SECDATA] ");
+                int minY = ch.getMinSectionY();
+                var secs = ch.getSections();
+                if (Boolean.getBoolean("farlands.diag.recompileAll")) {
+                    for (int i = 0; i < secs.length; i++) {
+                        mc.level.setSectionRangeDirty(sx, minY + i, sz, sx, minY + i, sz);
+                    }
+                }
+                for (int i = 0; i < secs.length; i++) {
+                    int sy = minY + i;
+                    boolean data = !secs[i].hasOnlyAir();
+                    boolean mesh = false;
+                    for (var rs : self.visibleSections()) {
+                        var k = rs instanceof com.farlands.g2.runtime.section.RenderSectionKeyAccessor a ? a.farlands$getKey() : null;
+                        if (k != null && k.x == sx && k.z == sz && k.y == sy
+                            && rs.getSectionMesh() != CompiledSectionMesh.UNCOMPILED
+                            && rs.getSectionMesh().hasRenderableLayers()) {
+                            mesh = true;
+                            break;
+                        }
+                    }
+                    sb.append(sy).append(":").append(data ? "D" : "-").append(mesh ? "M" : "-").append(" ");
+                }
+                System.out.println(sb);
+                System.out.flush();
             }
         }
         boolean lightCam = mc.level != null && camPos != null
@@ -250,7 +286,7 @@ public class RenderDiagMixin {
             + " uncompiled=" + uncompiled
             + " innerUncompiled=" + innerUncompiled + " chunks5x5=" + chunkPresent
             + " dirtyNull=" + dirtyNull + " dirtyFalse=" + dirtyFalse + " noNeighbors=" + noNeighbors
-            + " lightCam=" + lightCam + " light3x3=" + light3x3 + " dataSec=" + dataSections + " meshSec=" + meshSections
+            + " lightCam=" + lightCam + " light3x3=" + light3x3 + " dataSec=" + dataSections + " meshSec=" + meshSections + " meshNonEmpty=" + meshNonEmpty
             + " east=" + east + " eastCompiled=" + eastCompiled
             + " queue=" + disp.getCompileQueueSize()
             + " player=" + mc.player.getX() + "," + mc.player.getY() + "," + mc.player.getZ()

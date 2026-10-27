@@ -24,6 +24,9 @@
 | X1d | ✅ 空洞修复（远段放行 + 补 14 天光，uncompiled 0） |
 | 缝 | ✅ NoiseChunk long 晶格（a19d94a）：maxFloorDelta 8→1（密度场本身差 1）、biomeMismatch 0/256、unsafe 镜像读 952→0、双跑一致；正常指纹不变 |
 | Mixin 注册 | ⚠ 教训：新增 mixin 必须核对 5 个 `farlands-*.mixins.json`；此前 8 个未注册导致"实验无效果"误判，已修 |
+| 远 X 渲染 | ✅ 根因：`RenderSectionRegion` 用 int 视图选 SectionCopy，2^31 后越界回落 index 0（对角邻居）→ 东侧段用邻居数据编译；已改宽坐标选段、fallback 改中心段；`[SECCMP] mismatch=0`、`M-without-D=0` |
+| 远 X 卡死 | ✅ `FrustumMixin` 删掉 AABB/point/双精度 cube 的远坐标 bypass + `SectionOcclusionGraphPatch` 恢复视锥剔除；`visible 6935→1160..2551`，稳态 queue/uncompiled=0 |
+| 剩余 | 远 X 群系着色仍走 int（`calculateBlockTint`）→ 颜色接缝；`RenderDiag` 的 visible 重填 hack 待删 |
 | 缝 | 受控种子 16 z 区块 `maxDelta=0`（西/中/东三块都连续）；用户世界（test0 种子）在 2^31 附近出现过渡带，需在同世界内测 |
 | 确定性 | ✅ 远 X 三次 `floor=423372e9c845` 一致；根因=origin 折进 carver/结构种子 |
 | D2 | 生成：按页 Cwg → 客户端 upsert | 未开始 |

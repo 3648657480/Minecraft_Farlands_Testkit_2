@@ -21,6 +21,8 @@
 
         "LevelExtractorFrustumResetMixin",
         "LevelExtractorDirtyMixin",
+        "RenderRegionCacheDiagMixin",
+        "RenderRegionCmpDiagMixin",
         "RenderDiagMixin",
         "BlockOutlineWideMixin",
         "SectionRenderSortingWideMixin",
