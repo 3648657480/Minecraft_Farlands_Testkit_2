@@ -121,7 +121,8 @@
         "SetBlockStackDiagMixin",
         "SurfaceBeforeDiagMixin",
         "NoiseChunkFarDensityMixin",
-        "DensityTreeDiffMixin"
+        "DensityTreeDiffMixin",
+        "FlatCacheFarBypassMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }

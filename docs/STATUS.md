@@ -27,7 +27,8 @@
 | 远 X 渲染 | ✅ 根因：`RenderSectionRegion` 用 int 视图选 SectionCopy，2^31 后越界回落 index 0（对角邻居）→ 东侧段用邻居数据编译；已改宽坐标选段、fallback 改中心段；`[SECCMP] mismatch=0`、`M-without-D=0` |
 | 远 X 卡死 | ✅ `FrustumMixin` 删掉 AABB/point/双精度 cube 的远坐标 bypass + `SectionOcclusionGraphPatch` 恢复视锥剔除；`visible 6935→1160..2551`，稳态 queue/uncompiled=0 |
 | 剩余 | 远 X 群系着色仍走 int（`calculateBlockTint`）→ 颜色接缝；`RenderDiag` 的 visible 重填 hack 待删 |
-| +16 断崖 | ✅ 根因：远 chunk 的 NoiseChunk 插值 cache 密度与 raw router 差 ~0.45（同类 Ap2、值不同）→ fill 把 solid 写到 y=120。开关 `-Dfarlands.far.rawDensity=true` 下改为按真实 long 坐标直采 raw finalDensity：SURFBEFORE height 120→71、与密度场一致；但 12s/chunk，会触发 watchdog，待优化 |
+| +16 断崖 | ✅ 根因：G2 自加的 FlatCache long 补丁在远 origin 下返回陈旧列值（jaggedness 错 ~0.45）→ fill 把 solid 写到 y=120。FlatCache 只是 2D memoization，远 origin 直接调用被缓存函数：SURFBEFORE 120→71，+16 边界 maxDelta 59→5（自然量级 4），生成耗时不变（3.0s） |
+| 缝总验收 | maxFloorDelta=1、biomeMismatch=0/256、+16 边界 maxDelta=5、正常世界指纹不变、双跑一致 |
 | 缝 | 受控种子 16 z 区块 `maxDelta=0`（西/中/东三块都连续）；用户世界（test0 种子）在 2^31 附近出现过渡带，需在同世界内测 |
 | 确定性 | ✅ 远 X 三次 `floor=423372e9c845` 一致；根因=origin 折进 carver/结构种子 |
 | D2 | 生成：按页 Cwg → 客户端 upsert | 未开始 |
