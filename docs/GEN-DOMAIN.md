@@ -47,6 +47,20 @@
 远 X       双跑 floor 哈希一致
 ```
 
+## 5b. WideFrame（统一取值入口，2026-10-27 落地）
+
+全局"中转站"会被嵌套生成覆盖（已踩坑），因此统一入口做成**不可变、随上下文传递**的 `WideFrame`：
+
+```java
+record WideFrame(long chunkX, long chunkZ, long minBlockX, long minBlockZ) {
+    long blockX(int localX); long quartOfBlock(long block); ...
+}
+```
+
+挂载点（逐步接）：`NoiseChunk`（✅ 已在构造 TAIL 建立 `farlands$frame`）、`SurfaceRules.Context`、
+`CarvingContext`、`FeaturePlaceContext`、`Structure.GenerationContext`。
+消费者只允许从 frame 取值，禁止再 `unwrapX(int)` / `getX()>>4`。
+
 ## 6. 当前明确的教训
 
 - `NoiseChunk.firstNoiseX` 强行换真实 quart 会破坏内部 lattice 一致性（已回退）→ 必须走 N2 偏移模型，而不是把 int 基准改成 long；
