@@ -29,4 +29,5 @@ public abstract class SurfaceRulesContextFrameMixin {
     public WideFrame farlands$frame() {
         return this.farlands$frame;
     }
+
 }
