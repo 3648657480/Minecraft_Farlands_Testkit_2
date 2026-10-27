@@ -1,0 +1,52 @@
+package com.farlands.g2.mixin;
+
+import com.farlands.g2.runtime.NoiseChunkDiagAccess;
+import net.minecraft.world.level.levelgen.NoiseChunk;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+
+/** Diagnostic accessors for the fill probes (no behaviour change). */
+@Mixin(NoiseChunk.class)
+public abstract class NoiseChunkDiagAccessMixin implements NoiseChunkDiagAccess {
+
+    @Shadow private int inCellX;
+    @Shadow private int inCellY;
+    @Shadow private int inCellZ;
+    @Shadow private int cellStartBlockY;
+    @Shadow private int cellWidth;
+    @Shadow private int cellHeight;
+    @Shadow private long farlands$cellStartBlockXLong;
+    @Shadow private long farlands$originX;
+
+    public int farlands$inCellX() {
+        return this.inCellX;
+    }
+
+    public int farlands$inCellY() {
+        return this.inCellY;
+    }
+
+    public int farlands$inCellZ() {
+        return this.inCellZ;
+    }
+
+    public int farlands$cellStartBlockY() {
+        return this.cellStartBlockY;
+    }
+
+    public int farlands$cellWidth() {
+        return this.cellWidth;
+    }
+
+    public int farlands$cellHeight() {
+        return this.cellHeight;
+    }
+
+    public long farlands$cellStartBlockXLong() {
+        return this.farlands$cellStartBlockXLong;
+    }
+
+    public long farlands$originX() {
+        return this.farlands$originX;
+    }
+}
