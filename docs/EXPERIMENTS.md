@@ -2579,3 +2579,11 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
   `exp-carv-nocont`、`exp-carv-disc`、`exp-carv-unwrap2`、`exp-carv-prelimq3`、
   `exp-carv-fix1`、`exp-norm-carvdiag`（均在 `%TEMP%\opencode\`）。
 
+
+
+#### 107. x>=2^31 碰撞/拾取：BlockCollisions int 溢出 + VoxelShape.clip int 局部坐标
+
+- 现象：x<=2^31-1 正常；x>=2^31 碰撞、挖掘、放置全失效。
+- 根因：BlockCollisions 构造器 Mth.floor(box.maxX+1e-7)+1 在 2^31 处溢出成 -2147483648 → Cursor3D 区间反转 → 无碰撞体；拾取链 VoxelShape.clip/AABB.clip 用 pos.getX() int 回绕扣局部坐标。
+- 修复：BlockCollisionsPatch 改 long 算范围 + arlands/frameZ 帧 + 相对游标，computeNext 用真实 long 坐标；VoxelShapeClipPatch 与 AabbClipPatch 改用 getLongX/getLongZ；PATCH_REVISION 118。
+- 验收（无头，chunk 134217728,0）：x=2147483648 时 [COLL] n: 0→2、[COLLBLK] n: 0→1、[CLIP] miss:true→false，hit=(2147483648,99,0) dir=up；x=1000 与 2147483647 前后一致；正常世界 surf=b9216bad2029 floor=8936c275d063 不变。
