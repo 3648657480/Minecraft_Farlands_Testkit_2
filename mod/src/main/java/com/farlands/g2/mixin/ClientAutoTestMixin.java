@@ -55,6 +55,17 @@ public class ClientAutoTestMixin {
         if (mc.player == null || mc.gameMode == null) {
             return;
         }
+        if (Boolean.getBoolean("farlands.diag.clientblocks") && farlands$ticks % 40 == 0 && mc.level != null) {
+            StringBuilder sb = new StringBuilder("[CBLOCKS] ");
+            for (int y = 60; y <= 110; y += 5) {
+                var st = mc.level.getBlockState(new net.minecraft.core.BlockPos(2147483648L, y, 0L));
+                if (!st.isAir()) {
+                    sb.append(y).append(":").append(st.getBlock().getDescriptionId().replace("block.minecraft.", "")).append(" ");
+                }
+            }
+            System.out.println(sb);
+            System.out.flush();
+        }
         farlands$ticks++;
         switch (farlands$phase) {
             case 0 -> {
