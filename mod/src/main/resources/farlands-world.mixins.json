@@ -120,7 +120,8 @@
         "BeardifierSkipDiagMixin",
         "SetBlockStackDiagMixin",
         "SurfaceBeforeDiagMixin",
-        "NoiseChunkFarDensityMixin"
+        "NoiseChunkFarDensityMixin",
+        "DensityTreeDiffMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }
