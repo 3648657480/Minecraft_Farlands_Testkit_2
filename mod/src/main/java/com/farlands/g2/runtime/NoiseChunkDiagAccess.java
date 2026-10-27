@@ -32,4 +32,6 @@ public interface NoiseChunkDiagAccess {
     long farlands$cellStartBlockZLong();
 
     long farlands$originX();
+
+    long farlands$originZ();
 }

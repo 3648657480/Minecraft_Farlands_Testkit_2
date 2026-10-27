@@ -24,6 +24,7 @@ public abstract class NoiseChunkDiagAccessMixin implements NoiseChunkDiagAccess 
     @Shadow private long farlands$cellStartBlockXLong;
     @Shadow private long farlands$cellStartBlockZLong;
     @Shadow private long farlands$originX;
+    @Shadow private long farlands$originZ;
 
     public int farlands$inCellX() {
         return this.inCellX;
@@ -83,5 +84,9 @@ public abstract class NoiseChunkDiagAccessMixin implements NoiseChunkDiagAccess 
 
     public long farlands$originX() {
         return this.farlands$originX;
+    }
+
+    public long farlands$originZ() {
+        return this.farlands$originZ;
     }
 }

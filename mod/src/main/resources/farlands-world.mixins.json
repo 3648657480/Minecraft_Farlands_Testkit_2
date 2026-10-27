@@ -71,6 +71,7 @@
         "NoiseChunkSliceIdentityDiagMixin",
         "NoiseChunkInterpolatorSliceDiagMixin",
         "NoiseChunkInterpolatorComputeDiagMixin",
+        "NoiseInterpolatorDiagAccessMixin",
         "NoiseChunkSeamPairDiagMixin",
         "NoiseChunkDiagAccessMixin",
         "FlatCacheCornerDiagMixin",

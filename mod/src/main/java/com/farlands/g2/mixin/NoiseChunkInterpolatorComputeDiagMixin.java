@@ -61,8 +61,8 @@ public abstract class NoiseChunkInterpolatorComputeDiagMixin {
         long wz = acc.farlands$cellStartBlockZLong() + acc.farlands$inCellZ();
         int y = acc.farlands$cellStartBlockY() + acc.farlands$inCellY();
         long origin = acc.farlands$originX();
-        if ((origin != 2147483664L && origin != 2147483680L)
-            || (wx != 2147483664L && wx != 2147483680L) || wz != 293L || y != 120) {
+        if (origin != 2147483664L || acc.farlands$originZ() != 288L
+            || wx != 2147483664L || wz != 293L || y != 120) {
             return;
         }
         String key = origin + "/" + this.noiseFiller.getClass().getName() + "/"
@@ -103,6 +103,10 @@ public abstract class NoiseChunkInterpolatorComputeDiagMixin {
     @Inject(method = "swapSlices", at = @At("HEAD"))
     private void farlands$logSwap(CallbackInfo ci) {
         if (!FARLANDS$INTERP) {
+            return;
+        }
+        NoiseChunkDiagAccess acc = (NoiseChunkDiagAccess) (Object) this.this$0;
+        if (acc.farlands$originX() != 2147483664L || acc.farlands$originZ() != 288L) {
             return;
         }
         System.out.println("[SLICEID] swapSlices before slice0=" + System.identityHashCode(this.slice0)
