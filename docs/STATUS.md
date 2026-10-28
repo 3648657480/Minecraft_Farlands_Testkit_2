@@ -35,6 +35,7 @@
 | 下一步 | 用户客户端实测 X/Z（碰撞/挖掘/放置，见 EXPERIMENTS §107.1）→ 通过后进入 Y 阶段（远 Y 碰撞 + 竖向范围） |
 | 类型契约 | ✅ `FramedPos`（ScalarWide 锚点 + long 局部 + 宽进位）已实现；契约与 frame/epoch 判据见 `C:\Project-G2-aux\docs\TYPE-CONTRACT.md` |
 | Vec3i 内联 128 | ✅ 每轴 lo/hi 双 long（`xLo/xHi…`）+ 2-limb 算术 + `getWideX/Y/ZLo|Hi`/`setWide*`；行为中性：test2 种子正常世界指纹、缝 1、碰撞三锚点、VECWIDE 自检全部通过（PATCH_REVISION 128） |
+| BoundingBox 长边界 | ✅ X/Z 四边界 int→long + `(JJJJJJ)` 构造 + `move/fromCorners/moved/inflatedBy/encapsulate/intersects/isInside` 走 long（`minXLong()` 等）；`AABB.of(BoundingBox)` 用宽边界；int getter 保持饱和视图。远域结构类 `[NARROW]` 1→0（全量 12→11，其余 9=PositionalRandomFactory、1=carver 写块、1=testgen 读块）；正常世界指纹不变、缝 `maxFloorDelta=1`、chunk 134217728,0 gen OK（PATCH_REVISION 129） |
 | 缝 | 受控种子 16 z 区块 `maxDelta=0`（西/中/东三块都连续）；用户世界（test0 种子）在 2^31 附近出现过渡带，需在同世界内测 |
 | 确定性 | ✅ 远 X 三次 `floor=423372e9c845` 一致；根因=origin 折进 carver/结构种子 |
 | D2 | 生成：按页 Cwg → 客户端 upsert | 未开始 |
