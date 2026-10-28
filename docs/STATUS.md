@@ -33,6 +33,7 @@
 | X/Z 收口 | ✅ 碰撞/拾取两条链（服务端）：三锚点 1000 / 2147483647 / 2147483648 数值一致；`setBlockAndUpdate` 本来就成功（修复前 `placed=stone` 已读回），“挖不动/放不了”是拾取选不中，不是写入失败 |
 | X/Z 未改边界 | ⚠ block ≥ 2^35（chunk ≥ 2^31）的 `getChunkForCollisions(int,int)` 仍是 int；竖向 Y 整体仍 int；客户端未实测（只有无头服务端验收） |
 | 下一步 | 用户客户端实测 X/Z（碰撞/挖掘/放置，见 EXPERIMENTS §107.1）→ 通过后进入 Y 阶段（远 Y 碰撞 + 竖向范围） |
+| 类型契约 | ✅ `FramedPos`（ScalarWide 锚点 + long 局部 + 宽进位）已实现；契约与 frame/epoch 判据见 `C:\Project-G2-aux\docs\TYPE-CONTRACT.md`。下一步接 tick/流体 |
 | 缝 | 受控种子 16 z 区块 `maxDelta=0`（西/中/东三块都连续）；用户世界（test0 种子）在 2^31 附近出现过渡带，需在同世界内测 |
 | 确定性 | ✅ 远 X 三次 `floor=423372e9c845` 一致；根因=origin 折进 carver/结构种子 |
 | D2 | 生成：按页 Cwg → 客户端 upsert | 未开始 |
