@@ -62,6 +62,11 @@ claims.
 - Push only when the user's proxy is on; the user controls it.
 - Chinese files: use read/write/edit tools, never PowerShell
   Get-Content/Set-Content. Fork copies need UTF-8 BOM.
+- **Third-party reference implementations**: behaviour-level observation only.
+  Never copy/translate their code, comments, names or file structure; never put
+  their name, repository or links into this repo (code, docs, commits). Prefer
+  our own probes/measurements first, then public specifications. Public source
+  without a license means all rights reserved.
 
 ## References
 
