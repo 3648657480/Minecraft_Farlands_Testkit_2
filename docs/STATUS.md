@@ -34,6 +34,7 @@
 | X/Z 未改边界 | ⚠ block ≥ 2^35（chunk ≥ 2^31）的 `getChunkForCollisions(int,int)` 仍是 int；竖向 Y 整体仍 int；客户端未实测（只有无头服务端验收） |
 | 下一步 | 用户客户端实测 X/Z（碰撞/挖掘/放置，见 EXPERIMENTS §107.1）→ 通过后进入 Y 阶段（远 Y 碰撞 + 竖向范围） |
 | 类型契约 | ✅ `FramedPos`（ScalarWide 锚点 + long 局部 + 宽进位）已实现；契约与 frame/epoch 判据见 `C:\Project-G2-aux\docs\TYPE-CONTRACT.md` |
+| 远 Y 碰撞/拾取 | ✅ `BlockCollisions` 增加 `farlands$frameY`（`Mth.lfloor` + 相对游标 + 真实 y）；`VoxelShapeClipPatch`/`AabbClipPatch` 用 `getLongY`。实测 y=2^31：`[COLLY] n 0→1`、`[CLIPY] miss true→false hit=(8,2^31,8)`；fresh 指纹、缝、X/Z 锚点不回归（PATCH_REVISION 132） |
 | 宽位置随机 | ✅ `PositionalRandomFactory.atWide(long,int,long)`：int 范围内逐位复刻旧公式，范围外走 long；`at(BlockPos)` 改用宽坐标。远域 [NARROW] 13→4（随机源 9→0），正常指纹/缝不变（PATCH_REVISION 130） |
 | Vec3i 内联 128 | ✅ 每轴 lo/hi 双 long（`xLo/xHi…`）+ 2-limb 算术 + `getWideX/Y/ZLo|Hi`/`setWide*`；行为中性：test2 种子正常世界指纹、缝 1、碰撞三锚点、VECWIDE 自检全部通过（PATCH_REVISION 128） |
 | BoundingBox 长边界 | ✅ X/Z 四边界 int→long + `(JJJJJJ)` 构造 + `move/fromCorners/moved/inflatedBy/encapsulate/intersects/isInside` 走 long（`minXLong()` 等）；`AABB.of(BoundingBox)` 用宽边界；int getter 保持饱和视图。远域结构类 `[NARROW]` 1→0（全量 12→11，其余 9=PositionalRandomFactory、1=carver 写块、1=testgen 读块）；正常世界指纹不变、缝 `maxFloorDelta=1`、chunk 134217728,0 gen OK（PATCH_REVISION 129） |
