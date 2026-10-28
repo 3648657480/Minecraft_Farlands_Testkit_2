@@ -320,6 +320,59 @@ public abstract class MinecraftServerTestGenMixin {
                         }
                     }
                 }
+                if (Boolean.getBoolean("farlands.diag.codec")) {
+                    var nbt = new net.minecraft.nbt.CompoundTag();
+                    var far = new net.minecraft.core.BlockPos(2147483648L, 100L, 7L);
+                    var encoded = net.minecraft.core.BlockPos.CODEC
+                        .encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, far);
+                    var back = net.minecraft.core.BlockPos.CODEC
+                        .parse(net.minecraft.nbt.NbtOps.INSTANCE, encoded.getOrThrow());
+                    System.out.println("[CODEC] far=" + far.getLongX() + "," + far.getY() + "," + far.getLongZ()
+                        + " back=" + back.getOrThrow().getLongX() + "," + back.getOrThrow().getY()
+                        + "," + back.getOrThrow().getLongZ()
+                        + " ok=" + (back.getOrThrow().getLongX() == 2147483648L));
+                    var legacy = new net.minecraft.nbt.ListTag();
+                    legacy.add(net.minecraft.nbt.IntTag.valueOf(2147483647));
+                    legacy.add(net.minecraft.nbt.IntTag.valueOf(64));
+                    legacy.add(net.minecraft.nbt.IntTag.valueOf(3));
+                    var legacyBack = net.minecraft.core.BlockPos.CODEC
+                        .parse(net.minecraft.nbt.NbtOps.INSTANCE, legacy);
+                    System.out.println("[CODEC] legacyInt back=" + legacyBack.result()
+                        .map(p -> p.getLongX() + "," + p.getY() + "," + p.getLongZ()).orElse("FAILED"));
+                    System.out.flush();
+                }
+                if (Boolean.getBoolean("farlands.diag.autowide")) {
+                    var checks = new java.util.ArrayList<String>();
+                    var a = com.farlands.g2.runtime.AutoWide.of(Long.MAX_VALUE);
+                    var b = a.add(com.farlands.g2.runtime.AutoWide.ONE);
+                    checks.add("maxplus cls=" + b.getClass().getSimpleName() + " bits=" + b.bitWidth() + " big=" + b.toBigInteger() + " expected=" + new java.math.BigInteger(Long.toString(Long.MAX_VALUE)).add(java.math.BigInteger.ONE));
+                    var c = b.subtract(com.farlands.g2.runtime.AutoWide.ONE);
+                    checks.add("roundtrip=" + c.longValueExact());
+                    var min = com.farlands.g2.runtime.AutoWide.of(Long.MIN_VALUE);
+                    checks.add("negmin=" + min.negate() + " expected=" + java.math.BigInteger.valueOf(Long.MIN_VALUE).negate());
+                    var huge = com.farlands.g2.runtime.AutoWide.of(java.math.BigInteger.ONE.shiftLeft(1200));
+                    checks.add("big=" + huge.bitWidth() + " add=" + huge.add(com.farlands.g2.runtime.AutoWide.ONE).toBigInteger().bitLength());
+                    var p = com.farlands.g2.runtime.AutoWide.of(123456789L);
+                    checks.add("eq=" + p.equals(com.farlands.g2.runtime.AutoWide.of(123456789L))
+                        + " cmp=" + p.compareTo(com.farlands.g2.runtime.AutoWide.of(123456790L)));
+                    int n1 = 1_000_000;
+                    long awT0 = System.nanoTime();
+                    var acc = com.farlands.g2.runtime.AutoWide.ZERO;
+                    for (int i = 0; i < n1; i++) {
+                        acc = acc.add(com.farlands.g2.runtime.AutoWide.of(i & 3));
+                    }
+                    long awT1 = System.nanoTime();
+                    var bigAcc = java.math.BigInteger.ZERO;
+                    for (int i = 0; i < n1; i++) {
+                        bigAcc = bigAcc.add(java.math.BigInteger.valueOf(i & 3));
+                    }
+                    long awT2 = System.nanoTime();
+                    long smallNs = (awT1 - awT0) / n1;
+                    long bigNs = (awT2 - awT1) / n1;
+                    System.out.println("[AUTOWIDE] " + String.join(" | ", checks)
+                        + " | smallAddNs=" + smallNs + " bigAddNs=" + bigNs + " acc=" + acc);
+                    System.out.flush();
+                }
                 StringBuilder sb = new StringBuilder();
                 sb.append("[FarLands-Test] gen OK region (").append(cxL).append(",").append(czL)
                     .append(")+").append(n).append("x").append(n).append(" last=(").append(cxL + n - 1)

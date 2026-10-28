@@ -206,6 +206,27 @@ public final class FarProjection {
             (int) (pos.getLongX() >> 4), (int) (pos.getLongZ() >> 4));
     }
 
+    /**
+     * Diagnostic narrowing guard for int views. When enabled, logs the stack once
+     * per call site for any coordinate that does not fit an int, so remaining
+     * int-view consumers surface during far-domain tests.
+     */
+    public static int narrowView(long value) {
+        if (NARROW_GUARD && value != (long) (int) value) {
+            long now = System.nanoTime();
+            if (now - NARROW_LAST.get() > 1_000_000_000L) {
+                NARROW_LAST.set(now);
+                System.out.println("[NARROW] int view of " + value + " from:");
+                new Exception("narrow").printStackTrace(System.out);
+                System.out.flush();
+            }
+        }
+        return (int) value;
+    }
+
+    private static final boolean NARROW_GUARD = Boolean.getBoolean("farlands.diag.narrowGuard");
+    private static final ThreadLocal<Long> NARROW_LAST = ThreadLocal.withInitial(() -> 0L);
+
     /** Collision-domain X for the patched collision iterators. */
     public static double collisionX(int v) {
         return (double) v;

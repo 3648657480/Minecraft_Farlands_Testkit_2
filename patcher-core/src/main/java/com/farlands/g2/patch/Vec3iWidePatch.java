@@ -49,7 +49,8 @@ public final class Vec3iWidePatch implements ClassPatch {
                     && (fi.name.equals("x") || fi.name.equals("y") || fi.name.equals("z"))) {
                     if (fi.getOpcode() == Opcodes.GETFIELD && "I".equals(fi.desc)) {
                         fi.desc = "J";
-                        m.instructions.insert(insn, new InsnNode(Opcodes.L2I));
+                        m.instructions.insert(insn, new MethodInsnNode(Opcodes.INVOKESTATIC,
+                            "com/farlands/g2/util/FarProjection", "narrowView", "(J)I", false));
                     } else if (fi.getOpcode() == Opcodes.PUTFIELD && "I".equals(fi.desc)) {
                         fi.desc = "J";
                         m.instructions.insertBefore(insn, new InsnNode(Opcodes.I2L));
