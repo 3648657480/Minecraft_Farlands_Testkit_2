@@ -320,6 +320,14 @@ public abstract class MinecraftServerTestGenMixin {
                         }
                     }
                 }
+                if (Boolean.getBoolean("farlands.diag.farY")) {
+                    var fy = new net.minecraft.core.BlockPos(8L, 2147483648L, 8L);
+                    boolean setOk = level.setBlockAndUpdate(fy, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+                    var readBack = level.getBlockState(fy);
+                    System.out.println("[FARY] set=" + setOk + " read=" + readBack
+                        + " lo=" + readBack.getBlock().getDescriptionId());
+                    System.out.flush();
+                }
                 if (Boolean.getBoolean("farlands.diag.codec")) {
                     var nbt = new net.minecraft.nbt.CompoundTag();
                     var far = new net.minecraft.core.BlockPos(2147483648L, 100L, 7L);
@@ -1009,6 +1017,14 @@ public abstract class MinecraftServerTestGenMixin {
                     System.out.println("[STARTSCAN] done hits=" + hits);
                     System.out.flush();
                 }
+                if (Boolean.getBoolean("farlands.diag.farY")) {
+                    var fy = new net.minecraft.core.BlockPos(8L, 2147483648L, 8L);
+                    boolean setOk = level.setBlockAndUpdate(fy, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+                    var readBack = level.getBlockState(fy);
+                    System.out.println("[FARY] set=" + setOk + " read=" + readBack
+                        + " lo=" + readBack.getBlock().getDescriptionId());
+                    System.out.flush();
+                }
                 if (Boolean.getBoolean("farlands.diag.codec")) {
                     var buf = io.netty.buffer.Unpooled.buffer();
                     var pos = new net.minecraft.core.BlockPos(2147483648L, 100L, 7L);
@@ -1067,6 +1083,10 @@ public abstract class MinecraftServerTestGenMixin {
                 // across the x = 2^31 seam.
                 if (Boolean.getBoolean("farlands.diag.collision")) {
                     farlands$collisionProbe(level);
+                }
+                // Collision + picking at y = 2^31 (block 2147483648).
+                if (Boolean.getBoolean("farlands.diag.collisionY")) {
+                    farlands$collisionYProbe(level);
                 }
                 System.out.flush();
             }
@@ -1159,6 +1179,65 @@ public abstract class MinecraftServerTestGenMixin {
             }
             System.out.flush();
         }
+    }
+
+    /**
+     * Far-Y collision / picking probe: block {@code y = 2^31} (section
+     * 134217728), flag {@code -Dfarlands.diag.collisionY=true}.
+     *
+     * <p>Places stone at {@code (8, 2147483648, 8)}, then:</p>
+     * <ul>
+     *   <li>{@code [COLLY]} - {@code level.getBlockCollisions} for the box over
+     *       that block. Before the Y frame fix the int extent wraps at 2^31, the
+     *       cursor range inverts and the iterator is empty ({@code n = 0});
+     *       after the fix it must report the stone ({@code n &gt; 0}).</li>
+     *   <li>{@code [CLIPY]} - {@code level.clip} straight down from
+     *       {@code y = 2^31 + 3} to {@code y = 2^31 - 1}. Before the fix the
+     *       int local coordinate in {@code VoxelShape.clip} / {@code AABB.clip}
+     *       loses the box ({@code miss = true}); after the fix it must hit
+     *       {@code (8, 2147483648, 8)}.</li>
+     * </ul>
+     *
+     * <p>The probe writes one block into the scratch world copy; it never runs
+     * unless the flag is set.</p>
+     */
+    @Unique
+    private static void farlands$collisionYProbe(ServerLevel level) {
+        final long px = 8L;
+        final long py = 2147483648L;
+        final long pz = 8L;
+        try {
+            net.minecraft.core.BlockPos bp = new net.minecraft.core.BlockPos(px, py, pz);
+            boolean set = level.setBlockAndUpdate(bp, net.minecraft.world.level.block.Blocks.STONE
+                .defaultBlockState());
+            String placed = level.getBlockState(bp).getBlock().toString();
+            net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(
+                8.2, 2147483648.0, 8.2, 8.8, 2147483649.8, 8.8);
+            int n = 0;
+            for (var ignored : level.getBlockCollisions(null, box)) {
+                n++;
+            }
+            System.out.println("[COLLY] y=" + py + " set=" + set + " placed=" + placed + " n=" + n);
+
+            net.minecraft.world.phys.BlockHitResult hit = level.clip(
+                new net.minecraft.world.level.ClipContext(
+                    new net.minecraft.world.phys.Vec3(8.5, 2147483651.0, 8.5),
+                    new net.minecraft.world.phys.Vec3(8.5, 2147483647.0, 8.5),
+                    net.minecraft.world.level.ClipContext.Block.OUTLINE,
+                    net.minecraft.world.level.ClipContext.Fluid.NONE,
+                    net.minecraft.world.phys.shapes.CollisionContext.empty()));
+            boolean miss = hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS;
+            System.out.println("[CLIPY] miss=" + miss
+                + (miss ? "" : (" hit=" + hit.getBlockPos().getLongX() + ","
+                    + hit.getBlockPos().getLongY() + ","
+                    + hit.getBlockPos().getLongZ()
+                    + " dir=" + hit.getDirection()
+                    + " loc=" + hit.getLocation())));
+        } catch (Throwable t) {
+            System.out.println("[COLLY] FAILED: " + t);
+            t.printStackTrace(System.out);
+        }
+        System.out.flush();
     }
 
     /**

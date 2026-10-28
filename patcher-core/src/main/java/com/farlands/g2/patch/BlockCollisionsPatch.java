@@ -17,24 +17,27 @@ import org.objectweb.asm.tree.VarInsnNode;
 
 /**
  * Makes the collision iterator visit the <em>real</em> (long) block columns, so
- * blocks east of {@code x = 2^31} still collide.
+ * blocks east of {@code x = 2^31} and above {@code y = 2^31} still collide.
  *
  * <p>Vanilla computes the cursor extents as ints:</p>
  * <pre>
  * int x0 = Mth.floor(box.minX - 1.0E-7) - 1;
- * int x1 = Mth.floor(box.maxX + 1.0E-7) + 1;
+ * int y0 = Mth.floor(box.minY - 1.0E-7) - 1;
+ * int z0 = Mth.floor(box.minZ - 1.0E-7) - 1;
+ * int x1 = Mth.floor(box.maxX + 1.0E-7) + 1;  // ... y1, z1 likewise
  * this.cursor = new Cursor3D(x0, y0, z0, x1, y1, z1);
  * </pre>
  * <p>At {@code box.maxX >= 2^31} (block 2147483648 = chunk 134217728) the
  * {@code +1} wraps to {@code Integer.MIN_VALUE}, the cursor range inverts and
  * {@code Cursor3D.advance()} returns false on the first call: the iterator
  * yields nothing, so entities fall through the far side of the seam and no
- * block collision is ever reported.</p>
+ * block collision is ever reported. The same int wrap happens in Y at
+ * {@code box.maxY >= 2^31} (block 2147483648, section 134217728).</p>
  *
  * <p>This patch keeps the vanilla {@code Cursor3D} but feeds it <em>relative</em>
- * extents ({@code 0..x1-x0}) and remembers the origin in two long fields
- * ({@code farlands$frameX/farlands$frameZ}); {@code computeNext()} adds the
- * frame back to get the true long block coordinate, which is then used for</p>
+ * extents ({@code 0..x1-x0} etc.) and remembers the origin in three long fields
+ * ({@code farlands$frameX/frameY/frameZ}); {@code computeNext()} adds the frame
+ * back to get the true long block coordinate, which is then used for</p>
  * <ul>
  *   <li>the chunk lookup ({@code getChunk(JJ)} - chunk 134217728 still fits an
  *       int, so the {@code getChunkForCollisions(int,int)} interface is
@@ -60,6 +63,7 @@ public final class BlockCollisionsPatch implements ClassPatch {
     private static final String BLOCK_GETTER = "net/minecraft/world/level/BlockGetter";
 
     private static final String FRAME_X = "farlands$frameX";
+    private static final String FRAME_Y = "farlands$frameY";
     private static final String FRAME_Z = "farlands$frameZ";
 
     private static final String CTOR_DESC = "(Lnet/minecraft/world/level/CollisionGetter;"
@@ -68,12 +72,13 @@ public final class BlockCollisionsPatch implements ClassPatch {
     private static final String COMPUTE_NEXT_DESC = "()Ljava/lang/Object;";
     private static final String GET_CHUNK_DESC = "(II)Lnet/minecraft/world/level/BlockGetter;";
 
-    /** computeNext() locals: 1=x, 2=y, 3=z (relative), 9=realX, 11=realZ. */
+    /** computeNext() locals: 1=x, 2=y, 3=z (relative), 9=realX, 11=realZ, 13=realY. */
     private static final int L_X = 1;
     private static final int L_Y = 2;
     private static final int L_Z = 3;
     private static final int L_REAL_X = 9;
     private static final int L_REAL_Z = 11;
+    private static final int L_REAL_Y = 13;
 
     @Override
     public boolean matches(String internalName) {
@@ -86,11 +91,18 @@ public final class BlockCollisionsPatch implements ClassPatch {
         new ClassReader(original).accept(node, 0);
 
         // Idempotency: key on our own field, never on a method name that could
-        // exist for another reason.
-        if (hasField(node, FRAME_X)) {
+        // exist for another reason. A jar patched by an older revision has
+        // frameX but no frameY (Y was int); re-patching it would duplicate the
+        // fields, so throw instead of silently corrupting it.
+        if (hasField(node, FRAME_Y)) {
             return original;
         }
+        if (hasField(node, FRAME_X)) {
+            throw new IllegalStateException(TARGET + ": has " + FRAME_X + " but no " + FRAME_Y
+                + " (patched by an older revision); patch a vanilla jar");
+        }
         node.fields.add(new FieldNode(Opcodes.ACC_PRIVATE, FRAME_X, "J", null, null));
+        node.fields.add(new FieldNode(Opcodes.ACC_PRIVATE, FRAME_Y, "J", null, null));
         node.fields.add(new FieldNode(Opcodes.ACC_PRIVATE, FRAME_Z, "J", null, null));
 
         MethodNode ctor = find(node, "<init>", CTOR_DESC);
@@ -126,8 +138,9 @@ public final class BlockCollisionsPatch implements ClassPatch {
      * int x0 = floor(box.minX - e) - 1; ... int z1 = floor(box.maxZ + e) + 1;
      * this.cursor = new Cursor3D(x0, y0, z0, x1, y1, z1);
      * </pre>
-     * with long extents, two frame fields and a relative cursor
-     * ({@code 0..x1-x0}). Y is untouched (a vertical extent cannot exceed int).
+     * with long extents on all three axes, three frame fields and a relative
+     * cursor ({@code 0..x1-x0} etc.). The vertical extent is cast to int only
+     * after subtracting the frame, so it stays small even at far Y.
      */
     private static void patchConstructor(MethodNode mn) {
         AbstractInsnNode minX = null;
@@ -195,24 +208,24 @@ public final class BlockCollisionsPatch implements ClassPatch {
         il.add(new InsnNode(Opcodes.LCONST_1));
         il.add(new InsnNode(Opcodes.LADD));
         il.add(new VarInsnNode(Opcodes.LSTORE, 8));
-        // int y0 = floor(box.minY - 1e-7) - 1
+        // long y0 = lfloor(box.minY - 1e-7) - 1
         il.add(new VarInsnNode(Opcodes.ALOAD, 3));
         il.add(new FieldInsnNode(Opcodes.GETFIELD, AABB, "minY", "D"));
         il.add(new LdcInsnNode(1.0E-7));
         il.add(new InsnNode(Opcodes.DSUB));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, MTH, "floor", "(D)I", false));
-        il.add(new InsnNode(Opcodes.ICONST_1));
-        il.add(new InsnNode(Opcodes.ISUB));
-        il.add(new VarInsnNode(Opcodes.ISTORE, 10));
-        // int y1 = floor(box.maxY + 1e-7) + 1
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, MTH, "lfloor", "(D)J", false));
+        il.add(new InsnNode(Opcodes.LCONST_1));
+        il.add(new InsnNode(Opcodes.LSUB));
+        il.add(new VarInsnNode(Opcodes.LSTORE, 16));
+        // long y1 = lfloor(box.maxY + 1e-7) + 1
         il.add(new VarInsnNode(Opcodes.ALOAD, 3));
         il.add(new FieldInsnNode(Opcodes.GETFIELD, AABB, "maxY", "D"));
         il.add(new LdcInsnNode(1.0E-7));
         il.add(new InsnNode(Opcodes.DADD));
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, MTH, "floor", "(D)I", false));
-        il.add(new InsnNode(Opcodes.ICONST_1));
-        il.add(new InsnNode(Opcodes.IADD));
-        il.add(new VarInsnNode(Opcodes.ISTORE, 11));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, MTH, "lfloor", "(D)J", false));
+        il.add(new InsnNode(Opcodes.LCONST_1));
+        il.add(new InsnNode(Opcodes.LADD));
+        il.add(new VarInsnNode(Opcodes.LSTORE, 18));
         // long z0 = lfloor(box.minZ - 1e-7) - 1
         il.add(new VarInsnNode(Opcodes.ALOAD, 3));
         il.add(new FieldInsnNode(Opcodes.GETFIELD, AABB, "minZ", "D"));
@@ -231,25 +244,33 @@ public final class BlockCollisionsPatch implements ClassPatch {
         il.add(new InsnNode(Opcodes.LCONST_1));
         il.add(new InsnNode(Opcodes.LADD));
         il.add(new VarInsnNode(Opcodes.LSTORE, 14));
-        // this.farlands$frameX = x0; this.farlands$frameZ = z0;
+        // this.farlands$frameX = x0; this.farlands$frameY = y0;
+        // this.farlands$frameZ = z0;
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new VarInsnNode(Opcodes.LLOAD, 6));
         il.add(new FieldInsnNode(Opcodes.PUTFIELD, TARGET, FRAME_X, "J"));
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 16));
+        il.add(new FieldInsnNode(Opcodes.PUTFIELD, TARGET, FRAME_Y, "J"));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new VarInsnNode(Opcodes.LLOAD, 12));
         il.add(new FieldInsnNode(Opcodes.PUTFIELD, TARGET, FRAME_Z, "J"));
-        // this.cursor = new Cursor3D(0, y0, 0, (int)(x1-x0), y1, (int)(z1-z0));
+        // this.cursor = new Cursor3D(0, 0, 0,
+        //     (int)(x1-x0), (int)(y1-y0), (int)(z1-z0));
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new org.objectweb.asm.tree.TypeInsnNode(Opcodes.NEW, CURSOR));
         il.add(new InsnNode(Opcodes.DUP));
         il.add(new InsnNode(Opcodes.ICONST_0));
-        il.add(new VarInsnNode(Opcodes.ILOAD, 10));
+        il.add(new InsnNode(Opcodes.ICONST_0));
         il.add(new InsnNode(Opcodes.ICONST_0));
         il.add(new VarInsnNode(Opcodes.LLOAD, 8));
         il.add(new VarInsnNode(Opcodes.LLOAD, 6));
         il.add(new InsnNode(Opcodes.LSUB));
         il.add(new InsnNode(Opcodes.L2I));
-        il.add(new VarInsnNode(Opcodes.ILOAD, 11));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 18));
+        il.add(new VarInsnNode(Opcodes.LLOAD, 16));
+        il.add(new InsnNode(Opcodes.LSUB));
+        il.add(new InsnNode(Opcodes.L2I));
         il.add(new VarInsnNode(Opcodes.LLOAD, 14));
         il.add(new VarInsnNode(Opcodes.LLOAD, 12));
         il.add(new InsnNode(Opcodes.LSUB));
@@ -329,7 +350,7 @@ public final class BlockCollisionsPatch implements ClassPatch {
     // ------------------------------------------------------------------
 
     private static void patchComputeNext(MethodNode mn) {
-        // 1. After `z = cursor.nextZ()` insert realX/realZ = frame + relative.
+        // 1. After `z = cursor.nextZ()` insert realX/realY/realZ = frame + relative.
         AbstractInsnNode nextZ = null;
         for (AbstractInsnNode n : mn.instructions) {
             if (n instanceof MethodInsnNode m && CURSOR.equals(m.owner) && "nextZ".equals(m.name)) {
@@ -348,6 +369,12 @@ public final class BlockCollisionsPatch implements ClassPatch {
         frameAdd.add(new InsnNode(Opcodes.I2L));
         frameAdd.add(new InsnNode(Opcodes.LADD));
         frameAdd.add(new VarInsnNode(Opcodes.LSTORE, L_REAL_X));
+        frameAdd.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        frameAdd.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, FRAME_Y, "J"));
+        frameAdd.add(new VarInsnNode(Opcodes.ILOAD, L_Y));
+        frameAdd.add(new InsnNode(Opcodes.I2L));
+        frameAdd.add(new InsnNode(Opcodes.LADD));
+        frameAdd.add(new VarInsnNode(Opcodes.LSTORE, L_REAL_Y));
         frameAdd.add(new VarInsnNode(Opcodes.ALOAD, 0));
         frameAdd.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, FRAME_Z, "J"));
         frameAdd.add(new VarInsnNode(Opcodes.ILOAD, L_Z));
@@ -375,7 +402,7 @@ public final class BlockCollisionsPatch implements ClassPatch {
         mn.instructions.set(zLoad, new VarInsnNode(Opcodes.LLOAD, L_REAL_Z));
         chunkCall.desc = "(JJ)L" + BLOCK_GETTER + ";";
 
-        // 3. pos.set(x, y, z) -> pos.set(realX, (long)y, realZ)
+        // 3. pos.set(x, y, z) -> pos.set(realX, realY, realZ)
         MethodInsnNode posSet = null;
         for (AbstractInsnNode n : mn.instructions) {
             if (n instanceof MethodInsnNode m && MUTABLE.equals(m.owner) && "set".equals(m.name)
@@ -405,8 +432,7 @@ public final class BlockCollisionsPatch implements ClassPatch {
         setArgs.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "pos",
             "L" + MUTABLE + ";"));
         setArgs.add(new VarInsnNode(Opcodes.LLOAD, L_REAL_X));
-        setArgs.add(new VarInsnNode(Opcodes.ILOAD, L_Y));
-        setArgs.add(new InsnNode(Opcodes.I2L));
+        setArgs.add(new VarInsnNode(Opcodes.LLOAD, L_REAL_Y));
         setArgs.add(new VarInsnNode(Opcodes.LLOAD, L_REAL_Z));
         mn.instructions.insertBefore(posSet, setArgs);
         for (AbstractInsnNode n : new AbstractInsnNode[]{thisLoad, posField, px, py, pz}) {
@@ -461,16 +487,16 @@ public final class BlockCollisionsPatch implements ClassPatch {
         InsnList repl = new InsnList();
         repl.add(new VarInsnNode(Opcodes.LLOAD, L_REAL_X));
         repl.add(new InsnNode(Opcodes.L2D));
-        repl.add(new VarInsnNode(Opcodes.ILOAD, 2));
-        repl.add(new InsnNode(Opcodes.I2D));
+        repl.add(new VarInsnNode(Opcodes.LLOAD, L_REAL_Y));
+        repl.add(new InsnNode(Opcodes.L2D));
         repl.add(new VarInsnNode(Opcodes.LLOAD, L_REAL_Z));
         repl.add(new InsnNode(Opcodes.L2D));
         repl.add(new VarInsnNode(Opcodes.LLOAD, L_REAL_X));
         repl.add(new InsnNode(Opcodes.L2D));
         repl.add(new InsnNode(Opcodes.DCONST_1));
         repl.add(new InsnNode(Opcodes.DADD));
-        repl.add(new VarInsnNode(Opcodes.ILOAD, 2));
-        repl.add(new InsnNode(Opcodes.I2D));
+        repl.add(new VarInsnNode(Opcodes.LLOAD, L_REAL_Y));
+        repl.add(new InsnNode(Opcodes.L2D));
         repl.add(new InsnNode(Opcodes.DCONST_1));
         repl.add(new InsnNode(Opcodes.DADD));
         repl.add(new VarInsnNode(Opcodes.LLOAD, L_REAL_Z));
@@ -495,8 +521,8 @@ public final class BlockCollisionsPatch implements ClassPatch {
         InsnList repl = new InsnList();
         repl.add(new VarInsnNode(Opcodes.LLOAD, L_REAL_X));
         repl.add(new InsnNode(Opcodes.L2D));
-        repl.add(new VarInsnNode(Opcodes.ILOAD, 2));
-        repl.add(new InsnNode(Opcodes.I2D));
+        repl.add(new VarInsnNode(Opcodes.LLOAD, L_REAL_Y));
+        repl.add(new InsnNode(Opcodes.L2D));
         repl.add(new VarInsnNode(Opcodes.LLOAD, L_REAL_Z));
         repl.add(new InsnNode(Opcodes.L2D));
         mn.instructions.insertBefore(invoke, repl);

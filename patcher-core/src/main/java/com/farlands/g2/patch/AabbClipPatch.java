@@ -16,11 +16,12 @@ import org.objectweb.asm.tree.VarInsnNode;
  * Widens two {@code AABB} bridges to the far domain:
  *
  * <p>1. {@code AABB.clip(Iterable, Vec3, Vec3, BlockPos)}: vanilla moves each
- * candidate box by {@code pos.getX()/getZ()} (int accessors), so at
- * {@code block >= 2^31} (block 2147483648 = chunk 134217728) the box is
- * translated to {@code -2147483648} and the DDA ray-vs-box tests all miss:
- * block picking returns MISS east of the seam. This patch moves the candidates
- * by the true long block coordinate ({@code Vec3i.getLongX/getLongZ}, added by
+ * candidate box by {@code pos.getX()/getY()/getZ()} (int accessors), so at
+ * {@code block >= 2^31} (block 2147483648 = chunk 134217728 for X/Z, section
+ * 134217728 for Y) the box is translated to {@code -2147483648} and the DDA
+ * ray-vs-box tests all miss: block picking returns MISS beyond the seam. This
+ * patch moves the candidates by the true long block coordinate
+ * ({@code Vec3i.getLongX/getLongY/getLongZ}, added by
  * {@link Vec3iWidePatch}), which equals the int accessor everywhere the
  * coordinate fits an int, so normal-world picking is unchanged.</p>
  *
@@ -66,11 +67,19 @@ public final class AabbClipPatch implements ClassPatch {
         }
 
         boolean changed = false;
-        // Idempotency: key on our own injected call (Vec3i.getLongX, added by
-        // Vec3iWidePatch). Do NOT key on move(DDD): vanilla clip already
-        // contains a move(DDD) call, so that check would falsely mark this
-        // class patched (the same class of bug as the old WgrPatch).
-        if (!hasCall(clip, VEC3I, "getLongX")) {
+        // Idempotency: key on our own injected call (Vec3i.getLongY, added by
+        // this patch on top of Vec3iWidePatch). Do NOT key on move(DDD):
+        // vanilla clip already contains a move(DDD) call, so that check would
+        // falsely mark this class patched (the same class of bug as the old
+        // WgrPatch). An older revision patched X/Z only (getLongX/getLongZ but
+        // no getLongY) and already rewrote move(BlockPos), so re-patching it
+        // cannot work: throw instead of silently keeping the int Y.
+        boolean hasLongX = hasCall(clip, VEC3I, "getLongX");
+        if (!hasCall(clip, VEC3I, "getLongY")) {
+            if (hasLongX) {
+                throw new IllegalStateException(TARGET + ": has getLongX but no getLongY"
+                    + " (patched by an older revision); patch a vanilla jar");
+            }
             patchClip(clip);
             changed = true;
         }
@@ -108,24 +117,26 @@ public final class AabbClipPatch implements ClassPatch {
             throw new IllegalStateException(TARGET + ": unexpected move(BlockPos) call pattern in clip");
         }
 
-        // New locals: ux = 14, uz = 16 (vanilla uses 0..13).
+        // New locals: ux = 14, uz = 16, uy = 18 (vanilla uses 0..13).
         InsnList head = new InsnList();
         head.add(new VarInsnNode(Opcodes.ALOAD, 3));
         head.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLongX", "()J", false));
         head.add(new InsnNode(Opcodes.L2D));
         head.add(new VarInsnNode(Opcodes.DSTORE, 14));
         head.add(new VarInsnNode(Opcodes.ALOAD, 3));
+        head.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLongY", "()J", false));
+        head.add(new InsnNode(Opcodes.L2D));
+        head.add(new VarInsnNode(Opcodes.DSTORE, 18));
+        head.add(new VarInsnNode(Opcodes.ALOAD, 3));
         head.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, VEC3I, "getLongZ", "()J", false));
         head.add(new InsnNode(Opcodes.L2D));
         head.add(new VarInsnNode(Opcodes.DSTORE, 16));
         clip.instructions.insert(head);
 
-        // Replace aabb.move(pos) with aabb.move(ux, (double)pos.getY(), uz).
+        // Replace aabb.move(pos) with aabb.move(ux, uy, uz).
         InsnList args = new InsnList();
         args.add(new VarInsnNode(Opcodes.DLOAD, 14));
-        args.add(new VarInsnNode(Opcodes.ALOAD, 3));
-        args.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/core/BlockPos", "getY", "()I", false));
-        args.add(new InsnNode(Opcodes.I2D));
+        args.add(new VarInsnNode(Opcodes.DLOAD, 18));
         args.add(new VarInsnNode(Opcodes.DLOAD, 16));
         clip.instructions.insertBefore(move, args);
         clip.instructions.remove(posLoad);
