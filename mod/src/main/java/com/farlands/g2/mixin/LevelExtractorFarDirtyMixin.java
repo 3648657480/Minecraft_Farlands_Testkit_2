@@ -25,8 +25,19 @@ public abstract class LevelExtractorFarDirtyMixin {
         throw new AbstractMethodError();
     }
 
-    @Inject(method = "setBlockDirty", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "setBlockDirty(Lnet/minecraft/core/BlockPos;Z)V", at = @At("HEAD"), cancellable = true)
     private void farlands$wideDirty(BlockPos pos, boolean playerChanged, CallbackInfo ci) {
+        farlands$dirties(pos, playerChanged, ci);
+    }
+
+    @Inject(method = "setBlockDirty(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/block/state/BlockState;)V", at = @At("HEAD"), cancellable = true)
+    private void farlands$wideDirtyStates(BlockPos pos, net.minecraft.world.level.block.state.BlockState oldState,
+        net.minecraft.world.level.block.state.BlockState newState, CallbackInfo ci) {
+        farlands$dirties(pos, false, ci);
+    }
+
+    @org.spongepowered.asm.mixin.Unique
+    private void farlands$dirties(BlockPos pos, boolean playerChanged, CallbackInfo ci) {
         long x = pos.getLongX();
         long z = pos.getLongZ();
         if (x == (long) (int) x && z == (long) (int) z) {
