@@ -2604,3 +2604,23 @@ Wiki 记录基于其自身实验条件，本项目结果基于自研管线，二
 - 对照：同一世界里 `x=1000` 与 `x=2147483647` 的行为应与 `x=2147483648` 一致。
 - 通过判据：2^31 两侧碰撞/拾取体感一致，无“方块挖掘不了/放置不了/掉出世界”。
 - 不通过时的第一手证据：`-Dfarlands.diag.collision=true` 的 `[COLL]/[COLLBLK]/[CLIP]` 三行（服务端自动化已覆盖，若服务端仍 n=0 则说明是另一条链，不是这两处补丁）。
+
+#### 108. Vec3i 内联 128 位（lo/hi 双 long）：字段拆分 + 2-limb 算术 + wide 访问器（2026-10-28）
+
+- 目标：把 `Vec3i`（含 `BlockPos`）每轴 1×`long` 升级为**内联 2×`long`**（`xLo/xHi`、`yLo/yHi`、`zLo/zHi`），行为中性（int/long 视图语义不变），为 A3 宽身份打地基；不引入对象分配。
+- 改动（`PATCH_REVISION` 127→128）：
+  - 新增 `Vec3iInline128Patch`，注册在 `Vec3iWidePatch` 之后：字段 `x/y/z` → `xLo/yLo/zLo`，新增 `xHi/yHi/zHi`；幂等检测为“已存在 `xHi` 则跳过”。
+  - 新增 `(JJJJJJ)V`（顺序 `xLo,xHi,yLo,yHi,zLo,zHi`）、`getWideX/Y/ZLo|Hi()J`、`setWideX/Y/Z(JJ)`。
+  - `(III)V`/`(JJJ)V`、`setX/Y/Z`、`setLongX/Y/Z` 同步写 hi（按 int/long 符号扩展）；任何只写 lo 的写入点会让补丁直接抛错。
+  - `offset(III)`/`offset(Vec3i)`/`subtract`/`multiply(int)`/`relative(Direction,int)`/`cross` 改 2-limb：lo 用无符号进位/借位，`multiplyHigh` 补高位；64 位内低 limb 与旧 long 算术逐位一致。
+  - `equals/hashCode/compareTo/toString` 基于 6 limb：hi 是 lo 符号扩展（canonical）时与旧单 long 值等价；hash 在 canonical 上仍等于旧 int 视图公式（int 运算 mod 2^32）。
+  - `BlockPos.asLong()/of(long)` 保持 26/12/26 打包（只用 int 视图），未改。
+  - `Vec3iViewAuditMixin` 改读 `xLo/xHi`，并把“hi 非符号扩展”也计入窄化审计。
+- 验收（fresh world，种子 12345；`argFiles\runServer` → `minecraft-merged-91e0e37caa`，javap 确认 `xLo/xHi` 字段、`getWide*/setWide*`、`(JJJJJJ)V`）：
+  - `:mod:build` 成功。
+  - 正常世界 `(0,0)`：`surf=b9216bad2029 floor=8936c275d063 biome=4bf4e2ea5526`（逐位不变）。
+  - 缝 `134217727,0;134217728,0`（`seam=16`、`noFeatures`）：`[SEAM] zc=16 maxDelta=0 maxFloorDelta=1`（两次生成一致）；`[SEAMINTRA] crossOver2=0/256`、`[SEAM-CTRL] biomeMismatch=0/256`。
+  - 碰撞/拾取（`-Dfarlands.diag.collision=true`）三锚点 1000 / 2147483647 / 2147483648 一致：`[COLL] n=0`、`[COLLBLK] n=1`、`[CLIP] miss=false hit=(x,68,0) dir=up`。
+  - `-Dfarlands.diag.autowide=true`：`[VECWIDE] 2^31 lo=2147483648 hi=0 off1 lo=2147483649 hi=0 sub lo=2147483648 hi=0 carry lo=0 hi=1 borrow lo=-1 hi=-1 ok=true`。
+- 证据：`C:\Project-G2-aux\logs\inline128-{norm,seam,coll,vecwide}`、`%TEMP%\opencode\exp-inline128-*.log`。
+- 已知边界：`getLongX/Y/Z()` 只返回低 limb（仅 64 位内精确，与升级前单 long 语义相同）；128 位值需用 `getWide*`。`multiply(int,int,int)` 等 int 视图方法保持原语义，不在本批范围内。

@@ -401,6 +401,33 @@ public abstract class MinecraftServerTestGenMixin {
                     System.out.println("[AUTOWIDE] " + String.join(" | ", checks)
                         + " | smallAddNs=" + smallNs + " bigAddNs=" + bigNs + " acc=" + acc);
                     System.out.flush();
+
+                    // Inline-128 Vec3i self-check (Vec3iInline128Patch): 2^31
+                    // lives in the low limb, 2^64 crosses into the high limb,
+                    // and subtract must borrow back.
+                    boolean vwOk = true;
+                    var vp = new net.minecraft.core.BlockPos(2147483648L, 0L, 0L);
+                    long vpXLo = vp.getWideXLo();
+                    long vpXHi = vp.getWideXHi();
+                    vwOk &= vpXHi == 0L && vpXLo == (1L << 31);
+                    var vp1 = vp.offset(1, 0, 0);
+                    vwOk &= vp1.getWideXHi() == 0L && vp1.getWideXLo() == (1L << 31) + 1L;
+                    var vpBack = vp1.subtract(new net.minecraft.core.Vec3i(1, 0, 0));
+                    vwOk &= vpBack.getWideXHi() == vpXHi && vpBack.getWideXLo() == vpXLo;
+                    // hi=0, lo=2^64-1; +1 must carry into hi (2^64).
+                    var vwCarry = new net.minecraft.core.Vec3i(-1L, 0L, 0L, 0L, 0L, 0L).offset(1, 0, 0);
+                    vwOk &= vwCarry.getWideXHi() == 1L && vwCarry.getWideXLo() == 0L;
+                    // 0 - 1 must borrow into hi (-1 == hi:-1, lo:-1).
+                    var vwBorrow = new net.minecraft.core.Vec3i(0L, 0L, 0L, 0L, 0L, 0L)
+                        .subtract(new net.minecraft.core.Vec3i(1L, 0L, 0L, 0L, 0L, 0L));
+                    vwOk &= vwBorrow.getWideXHi() == -1L && vwBorrow.getWideXLo() == -1L;
+                    System.out.println("[VECWIDE] 2^31 lo=" + vpXLo + " hi=" + vpXHi
+                        + " off1 lo=" + vp1.getWideXLo() + " hi=" + vp1.getWideXHi()
+                        + " sub lo=" + vpBack.getWideXLo() + " hi=" + vpBack.getWideXHi()
+                        + " carry lo=" + vwCarry.getWideXLo() + " hi=" + vwCarry.getWideXHi()
+                        + " borrow lo=" + vwBorrow.getWideXLo() + " hi=" + vwBorrow.getWideXHi()
+                        + " ok=" + vwOk);
+                    System.out.flush();
                 }
                 StringBuilder sb = new StringBuilder();
                 sb.append("[FarLands-Test] gen OK region (").append(cxL).append(",").append(czL)

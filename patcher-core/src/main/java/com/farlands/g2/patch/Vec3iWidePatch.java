@@ -17,6 +17,10 @@ import org.objectweb.asm.tree.VarInsnNode;
  * B-line (farlands.wide): widens Vec3i x/y/z storage from int to long,
  * adds getLongX/Y/Z, and moves position-deriving arithmetic to the long
  * domain. Int accessors keep wrap semantics (invisible at normal coords).
+ *
+ * <p>{@link Vec3iInline128Patch} runs immediately after this patch and splits
+ * each widened field into inline lo/hi limbs; the long accessors above remain
+ * the exact 64-bit (low-limb) view they define here.</p>
  */
 public final class Vec3iWidePatch implements ClassPatch {
 
