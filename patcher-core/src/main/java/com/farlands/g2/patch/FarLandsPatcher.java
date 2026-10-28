@@ -41,7 +41,7 @@ public final class FarLandsPatcher {
      * to the patch set (not just the wide/continuity/epoch/unlock flags) must
      * bump it, otherwise dev runs silently reuse a stale patched jar.
      */
-    public static final int PATCH_REVISION = 129;
+    public static final int PATCH_REVISION = 130;
 
     private final List<ClassPatch> patches = new ArrayList<>();
 
@@ -96,6 +96,7 @@ public final class FarLandsPatcher {
             p.register(new Vec3iWidePatch());
             p.register(new Vec3iInline128Patch());
             p.register(new BlockPosPatch());
+            p.register(new PositionalRandomWidePatch());
             p.register(new BlockPosCodecPatch());
             p.register(new TickKeyWidePatch());
             p.register(new ClientboundSoundPacketPatch());
