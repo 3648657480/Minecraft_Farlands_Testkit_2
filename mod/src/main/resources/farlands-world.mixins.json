@@ -122,7 +122,8 @@
         "SurfaceBeforeDiagMixin",
         "NoiseChunkFarDensityMixin",
         "DensityTreeDiffMixin",
-        "FlatCacheFarBypassMixin"
+        "FlatCacheFarBypassMixin",
+        "LevelPlayLocalSoundWideMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }

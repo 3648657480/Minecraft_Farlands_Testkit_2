@@ -41,7 +41,8 @@
         "RenderSectionKeyMixin",
         "SectionGuardMixin",
         "ViewAreaAccessor",
-        "LevelExtractorFarDirtyMixin"
+        "LevelExtractorFarDirtyMixin",
+        "ClientLevelFarParticlesMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }
