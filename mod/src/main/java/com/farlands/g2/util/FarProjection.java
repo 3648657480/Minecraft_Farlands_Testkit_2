@@ -189,6 +189,14 @@ public final class FarProjection {
         return false;
     }
 
+    /**
+     * Restores the real coordinate of an int view that may have wrapped past
+     * 2^31. Int views are lossy bridges: values below -1e8 are far-positive
+     * coordinates in disguise. Genuinely negative coordinates below -1e8 are
+     * not distinguishable from a wrapped view; the engine stores those as
+     * longs, so only reconstructed (int) positions take this path.
+     */
+
     /** Collision-domain X for the patched collision iterators. */
     public static double collisionX(int v) {
         return (double) v;
