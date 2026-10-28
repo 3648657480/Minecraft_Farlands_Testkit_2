@@ -197,6 +197,15 @@ public final class FarProjection {
      * longs, so only reconstructed (int) positions take this path.
      */
 
+    /**
+     * Chunk key for tick containers, computed from the wide block position.
+     * {@code ChunkPos.pack(BlockPos)} uses the int view and wraps at 2^31.
+     */
+    public static long wideChunkKey(net.minecraft.core.BlockPos pos) {
+        return net.minecraft.world.level.ChunkPos.pack(
+            (int) (pos.getLongX() >> 4), (int) (pos.getLongZ() >> 4));
+    }
+
     /** Collision-domain X for the patched collision iterators. */
     public static double collisionX(int v) {
         return (double) v;
