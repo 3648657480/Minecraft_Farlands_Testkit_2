@@ -341,6 +341,35 @@ public abstract class MinecraftServerTestGenMixin {
                         .map(p -> p.getLongX() + "," + p.getY() + "," + p.getLongZ()).orElse("FAILED"));
                     System.out.flush();
                 }
+                if (Boolean.getBoolean("farlands.diag.inlinewide")) {
+                    int iwN = 2_000_000;
+                    long iwAcc = 0;
+                    long iwT0 = System.nanoTime();
+                    for (int i = 0; i < iwN; i++) {
+                        long a = i * 3L;
+                        iwAcc += a + (i & 7);
+                    }
+                    long iwT1 = System.nanoTime();
+                    long xlo = 0x1234_5678_9ABC_DEF0L, xhi = 0x0FED_CBA9_8765_4321L;
+                    long ylo = 0x0FED_CBA9_8765_4321L, yhi = 0x0123_4567_89AB_CDEFL;
+                    for (int i = 0; i < iwN; i++) {
+                        long lo = xlo + ylo + i;
+                        long c = Long.compareUnsigned(lo, xlo) < 0 ? 1L : 0L;
+                        long hi = xhi + yhi + c;
+                        iwAcc += lo ^ hi;
+                    }
+                    long iwT2 = System.nanoTime();
+                    var p1 = com.farlands.g2.runtime.AutoWide.of(0x1234_5678_9ABC_DEF0L);
+                    var p2 = com.farlands.g2.runtime.AutoWide.of(0x0FED_CBA9_8765_4321L);
+                    for (int i = 0; i < iwN; i++) {
+                        iwAcc += p1.add(p2).smallValue();
+                    }
+                    long iwT3 = System.nanoTime();
+                    System.out.println("[INLINEWIDE] longNs=" + ((iwT1 - iwT0) / iwN)
+                        + " limbNs=" + ((iwT2 - iwT1) / iwN)
+                        + " autoNs=" + ((iwT3 - iwT2) / iwN) + " acc=" + iwAcc);
+                    System.out.flush();
+                }
                 if (Boolean.getBoolean("farlands.diag.autowide")) {
                     var checks = new java.util.ArrayList<String>();
                     var a = com.farlands.g2.runtime.AutoWide.of(Long.MAX_VALUE);
