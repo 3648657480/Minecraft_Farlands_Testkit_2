@@ -1,7 +1,9 @@
 # G2 CURRENT（一页真相）
 
 > 2026-10-29。分支 `stabilize/2026-10-29`；基线 tag `stabilize/base-2026-10-29`（`04456de`）；
-> A 批 tag `stabilize/A-green-2026-10-29`（`89a6da2`）；B 批 tag `stabilize/B-green-2026-10-29`。
+> A 批 tag `stabilize/A-green-2026-10-29`（`89a6da2`）；B 批 tag `stabilize/B-green-2026-10-29`；
+> B2/B3 tag `stabilize/B2-green-2026-10-29`；C 批 tag `stabilize/C-green-2026-10-29`；
+> D 批 tag `stabilize/D-green-2026-10-29`。
 > 新会话先读本页 + 跑 `tools\verify.ps1`，不要从 50 份文档里猜。
 
 ## 1. 现在什么能用（有门禁）
@@ -14,7 +16,8 @@
 | 远 Y Cwg 填充 | `sy=134217703..726 filled=46080` | `exp-run` + `testgen.cwg` |
 | 远 Y 页预取/交换 | `PREFETCH applied band=134217672 filled=46080`、`PAGETEST applied=true` | `testgen.pageprefetch` + `y.prefetchSync` |
 | 远 Y 跟随/重生成 | `YFOLLOW trigger` → `CWGFILL filled=46080` → `done ok=true` | `testgen.followsy` |
-| 远 Y 客户端渲染 | `dataSec=24 meshNonEmpty=3 below=stone viewY==chunkWin=134217703..726`（spectator，Y=2147483250） | 2026-10-29 17:03 截图 |
+| 远 Y 客户端渲染（strict） | `dataSec=24 meshNonEmpty=17 viewY==chunkWin=134217703..726 below=stone emptySolid=false`（spectator，Y=2147483250） | 2026-10-29 18:36 截图 |
+| 页对齐 UX | 邻居搬带 near-first；默认**不按住**玩家（`farlands.y.hold` 仅测试用） | `YFOLLOW` 日志顺序 |
 | 远 Y 存档回读 | `[SAVEMARK] gold` → 重进 `[READSY] ok=true`（侧车 `farlands_sections/*.g2s`） | `verify.ps1 -Mode save` |
 | 距离现象 2^53 | chunk 2^49（block 2^53）`gen OK`、`section2560 ok=true`；本次 surf=`879024146b33` floor=`9319dd6a448a` | `verify.ps1 -Mode dist` |
 | 联机 | **不支持**（见 §2） | 未门禁 |
@@ -55,7 +58,11 @@ cd C:\Project-G2
 | fill 槽 | `FILL_SLOTS`（公平，下限 1） | 预取至少留 1 个给重生成 |
 | 远 Y Entity 效果扫描 | `applyEffectsFromBlocks` 系列 | `EntityCheckInsideBlocksFarYMixin`（26.2 已改名） |
 | 客户端 ViewArea band | 玩家页（`pageStart(playerSection,24)`） | `ViewAreaWindowMixin`；`ClientBandFollow` 页不一致即重建 |
-| 远 Y 段持久化 | `FarSectionStore` 侧车（`farlands_sections/*.g2s`） | `SerializableChunkData.copyOf` 返回时写；`ChunkAccessWindowMixin` 构造末尾读；`-Dfarlands.farsex.save=false` 只读验证 |
+| 客户端 strict band | `-Dfarlands.client.strictBand=true`（默认） | 不本地搬窗/不 refill/不重标 dirty/不整图 reload；旧行为用 `=false` |
+| 页对齐 near-first | `WindowFollower` 邻居按距离排序 | 玩家周围先搬；预算 `farlands.y.followBudget`（默认 4/tick） |
+| 按住玩家 | `-Dfarlands.y.hold=true`（默认 false） | D 批起不是产品行为；只用于测试 |
+| 段数上限 | `-Dfarlands.y.maxSections`（默认 24*32） | 只驱逐非当前窗口、非维度带的 far 页 |
+| 远 Y 段持久化 | `FarSectionStore` 侧车（`farlands_sections/*.g2s`） | `SerializableChunkData.copyOf` 写；`ChunkAccessWindowMixin` 构造 + `LevelChunk.runPostLoad` HEAD 读 |
 
 ## 5. A/B 批改了什么
 
@@ -64,14 +71,16 @@ cd C:\Project-G2
 - `89a6da2` 远 Y Entity 守卫从失效的 `checkInsideBlocks` 改挂 `applyEffectsFromBlocks`。
 - `band-smoke`（2026-10-29 17:03）客户端 band：`ViewArea` 用玩家页；`ClientBandFollow` 在“玩家还在旧 ViewArea 内但页起点不同”时也重建（此前直接 return，viewY 696..719 与 chunkWin 703..726 只重叠 17 段）。spectator smoke：`dataSec=24 meshNonEmpty=3 below=stone`，截图 `mod/run/screenshots/2026-10-29_17.03.52.png`。
 - `B` 存档：`FarSectionStore` 侧车（所有 `farlands$all` 段，int Y + gzip）在 `SerializableChunkData.copyOf` 写、在 `ChunkAccessWindowMixin` 构造末尾读；修了构造器把“传入的 far 窗口段按 dimensionMin 播种”导致黄金标记被空段覆盖的问题。先证明后修复：修复前 `[READSY] state=air ok=false`，修复后 `[READSY] state=gold_block ok=true`。`verify.ps1 -Mode save` 成为第 4 条门禁。
+- `B2/B3` 段容器与附属状态：`getSection` 窗口外读不再建段（`farlands$all` 懒初始化，修 `createEmptyChunk` NPE）；`farlands$all` 段数上限，保护正常带；`LevelChunkWideBlockMixin` 对任何窗口外 y 走绝对 map；`LevelChunk.runPostLoad` HEAD 恢复侧车，赶在 block entity 校验前。save 门禁扩展为 `far gold + normal-band chest`。
+- `C` 客户端 strict band：默认不再本地搬窗口/refill visible/重标 dirty/整图 reload；只保留“玩家页不一致即重建”。spectator smoke：`dataSec=24 meshNonEmpty=17 viewY==chunkWin`，截图 `2026-10-29_18.36.21.png`。
+- `D` 页对齐 UX：邻居搬带 near-first；默认**不按住**玩家（`farlands.y.hold=false`）；`gen.cwg=true` 启动时打印“observation model (STONE/AIR, int32 dome)，不是 vanilla/2^53”。
 - `dist` 门禁：`verify.ps1 -Mode dist` 在 chunk 2^49（block 2^53）生成单块，检查 `gen OK` + `section2560 ok=true`；当前 `surf=879024146b33 floor=9319dd6a448a`。这是原始“距离现象”线的存活证明，不是完成证明。
 
-## 6. 仍然打开（下一批按这个顺序）
+## 6. ABCD 之后仍然打开
 
-1. **段容器**：读不建段；`farlands$all` 驱逐上限（侧车能保住仍在 map 里的段，驱逐后的旧页仍丢）。
-2. **band move 附属状态**：block entity / entity / POI / structure start / scheduled tick 的保留/迁移/清理。
-3. **客户端 band 契约**：去掉本地搬窗口/强制 invalidate/refill hack；只画已就绪 band。
-4. **页对齐 UX**：异步、近优先、未就绪不画/淡出；不要再按住玩家。
-5. **Cwg 定位**：观察模式 vs 可玩地形（需产品决定）。
-6. **距离现象 2^53（原始目标，已降为副线）**：headless 单块已活；客户端可视化（M3）、实体/tick/碰撞、2^53 存档未做。不要把远 Y Cwg 当它的替代。
-7. 之后：结构 AABB Y/CODEC、客户端全量回归、>2^35、距离现象。
+1. **客户端全量回归**：远 X/Y 各跑放置、破坏、粒子、声音、退存读档；strict band 的 17/24 mesh 还要看实际体感。
+2. **结构 AABB**：`BoundingBox` 的 Y 仍 int、`CODEC` 仍 6×int；远域结构盒会倒挂。
+3. **2^53 客户端 / 实体 / tick / 碰撞**：原始距离现象线只完成了 headless 单块地形；`getChunkForCollisions(int,int)` 等仍是 int chunk。
+4. **Y-2^53**：按 X/Z 的 recipe 做 N2 偏移 + double 绝对 Y 的 spike；不要把 Cwg 当它的替代。
+5. **>2^35**：chunk 坐标超 int 的域；与 2^53 客户端/存档一起做。
+6. **配置/文档/诊断**：`FarConfig.load` 仍未接线、mixin 全量 required、STATUS/WORKFLOW/USAGE 仍是 epoch 口径；按 C4 收口。

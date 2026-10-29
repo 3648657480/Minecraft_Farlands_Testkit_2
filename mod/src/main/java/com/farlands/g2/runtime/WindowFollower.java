@@ -88,24 +88,40 @@ public final class WindowFollower {
                 int pcx = player.chunkPosition().x();
                 int pcz = player.chunkPosition().z();
                 int ps = (int) Math.floorDiv(player.blockPosition().getLongY(), 16L);
-                for (int dx = -radius; dx <= radius; dx++) {
-                    for (int dz = -radius; dz <= radius; dz++) {
-                        if (dx == 0 && dz == 0) {
-                            continue;
-                        }
-                        if (level.getChunkSource().getChunkNow(pcx + dx, pcz + dz)
-                            instanceof LevelChunk neighbour) {
-                            if (issued >= budget) {
-                                break;
-                            }
-                            if (follow(neighbour, ps, tick)) {
-                                issued++;
-                            }
+                for (int[] offset : farlands$offsets(radius)) {
+                    if (issued >= budget) {
+                        break;
+                    }
+                    int dx = offset[0];
+                    int dz = offset[1];
+                    if (level.getChunkSource().getChunkNow(pcx + dx, pcz + dz)
+                        instanceof LevelChunk neighbour) {
+                        if (follow(neighbour, ps, tick)) {
+                            issued++;
                         }
                     }
                 }
             }
         }
+    }
+
+    /** Neighbour offsets ordered near-to-far so the player's surroundings band first. */
+    private static final Map<Integer, java.util.List<int[]>> OFFSETS = new ConcurrentHashMap<>();
+
+    private static java.util.List<int[]> farlands$offsets(int radius) {
+        return OFFSETS.computeIfAbsent(radius, r -> {
+            java.util.List<int[]> list = new java.util.ArrayList<>();
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dz = -r; dz <= r; dz++) {
+                    if (dx == 0 && dz == 0) {
+                        continue;
+                    }
+                    list.add(new int[] {dx, dz});
+                }
+            }
+            list.sort(java.util.Comparator.comparingInt(o -> o[0] * o[0] + o[1] * o[1]));
+            return java.util.List.copyOf(list);
+        });
     }
 
     private static int farlands$clampCenter(int target, int len) {
@@ -131,23 +147,20 @@ public final class WindowFollower {
         int cx = player.chunkPosition().x();
         int cz = player.chunkPosition().z();
         if (!(level.getChunkSource().getChunkNow(cx, cz) instanceof LevelChunk chunk)) {
-            farlands$hold(player, true);
+            farlands$hold(player, Boolean.getBoolean("farlands.y.hold"));
             return;
         }
         int playerSection = (int) Math.floorDiv(player.blockPosition().getLongY(), 16L);
         if (chunk instanceof WindowedChunk windowed) {
             int min = windowed.farlands$windowMinSectionY();
             int max = windowed.farlands$windowMaxSectionY();
-            // Pages are 384 blocks tall: anywhere inside the page is fine, only a
-            // page change (or an in-flight regeneration) needs the hold.
-            boolean inside = playerSection >= min && playerSection <= max;
-            // A falling player outruns the seconds-long regeneration; hold them while
-            // the window is being moved so the band can catch up instead of chasing.
-            // Hold near the page edge while the server regenerates the next page;
-            // otherwise a falling player outruns the fill and the client renders a
-            // band the chunk does not have yet.
+            // D: page-aligned UX no longer freezes the player by default. Holding
+            // is an opt-in test aid (-Dfarlands.y.hold=true); the product behaviour
+            // is async near-first banding, with unready chunks rendered empty.
             boolean nearEdge = playerSection < min + 4 || playerSection > max - 4;
-            farlands$hold(player, nearEdge || IN_FLIGHT.contains(chunk.getPos()));
+            boolean holdWanted = Boolean.getBoolean("farlands.y.hold")
+                && (nearEdge || IN_FLIGHT.contains(chunk.getPos()));
+            farlands$hold(player, holdWanted);
         }
         follow(chunk, playerSection, tick);
     }

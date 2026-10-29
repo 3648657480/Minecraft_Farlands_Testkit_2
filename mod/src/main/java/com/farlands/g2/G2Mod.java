@@ -28,6 +28,10 @@ public class G2Mod implements ModInitializer {
         FarConfig.loadGlobalTemplate(FabricLoader.getInstance().getConfigDir());
         System.out.println("[FarLands-G2] " + FarConfig.buildVersion()
             + " wide build (real coordinates)");
+        if (Boolean.getBoolean("farlands.gen.cwg")) {
+            System.out.println("[FarLands-G2] Cwg far-Y = observation model "
+                + "(STONE/AIR, int32 dome); not vanilla terrain, not 2^53");
+        }
         Watchdog.start();
     }
 }
