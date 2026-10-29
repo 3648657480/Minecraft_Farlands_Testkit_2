@@ -1,8 +1,9 @@
 param(
-    [ValidateSet("norm", "seam", "coll", "all")][string]$Mode = "all",
+    [ValidateSet("norm", "seam", "coll", "save", "all")][string]$Mode = "all",
     [int]$NormTimeoutMin = 8,
     [int]$SeamTimeoutMin = 14,
     [int]$CollTimeoutMin = 8,
+    [int]$SaveTimeoutMin = 8,
     [switch]$AllowConcurrent
 )
 
@@ -130,16 +131,43 @@ function Test-Coll() {
     Add-Result "collision/pick at 2^31" $ok $detail
 }
 
+function Test-Save() {
+    $tagA = "verify-save-a"
+    $tagB = "verify-save-b"
+    $world = "$root\mod\run\world"
+    if (Test-Path $world) { Remove-Item $world -Recurse -Force }
+    Invoke-Run -tag $tagA -outDir "$aux\verify-save-a" -testGen "0,0" `
+        -timeoutMin $SaveTimeoutMin -keepWorld `
+        -extra "-Dfarlands.test.allowDedicated=true -Dfarlands.y.window=true -Dfarlands.gen.cwg=true -Dfarlands.testgen.cwg=134217714 -Dfarlands.testgen.savemark=134217714"
+    $logA = Get-Log $tagA
+    $mark = Select-String -Path $logA -Pattern '\[SAVEMARK\].*read=Block\{minecraft:gold_block\}' |
+        Select-Object -Last 1
+    if (-not $mark) {
+        Add-Result "save round-trip (far Y)" $false "phase A did not write the gold marker"
+        return
+    }
+    Invoke-Run -tag $tagB -outDir "$aux\verify-save-b" -testGen "0,0" `
+        -timeoutMin $SaveTimeoutMin -keepWorld `
+        -extra "-Dfarlands.test.allowDedicated=true -Dfarlands.y.window=true -Dfarlands.farsex.save=false -Dfarlands.testgen.readsy=134217714"
+    $logB = Get-Log $tagB
+    $read = Select-String -Path $logB -Pattern '\[READSY\].*ok=true' | Select-Object -Last 1
+    $ok = $null -ne $read
+    $detail = if ($ok) { "gold marker reloaded" } else { "marker lost on reload" }
+    Add-Result "save round-trip (far Y)" $ok $detail
+}
+
 Assert-NoConcurrentClient
 
 switch ($Mode) {
     "norm" { Test-Norm }
     "seam" { Test-Seam }
     "coll" { Test-Coll }
+    "save" { Test-Save }
     "all" {
         Test-Norm
         Test-Seam
         Test-Coll
+        Test-Save
     }
 }
 

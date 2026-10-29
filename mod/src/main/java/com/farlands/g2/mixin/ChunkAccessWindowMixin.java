@@ -79,12 +79,8 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         this.farlands$factory = containerFactory;
         int dimensionMin = heightAccessor.getMinSectionY();
         int dimensionMax = heightAccessor.getMaxSectionY();
+        int len = this.sections.length;
         int center = (dimensionMin + dimensionMax) / 2;
-        // Seed the wide map with the freshly allocated dimension band so a
-        // same-band window reuses those section objects.
-        for (int i = 0; i < this.sections.length; i++) {
-            this.farlands$all.put(farlands$key(dimensionMin + i), this.sections[i]);
-        }
         String override = System.getProperty("farlands.y.center");
         Integer perChunk = com.farlands.g2.runtime.YBandOverrides.get(chunkPos.widePos());
         Integer savedMinSection = com.farlands.g2.runtime.SavedBandContext.get();
@@ -97,7 +93,7 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         } else if (savedMinSection != null) {
             // Loaded from disk: keep the band the chunk was saved with, otherwise
             // every saved section falls outside the window and the chunk is empty.
-            center = savedMinSection + (this.sections.length - 1) / 2;
+            center = savedMinSection + (len - 1) / 2;
             if (Boolean.getBoolean("farlands.y.diag")) {
                 System.out.println("[SBCTX] ctor pos=" + pos + " use savedMin="
                     + savedMinSection + " center=" + center);
@@ -106,7 +102,36 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         } else if (override != null && !override.isEmpty()) {
             center = Integer.parseInt(override);
         }
+        // Seed the wide map with the window applyWindow is about to use. The
+        // incoming sections array is a far window when the chunk came from a
+        // ProtoChunk (e.g. sidecar load); seeding under dimensionMin+i would label
+        // far sections as dimension-band entries and applyWindow would then replace
+        // them with fresh empties (gold marker restored, then lost).
+        int start = (len == dimensionMax - dimensionMin + 1
+            && center >= dimensionMin && center <= dimensionMax)
+            ? dimensionMin : VerticalBounds.pageStart(center, len);
+        for (int i = 0; i < len; i++) {
+            this.farlands$all.put(farlands$key(start + i), this.sections[i]);
+        }
         farlands$applyWindow(center);
+        // Sidecar restore on every server-side construction (ProtoChunk and the
+        // LevelChunk promoted from it). The window has just been rebuilt; load the
+        // persisted sections on top so the chunk the world finally reads has them.
+        if (heightAccessor instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            com.farlands.g2.runtime.FarSectionStore.load(serverLevel, pos,
+                (ChunkAccess) (Object) this);
+        }
+        if (Boolean.getBoolean("farlands.y.diag") && pos.x() == 0 && pos.z() == 0) {
+            var probeKey = farlands$key(134217714);
+            var fromMap = this.farlands$all.get(probeKey);
+            int idx = 134217714 - farlands$minSy;
+            var fromArr = idx >= 0 && idx < this.sections.length ? this.sections[idx] : null;
+            System.out.println("[YWIN2] ctor start=" + start + " center=" + center
+                + " minSy=" + farlands$minSy + " idx=" + idx
+                + " map=" + (fromMap == null ? "null" : fromMap.getBlockState(8, 8, 8))
+                + " arr=" + (fromArr == null ? "null" : fromArr.getBlockState(8, 8, 8)));
+            System.out.flush();
+        }
     }
 
     /**
@@ -189,6 +214,14 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         }
         int sy = farlands$minSy + sectionIndex;
         LevelChunkSection section = farlands$all.get(farlands$key(sy));
+        if (Boolean.getBoolean("farlands.y.diag") && sy == 134217714) {
+            System.out.println("[YSEC] index=" + sectionIndex + " sy=" + sy
+                + " map=" + (section == null ? "null" : section.getBlockState(8, 8, 8))
+                + " arr=" + (sectionIndex >= 0 && sectionIndex < this.sections.length
+                    && this.sections[sectionIndex] != null
+                    ? this.sections[sectionIndex].getBlockState(8, 8, 8) : "null"));
+            System.out.flush();
+        }
         if (section != null) {
             cir.setReturnValue(section);
         }

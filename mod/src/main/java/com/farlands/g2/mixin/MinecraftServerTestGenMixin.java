@@ -499,6 +499,50 @@ public abstract class MinecraftServerTestGenMixin {
                     && chunk instanceof net.minecraft.world.level.chunk.LevelChunk cwgChunk) {
                     farlands$cwgFill(level, cwgChunk, Integer.parseInt(cwgSy.trim()));
                 }
+                // B-batch save audit: write a marker at a far section and persist the
+                // band; a second run reads it back. Proves whether far sections survive
+                // save/reload (vanilla saves the light-engine range and Y is a byte).
+                String saveMarkSy = System.getProperty("farlands.testgen.savemark");
+                if (saveMarkSy != null && !saveMarkSy.isEmpty()
+                    && chunk instanceof net.minecraft.world.level.chunk.LevelChunk markChunk) {
+                    int sy = Integer.parseInt(saveMarkSy.trim());
+                    net.minecraft.core.BlockPos mark = new net.minecraft.core.BlockPos(
+                        markChunk.getPos().getMinBlockX() + 8, sy * 16 + 8,
+                        markChunk.getPos().getMinBlockZ() + 8);
+                    boolean setOk = level.setBlock(mark,
+                        net.minecraft.world.level.block.Blocks.GOLD_BLOCK.defaultBlockState(), 3);
+                    com.farlands.g2.runtime.YBandOverrides.set(markChunk.getPos().widePos(), sy);
+                    com.farlands.g2.runtime.YBandOverrides.save(level.getServer().getWorldPath(
+                        net.minecraft.world.level.storage.LevelResource.ROOT)
+                        .resolve("farlands_bands.txt"));
+                    System.out.println("[SAVEMARK] pos=" + mark + " sy=" + sy
+                        + " set=" + setOk + " read=" + level.getBlockState(mark)
+                        + " minY=" + markChunk.getMinY()
+                        + " band=" + ((com.farlands.g2.runtime.WindowedChunk) markChunk)
+                            .farlands$windowMinSectionY()
+                        + ".." + ((com.farlands.g2.runtime.WindowedChunk) markChunk)
+                            .farlands$windowMaxSectionY()
+                        + " sections=" + markChunk.getSections().length);
+                    System.out.flush();
+                }
+                String readSy = System.getProperty("farlands.testgen.readsy");
+                if (readSy != null && !readSy.isEmpty()
+                    && chunk instanceof net.minecraft.world.level.chunk.LevelChunk readChunk) {
+                    int sy = Integer.parseInt(readSy.trim());
+                    net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(
+                        readChunk.getPos().getMinBlockX() + 8, sy * 16 + 8,
+                        readChunk.getPos().getMinBlockZ() + 8);
+                    var state = level.getBlockState(pos);
+                    boolean ok = state.is(net.minecraft.world.level.block.Blocks.GOLD_BLOCK);
+                    System.out.println("[READSY] pos=" + pos + " sy=" + sy
+                        + " state=" + state + " expected=gold_block ok=" + ok
+                        + " minY=" + readChunk.getMinY()
+                        + " band=" + ((com.farlands.g2.runtime.WindowedChunk) readChunk)
+                            .farlands$windowMinSectionY()
+                        + ".." + ((com.farlands.g2.runtime.WindowedChunk) readChunk)
+                            .farlands$windowMaxSectionY());
+                    System.out.flush();
+                }
                 // Y-D/B probe: regenerate the loaded chunk's window in place.
                 if (Boolean.getBoolean("farlands.testgen.regen")
                     && chunk instanceof net.minecraft.world.level.chunk.LevelChunk levelChunk) {
