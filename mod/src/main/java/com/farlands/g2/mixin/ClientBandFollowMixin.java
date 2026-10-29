@@ -20,6 +20,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Minecraft.class)
 public class ClientBandFollowMixin {
 
+    @org.spongepowered.asm.mixin.Unique private static int farlands$lastBand = Integer.MIN_VALUE;
+
     /** Last level the wide-key table was built for; cleared when the level changes. */
     private static Object farlands$lastLevel;
     private static boolean farlands$farReady;
@@ -95,6 +97,25 @@ public class ClientBandFollowMixin {
                     mc.gameRenderer.mainCamera(), mc.getBlockColors());
                 System.out.println("[YF-ALLCHANGED] far window entered, renderer reloaded");
                 System.out.flush();
+            }
+        }
+        // Keep the ViewArea band equal to the player chunk's actual window. When a
+        // falling player crosses a page, the server moves the chunk window but the
+        // render grid stays on the old band; every section then reads the wrong
+        // data and nothing compiles.
+        if (mc.player != null && mc.level != null) {
+            var bp = mc.player.blockPosition();
+            var pc = mc.level.getChunkSource().getChunk(bp.getX() >> 4, bp.getZ() >> 4,
+                net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false);
+            if (pc instanceof com.farlands.g2.runtime.WindowedChunk wc
+                && wc.farlands$windowMinSectionY() != viewArea.minSectionY()) {
+                int band = wc.farlands$windowMinSectionY();
+                if (band != farlands$lastBand) {
+                    farlands$lastBand = band;
+                    mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options,
+                        mc.gameRenderer.mainCamera(), mc.getBlockColors());
+                }
+                return;
             }
         }
         // The fork bypasses SectionOcclusionGraph.update, so applyFrustum only runs

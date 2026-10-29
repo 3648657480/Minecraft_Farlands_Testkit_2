@@ -53,7 +53,8 @@ public abstract class ViewAreaKeyMixin {
 
     @Overwrite
     public SectionRenderDispatcher.RenderSection getRenderSectionAt(BlockPos pos) {
-        SectionKey key = SectionKey.of(pos.getX() >> 4, pos.getY() >> 4, pos.getZ() >> 4);
+        SectionKey key = SectionKey.of(pos.getX() >> 4,
+            (int) Math.floorDiv(pos.getLongY(), 16L), pos.getZ() >> 4);
         SectionRenderDispatcher.RenderSection wide = RenderKeys.get(key);
         return wide != null ? wide : this.sections.getValueAt(pos);
     }
