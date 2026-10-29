@@ -6,6 +6,7 @@
 > D 批 tag `stabilize/D-green-2026-10-29`。
 > 新会话先读本页 + 跑 `tools\verify.ps1`，不要从 50 份文档里猜。
 > **世界契约（LOCKED 2026-10-29）**：`docs/WIDE-CONTRACT.md`；任何契约变更必须升版并显式批准，**不做游戏内热调试**。
+> **W0 审计（完成 2026-10-29）**：`docs/WIDE-AUDIT.md`；**先看 G0 含水层红线**——现有 normal/seam/dist 指纹可能建立在含水层降级地形上。
 
 ## 1. 现在什么能用（有门禁）
 
