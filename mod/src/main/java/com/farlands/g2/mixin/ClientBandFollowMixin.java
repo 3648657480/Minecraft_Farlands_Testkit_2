@@ -136,7 +136,8 @@ public class ClientBandFollowMixin {
         }
         // A ViewArea rebuilt while the camera was still uninitialised never got its
         // rotating centre, so every lookup returns null and nothing compiles.
-        if (viewArea.getRenderSectionAt(mc.player.blockPosition()) == null) {
+        if (!com.farlands.g2.client.BandState.far()
+            && viewArea.getRenderSectionAt(mc.player.blockPosition()) == null) {
             viewArea.repositionCamera(net.minecraft.core.SectionPos.of(camera.blockPosition()));
             var playerSec = net.minecraft.core.SectionPos.of(mc.player.blockPosition());
             var midPos = new net.minecraft.core.BlockPos(mc.player.blockPosition().getX(),
@@ -151,6 +152,11 @@ public class ClientBandFollowMixin {
         }
         int playerSection = (int) Math.floorDiv(mc.player.blockPosition().getLongY(), 16L);
         if (playerSection >= viewArea.minSectionY() && playerSection <= viewArea.maxSectionY()) {
+            return;
+        }
+        if (com.farlands.g2.client.BandState.far()) {
+            // The ViewArea band already follows the far window; SectionPos cannot
+            // encode a far camera Y, so repositioning here would loop forever.
             return;
         }
         System.out.println("[YF-REBUILD] playerSection=" + playerSection + " oldView="
