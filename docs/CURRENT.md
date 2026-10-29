@@ -5,6 +5,7 @@
 > B2/B3 tag `stabilize/B2-green-2026-10-29`；C 批 tag `stabilize/C-green-2026-10-29`；
 > D 批 tag `stabilize/D-green-2026-10-29`。
 > 新会话先读本页 + 跑 `tools\verify.ps1`，不要从 50 份文档里猜。
+> **世界契约（LOCKED 2026-10-29）**：`docs/WIDE-CONTRACT.md`；任何契约变更必须升版并显式批准，**不做游戏内热调试**。
 
 ## 1. 现在什么能用（有门禁）
 
