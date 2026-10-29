@@ -91,11 +91,11 @@ public class ViewAreaWindowMixin {
         // one section), so a teleport cannot leave render graph nodes outside the grid.
         net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
         if (minecraft != null && minecraft.player != null) {
-            int playerSection = Math.floorDiv(minecraft.player.blockPosition().getY(), 16);
+            int playerSection = (int) Math.floorDiv(minecraft.player.blockPosition().getLongY(), 16L);
             return farlands$result(playerSection - HALF, playerSection - HALF + 23);
         }
         if (farlands$camera != null) {
-            int camSection = Math.floorDiv(farlands$camera.blockPosition().getY(), 16);
+            int camSection = (int) Math.floorDiv(farlands$camera.blockPosition().getLongY(), 16L);
             return farlands$result(camSection - HALF, camSection - HALF + 23);
         }
         String center = System.getProperty("farlands.y.center");

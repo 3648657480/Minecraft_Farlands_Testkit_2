@@ -44,7 +44,7 @@ public abstract class LevelExtractorFarDirtyMixin {
             return; // normal coordinates: vanilla
         }
         int sx = (int) (x >> 4);
-        int sy = pos.getY() >> 4;
+        int sy = (int) Math.floorDiv(pos.getLongY(), 16L);
         int sz = (int) (z >> 4);
         for (int dy = -1; dy <= 1; dy++) {
             for (int dz = -1; dz <= 1; dz++) {

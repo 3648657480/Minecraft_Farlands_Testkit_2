@@ -61,7 +61,7 @@ public final class WindowFollower {
                 int issued = 0;
                 int pcx = player.chunkPosition().x();
                 int pcz = player.chunkPosition().z();
-                int ps = player.blockPosition().getY() >> 4;
+                int ps = (int) Math.floorDiv(player.blockPosition().getLongY(), 16L);
                 for (int dx = -radius; dx <= radius; dx++) {
                     for (int dz = -radius; dz <= radius; dz++) {
                         if (dx == 0 && dz == 0) {
@@ -108,7 +108,7 @@ public final class WindowFollower {
             farlands$hold(player, true);
             return;
         }
-        int playerSection = player.blockPosition().getY() >> 4;
+        int playerSection = (int) Math.floorDiv(player.blockPosition().getLongY(), 16L);
         if (chunk instanceof WindowedChunk windowed) {
             int min = windowed.farlands$windowMinSectionY();
             int max = windowed.farlands$windowMaxSectionY();

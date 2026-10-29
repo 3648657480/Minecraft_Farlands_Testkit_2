@@ -57,7 +57,7 @@ public class ClientBandFollowMixin {
         // displaced-cliffs screenshot). Move them to the current page locally: the
         // wide map has no sections there, so they render empty until the server
         // pushes the real page. Guarded to far Y so normal worlds are untouched.
-        int blankSection = mc.player.blockPosition().getY() >> 4;
+        int blankSection = (int) Math.floorDiv(mc.player.blockPosition().getLongY(), 16L);
         if (blankSection < mc.level.getMinSectionY() || blankSection > mc.level.getMaxSectionY()) {
             int pageStart = com.farlands.g2.runtime.VerticalBounds.pageStart(blankSection, 24);
             int radius = Math.min(8, mc.options.getEffectiveRenderDistance());
@@ -149,7 +149,7 @@ public class ClientBandFollowMixin {
                 + " viewY=" + viewArea.minSectionY() + ".." + viewArea.maxSectionY());
             System.out.flush();
         }
-        int playerSection = Math.floorDiv(mc.player.blockPosition().getY(), 16);
+        int playerSection = (int) Math.floorDiv(mc.player.blockPosition().getLongY(), 16L);
         if (playerSection >= viewArea.minSectionY() && playerSection <= viewArea.maxSectionY()) {
             return;
         }
