@@ -25,6 +25,9 @@ public class ClientBandFollowMixin {
     @org.spongepowered.asm.mixin.Unique private static int farlands$lastPage = Integer.MIN_VALUE;
 
     /** Last level the wide-key table was built for; cleared when the level changes. */
+    /** Strict band contract: no local window moves / refill / dirty hacks. */
+    private static final boolean STRICT_BAND =
+        Boolean.parseBoolean(System.getProperty("farlands.client.strictBand", "true"));
     private static Object farlands$lastLevel;
     private static boolean farlands$farReady;
     private static int farlands$dirtyTicks;
@@ -66,7 +69,8 @@ public class ClientBandFollowMixin {
         // wide map has no sections there, so they render empty until the server
         // pushes the real page. Guarded to far Y so normal worlds are untouched.
         int blankSection = (int) Math.floorDiv(mc.player.blockPosition().getLongY(), 16L);
-        if (blankSection < mc.level.getMinSectionY() || blankSection > mc.level.getMaxSectionY()) {
+        if (!STRICT_BAND
+            && (blankSection < mc.level.getMinSectionY() || blankSection > mc.level.getMaxSectionY())) {
             int pageStart = com.farlands.g2.runtime.VerticalBounds.pageStart(blankSection, 24);
             int radius = Math.min(8, mc.options.getEffectiveRenderDistance());
             int pcx = mc.player.chunkPosition().x();
@@ -92,7 +96,7 @@ public class ClientBandFollowMixin {
         // On re-entry the chunks load with the window already moved and no band
         // bridge runs, so nothing marks the sections dirty; force one full renderer
         // reload when the player first stands in a far window.
-        if (!farlands$farReady && mc.player != null && mc.level != null) {
+        if (!STRICT_BAND && !farlands$farReady && mc.player != null && mc.level != null) {
             var pc = mc.level.getChunkSource().getChunk(mc.player.blockPosition().getX() >> 4,
                 mc.player.blockPosition().getZ() >> 4,
                 net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false);
@@ -108,7 +112,7 @@ public class ClientBandFollowMixin {
         // The fork bypasses SectionOcclusionGraph.update, so applyFrustum only runs
         // when the camera rotation changes. After a band move with a still camera the
         // visible list stays empty and nothing is compiled; refill it from the grid.
-        if (mc.levelRenderer.visibleSections().isEmpty()) {
+        if (!STRICT_BAND && mc.levelRenderer.visibleSections().isEmpty()) {
             try {
                 mc.levelRenderer.sectionOcclusionGraph().waitAndReset(viewArea);
                 mc.levelRenderer.sectionOcclusionGraph().addSectionsInFrustum(com.farlands.g2.client.RenderKeys.frustum(),
@@ -126,9 +130,9 @@ public class ClientBandFollowMixin {
         // dirty flags are consumed before the wide keys exist and nothing compiles.
         // Re-mark the player's column whenever its section is still uncompiled.
         var camSection = viewArea.getRenderSectionAt(mc.player.blockPosition());
-        if (camSection == null
+        if (!STRICT_BAND && (camSection == null
             || camSection.getSectionMesh()
-                == net.minecraft.client.renderer.chunk.CompiledSectionMesh.UNCOMPILED) {
+                == net.minecraft.client.renderer.chunk.CompiledSectionMesh.UNCOMPILED)) {
             if (farlands$dirtyTicks++ % 20 == 0) {
                 int px = mc.player.blockPosition().getX() >> 4;
                 int pz = mc.player.blockPosition().getZ() >> 4;

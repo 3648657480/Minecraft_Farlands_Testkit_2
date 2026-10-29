@@ -80,9 +80,11 @@ public class ViewAreaWindowMixin {
             if (playerSection < mc.level.getMinSectionY()
                 || playerSection > mc.level.getMaxSectionY()) {
                 int pageMin = com.farlands.g2.runtime.VerticalBounds.pageStart(playerSection, 24);
-                System.out.println("[YF-BAND] source=player-page band=" + pageMin
-                    + ".." + (pageMin + 23));
-                System.out.flush();
+                if (Boolean.getBoolean("farlands.y.diag")) {
+                    System.out.println("[YF-BAND] source=player-page band=" + pageMin
+                        + ".." + (pageMin + 23));
+                    System.out.flush();
+                }
                 return farlands$result(pageMin, pageMin + 23);
             }
         }
@@ -94,14 +96,18 @@ public class ViewAreaWindowMixin {
                 net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false);
             if (chunk instanceof com.farlands.g2.runtime.WindowedChunk windowed) {
                 int min = windowed.farlands$windowMinSectionY();
-                System.out.println("[YF-BAND] source=chunk-window band=" + min + ".."
-                    + windowed.farlands$windowMaxSectionY());
-                System.out.flush();
+                if (Boolean.getBoolean("farlands.y.diag")) {
+                    System.out.println("[YF-BAND] source=chunk-window band=" + min + ".."
+                        + windowed.farlands$windowMaxSectionY());
+                    System.out.flush();
+                }
                 return farlands$result(min, windowed.farlands$windowMaxSectionY());
             }
-            System.out.println("[YF-BAND] source=player-section chunk="
-                + (chunk == null ? "null" : chunk.getClass().getSimpleName()));
-            System.out.flush();
+            if (Boolean.getBoolean("farlands.y.diag")) {
+                System.out.println("[YF-BAND] source=player-section chunk="
+                    + (chunk == null ? "null" : chunk.getClass().getSimpleName()));
+                System.out.flush();
+            }
         }
         // Centre the grid on the player section (the camera follows the player within
         // one section), so a teleport cannot leave render graph nodes outside the grid.
