@@ -26,11 +26,37 @@ public final class WindowFollower {
     private static final int COOLDOWN_TICKS = 40;
 
     private static final Map<ChunkPos, Integer> NEXT_ATTEMPT = new ConcurrentHashMap<>();
+    private static final Map<ChunkPos, Integer> FAILURES = new ConcurrentHashMap<>();
     private static final Set<ChunkPos> IN_FLIGHT = ConcurrentHashMap.newKeySet();
     private static final Set<java.util.UUID> HOLDING = ConcurrentHashMap.newKeySet();
     private static boolean overridesLoaded;
 
     private WindowFollower() {
+    }
+
+    /** Clears world-scoped follow state (server start/stop). */
+    public static void reset() {
+        NEXT_ATTEMPT.clear();
+        FAILURES.clear();
+        IN_FLIGHT.clear();
+        HOLDING.clear();
+        overridesLoaded = false;
+    }
+
+    /**
+     * Releases every noGravity hold before the world saves, so a player who was
+     * held near a page edge does not persist noGravity=true across a restart
+     * (Entity saves NoGravity in NBT).
+     */
+    public static void releaseHolds(MinecraftServer server) {
+        for (ServerLevel level : server.getAllLevels()) {
+            for (ServerPlayer player : level.players()) {
+                if (HOLDING.remove(player.getUUID())) {
+                    player.setNoGravity(false);
+                }
+            }
+        }
+        HOLDING.clear();
     }
 
     public static void tick(MinecraftServer server) {
@@ -149,6 +175,12 @@ public final class WindowFollower {
         if (chunk.getLevel().getMinSectionY() == min) {
             return;
         }
+        // The last page is clamped to the playable top; there is no page above it.
+        // Prefetching past it only refills the same page under different keys.
+        int maxStart = VerticalBounds.MAX_PLAYABLE_SECTION - len + 1;
+        if (min >= maxStart) {
+            return;
+        }
         int margin = Integer.getInteger("farlands.y.prefetchMargin", 4);
         int depth = Math.min(Integer.getInteger("farlands.y.viewPages", 4), 16);
         int centerOffset = (len - 1) / 2;
@@ -221,13 +253,29 @@ public final class WindowFollower {
         System.out.flush();
         WindowRegenerator.regenerate(chunk, target, ok -> {
             IN_FLIGHT.remove(pos);
-            YBandOverrides.save(chunk.getLevel().getServer().getWorldPath(
-                net.minecraft.world.level.storage.LevelResource.ROOT).resolve("farlands_bands.txt"));
-            System.out.println("[YFOLLOW] done ok=" + ok + " pos=" + pos
-                + " band=" + windowed.farlands$windowMinSectionY()
-                + ".." + windowed.farlands$windowMaxSectionY()
-                + " sections=" + chunk.getSections().length);
-            System.out.flush();
+            int failures = 0;
+            if (ok) {
+                FAILURES.remove(pos);
+                YBandOverrides.save(chunk.getLevel().getServer().getWorldPath(
+                    net.minecraft.world.level.storage.LevelResource.ROOT).resolve("farlands_bands.txt"));
+            } else {
+                // A failed attempt must not retry at the fixed 40-tick cadence
+                // forever: with the fill slots busy that is a 11k-lines-per-session
+                // loop. Back off, and keep the override rollback in WindowRegenerator.
+                failures = FAILURES.merge(pos, 1, Integer::sum);
+                int delay = Math.min(40 * (1 << Math.min(failures, 4)), 640);
+                NEXT_ATTEMPT.put(pos, chunk.getLevel().getServer().getTickCount() + delay);
+            }
+            // Log the first failures and then sparsely; 10k identical lines bury
+            // the signal (the last session had 10972 ok=false).
+            if (ok || failures <= 3 || failures % 50 == 0) {
+                System.out.println("[YFOLLOW] done ok=" + ok + " pos=" + pos
+                    + " band=" + windowed.farlands$windowMinSectionY()
+                    + ".." + windowed.farlands$windowMaxSectionY()
+                    + " sections=" + chunk.getSections().length
+                    + (ok ? "" : " failures=" + failures));
+                System.out.flush();
+            }
         });
         return true;
     }

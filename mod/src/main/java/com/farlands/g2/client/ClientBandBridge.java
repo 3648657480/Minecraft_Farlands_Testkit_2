@@ -60,6 +60,11 @@ public final class ClientBandBridge {
         mc.execute(ClientBandBridge::retry);
     }
 
+    /** Drops queued pushes from a previous level (world switch). */
+    public static void clearPending() {
+        PENDING.clear();
+    }
+
     /** Called from the client tick: apply every queued push whose chunk now exists. */
     public static void retry() {
         Minecraft mc = Minecraft.getInstance();

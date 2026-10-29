@@ -1,5 +1,6 @@
 package com.farlands.g2.mixin;
 
+import com.farlands.g2.runtime.G2Runtime;
 import com.farlands.g2.runtime.YBandOverrides;
 import net.minecraft.server.MinecraftServer;
 import org.spongepowered.asm.mixin.Mixin;
@@ -18,6 +19,10 @@ public class MinecraftServerBandsMixin {
 
     @Inject(method = "createLevels", at = @At("HEAD"))
     private void farlands$loadBandsEarly(CallbackInfo ci) {
+        // A new server (including world A -> world B in the same JVM) must not
+        // inherit the previous world's prepared pages / follow state. Reset first,
+        // then load this world's band file.
+        G2Runtime.resetSession();
         YBandOverrides.ensureLoaded((MinecraftServer) (Object) this);
     }
 }

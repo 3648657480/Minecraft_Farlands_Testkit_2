@@ -41,13 +41,24 @@ public final class WindowRegenerator {
 
     /**
      * Cwg fills run off-thread; allow a few at once so the view can be banded in
-     * reasonable time, but never so many that the machine saturates.
+     * reasonable time, but never so many that the machine saturates. Fair mode so
+     * a stream of prefetches cannot starve page-crossing regenerations forever.
      */
+    private static final int FILL_CONCURRENCY =
+        Math.max(1, Integer.getInteger("farlands.gen.cwgConcurrency", 3));
     private static final java.util.concurrent.Semaphore FILL_SLOTS =
-        new java.util.concurrent.Semaphore(
-            Integer.getInteger("farlands.gen.cwgConcurrency", 3));
+        new java.util.concurrent.Semaphore(FILL_CONCURRENCY, true);
 
     private WindowRegenerator() {
+    }
+
+    /** Restores the override that was present before a failed attempt. */
+    private static void restoreOverride(ChunkPos pos, Integer previous) {
+        if (previous == null) {
+            YBandOverrides.clear(pos.widePos());
+        } else {
+            YBandOverrides.set(pos.widePos(), previous);
+        }
     }
 
     public static void regenerate(LevelChunk chunk, int centerSectionY, Consumer<Boolean> done) {
@@ -56,6 +67,7 @@ public final class WindowRegenerator {
             return;
         }
         ChunkPos pos = chunk.getPos();
+        Integer previousOverride = YBandOverrides.get(pos.widePos());
         YBandOverrides.set(pos.widePos(), centerSectionY);
         if (Boolean.getBoolean("farlands.y.diag")) {
             System.out.println("[REGEN] override pos=" + pos + " wide=" + pos.widePos()
@@ -75,6 +87,7 @@ public final class WindowRegenerator {
         // chunk (teleporting into a band looked like a one-minute hang).
         if (Boolean.getBoolean("farlands.gen.cwg")) {
             if (!FILL_SLOTS.tryAcquire()) {
+                restoreOverride(pos, previousOverride);
                 done.accept(false); // another fill is running; the cooldown retries
                 return;
             }
@@ -123,6 +136,7 @@ public final class WindowRegenerator {
                         System.out.flush();
                         done.accept(true);
                     } catch (Throwable t) {
+                        restoreOverride(pos, previousOverride);
                         System.out.println("[REGEN] cwg failed: " + t);
                         System.out.flush();
                         done.accept(false);
@@ -188,7 +202,7 @@ public final class WindowRegenerator {
             })
             .whenComplete((filled, error) -> level.getServer().execute(() -> {
                 if (error != null) {
-                    YBandOverrides.clear(pos.widePos());
+                    restoreOverride(pos, previousOverride);
                     System.out.println("[REGEN] pipeline failed: " + error);
                     System.out.flush();
                     done.accept(false);
@@ -216,16 +230,26 @@ public final class WindowRegenerator {
                     System.out.println("[REGEN] surface/feature stage failed: " + t);
                     System.out.flush();
                 }
-                transplant(chunk, proto, centerSectionY);
-                // Single-player: push the regenerated window to the client chunk.
+                // If the transplant throws, the callback MUST still run and the
+                // override MUST be rolled back; otherwise IN_FLIGHT stays set and
+                // the chunk's band claims a page it never received.
                 try {
-                    com.farlands.g2.client.ClientBandBridge.push(chunk.getPos(), centerSectionY,
-                        ((WindowedChunk) chunk).farlands$windowMinSectionY(),
-                        java.util.Arrays.asList(chunk.getSections()));
-                } catch (Throwable ignored) {
-                    // dedicated server: client classes absent
+                    transplant(chunk, proto, centerSectionY);
+                    // Single-player: push the regenerated window to the client chunk.
+                    try {
+                        com.farlands.g2.client.ClientBandBridge.push(chunk.getPos(), centerSectionY,
+                            ((WindowedChunk) chunk).farlands$windowMinSectionY(),
+                            java.util.Arrays.asList(chunk.getSections()));
+                    } catch (Throwable ignored) {
+                        // dedicated server: client classes absent
+                    }
+                    done.accept(true);
+                } catch (Throwable t) {
+                    restoreOverride(pos, previousOverride);
+                    System.out.println("[REGEN] transplant failed: " + t);
+                    System.out.flush();
+                    done.accept(false);
                 }
-                done.accept(true);
             }));
     }
 
@@ -239,13 +263,21 @@ public final class WindowRegenerator {
         }
         ServerLevel level = (ServerLevel) chunk.getLevel();
         int len = chunk.getSections().length;
-        int pageY = Math.floorDiv(targetSectionY, len);
         int pageMin = com.farlands.g2.runtime.VerticalBounds.pageStart(targetSectionY, len);
-        PageStore.Key key = new PageStore.Key(chunk.getPos().widePos(), pageY);
+        // The top page is clamped: every page index above it maps to the same
+        // pageMin. Prefetching those fills the same page four times and (in the
+        // last session) consumed all fill slots, starving page-crossing regens.
+        if (chunk instanceof WindowedChunk wc
+            && wc.farlands$windowMinSectionY() == pageMin) {
+            return;
+        }
+        PageStore.Key key = new PageStore.Key(chunk.getPos().widePos(), pageMin);
         if (!PageStore.begin(key)) {
             return;
         }
-        if (!FILL_SLOTS.tryAcquire()) {
+        // Leave at least one fill slot for page-crossing regeneration; prefetch is
+        // speculative and must never occupy the whole pool.
+        if (FILL_SLOTS.availablePermits() <= 1 || !FILL_SLOTS.tryAcquire()) {
             PageStore.fail(key);
             return;
         }
@@ -253,14 +285,43 @@ public final class WindowRegenerator {
         final var router = level.getChunkSource().randomState().router();
         // The detached ProtoChunk must cover the page, otherwise its section array
         // is the dimension band and the fill silently skips every block (filled=0).
+        // The chunk's own YBandOverrides wins over SavedBandContext in the ctor, so
+        // temporarily point the override at the target page; restore it right after
+        // construction (the live chunk keeps its current band).
+        Integer previousOverride = YBandOverrides.get(chunk.getPos().widePos());
         Integer previousBand = SavedBandContext.get();
         SavedBandContext.set(pageMin);
-        final ProtoChunk proto = new ProtoChunk(chunk.getPos(), UpgradeData.EMPTY, level,
-            level.palettedContainerFactory(), null);
-        if (previousBand != null) {
-            SavedBandContext.set(previousBand);
-        } else {
-            SavedBandContext.clear();
+        YBandOverrides.set(chunk.getPos().widePos(), pageMin);
+        ProtoChunk created = null;
+        try {
+            created = new ProtoChunk(chunk.getPos(), UpgradeData.EMPTY, level,
+                level.palettedContainerFactory(), null);
+        } catch (Throwable t) {
+            PageStore.fail(key);
+            FILL_SLOTS.release();
+            System.out.println("[PREFETCH] proto create failed: " + t);
+            System.out.flush();
+            return;
+        } finally {
+            if (previousBand != null) {
+                SavedBandContext.set(previousBand);
+            } else {
+                SavedBandContext.clear();
+            }
+            if (previousOverride != null) {
+                YBandOverrides.set(chunk.getPos().widePos(), previousOverride);
+            } else {
+                YBandOverrides.clear(chunk.getPos().widePos());
+            }
+        }
+        final ProtoChunk proto = created;
+        if (proto == null || proto.getMinSectionY() != pageMin) {
+            PageStore.fail(key);
+            FILL_SLOTS.release();
+            System.out.println("[PREFETCH] abort: protoMin="
+                + (proto == null ? "null" : proto.getMinSectionY()) + " pageMin=" + pageMin);
+            System.out.flush();
+            return;
         }
         final net.minecraft.server.MinecraftServer server = level.getServer();
         if (Boolean.getBoolean("farlands.y.prefetchSync")) {
@@ -270,7 +331,7 @@ public final class WindowRegenerator {
                     com.farlands.g2.runtime.noise.CwgTerrain.create(seed, router, true);
                 long filled = terrain.fill(proto, pageMin, pageMin + len - 1);
                 PageStore.complete(key, new PageStore.Prepared(pageMin, proto.getSections(), filled));
-                System.out.println("[PREFETCH] sync ready pageY=" + pageY + " filled=" + filled);
+                System.out.println("[PREFETCH] sync ready pageMin=" + pageMin + " filled=" + filled);
                 System.out.flush();
             } catch (Throwable t) {
                 PageStore.fail(key);
@@ -297,7 +358,7 @@ public final class WindowRegenerator {
                         throw new RuntimeException(failure);
                     }
                     PageStore.complete(key, new PageStore.Prepared(pageMin, proto.getSections(), filledFinal));
-                    System.out.println("[PREFETCH] ready pos=" + chunk.getPos() + " pageY=" + pageY
+                    System.out.println("[PREFETCH] ready pos=" + chunk.getPos() + " pageMin=" + pageMin
                         + " filled=" + filledFinal);
                     System.out.flush();
                 } catch (Throwable t) {
@@ -315,9 +376,9 @@ public final class WindowRegenerator {
             return false;
         }
         int len = chunk.getSections().length;
-        int pageY = Math.floorDiv(targetSectionY, len);
+        int pageMin = com.farlands.g2.runtime.VerticalBounds.pageStart(targetSectionY, len);
         PageStore.Prepared prepared = PageStore.take(
-            new PageStore.Key(chunk.getPos().widePos(), pageY));
+            new PageStore.Key(chunk.getPos().widePos(), pageMin));
         if (prepared == null) {
             return false;
         }
@@ -335,6 +396,13 @@ public final class WindowRegenerator {
             Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
             Heightmap.Types.OCEAN_FLOOR));
         if (chunk.getLevel() instanceof ServerLevel level) {
+            // The fast path bypasses regenerate(), so it must still record the new
+            // band: otherwise the chunk loads at the old band after a restart and
+            // its sections fall outside the window (empty chunk).
+            YBandOverrides.set(chunk.getPos().widePos(), center);
+            YBandOverrides.save(level.getServer().getWorldPath(
+                net.minecraft.world.level.storage.LevelResource.ROOT)
+                .resolve("farlands_bands.txt"));
             chunk.postProcessGeneration(level);
         }
         try {

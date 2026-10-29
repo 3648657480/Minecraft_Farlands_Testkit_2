@@ -25,4 +25,9 @@ public final class StageSteps {
     public static ChunkStep get(ChunkStatus status) {
         return STEPS.get(status);
     }
+
+    /** Drops steps captured from a previous world/server. */
+    public static void clear() {
+        STEPS.clear();
+    }
 }

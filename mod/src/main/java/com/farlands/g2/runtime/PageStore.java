@@ -21,8 +21,8 @@ public final class PageStore {
     public record Prepared(int pageMin, LevelChunkSection[] sections, long filled) {
     }
 
-    /** Wide chunk identity + aligned page index. */
-    public record Key(WideChunkPos pos, int pageY) {
+    /** Wide chunk identity + the page's actual (clamped) start section. */
+    public record Key(WideChunkPos pos, int pageMin) {
     }
 
     private static final Map<Key, Prepared> PAGES = new ConcurrentHashMap<>();

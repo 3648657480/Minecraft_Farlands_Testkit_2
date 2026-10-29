@@ -37,6 +37,16 @@ public final class YBandOverrides {
     }
 
     /**
+     * Clears every override and forgets which world file was loaded, so the next
+     * {@link #ensureLoaded} re-reads the new world's file. Called from
+     * {@link G2Runtime#resetSession()} on server start/stop.
+     */
+    public static synchronized void clearAll() {
+        OVERRIDES.clear();
+        farlands$loadedPath = null;
+    }
+
+    /**
      * Persist the overrides next to the world so a moved band survives restarts
      * (without this, a chunk saved at a moved band loads at the default band and
      * its sections fall outside the window, leaving a hole).

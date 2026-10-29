@@ -16,4 +16,16 @@ public class ServerTickFollowMixin {
     private void farlands$followY(BooleanSupplier hasTime, CallbackInfo ci) {
         WindowFollower.tick((MinecraftServer) (Object) this);
     }
+
+    /**
+     * Before the world saves, release noGravity holds (otherwise a player held at
+     * a page edge persists floating) and drop world-scoped caches so the next
+     * world starts clean.
+     */
+    @Inject(method = "stopServer", at = @At("HEAD"))
+    private void farlands$releaseOnStop(CallbackInfo ci) {
+        MinecraftServer server = (MinecraftServer) (Object) this;
+        WindowFollower.releaseHolds(server);
+        com.farlands.g2.runtime.G2Runtime.resetSession();
+    }
 }

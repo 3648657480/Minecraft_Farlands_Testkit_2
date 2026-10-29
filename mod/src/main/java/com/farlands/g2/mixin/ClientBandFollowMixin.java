@@ -45,6 +45,10 @@ public class ClientBandFollowMixin {
             } catch (Throwable ignored) {
                 // client classes only
             }
+            // World switch: queued pushes / band flag from the previous level must
+            // not be applied to chunks of the new world at the same coordinates.
+            com.farlands.g2.client.ClientBandBridge.clearPending();
+            com.farlands.g2.client.BandState.setFar(false);
         }
         if (!mc.hasSingleplayerServer()) {
             return; // multiplayer unsupported: keep the dimension band
