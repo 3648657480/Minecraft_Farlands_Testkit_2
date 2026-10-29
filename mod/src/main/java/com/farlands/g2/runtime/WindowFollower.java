@@ -117,7 +117,11 @@ public final class WindowFollower {
             boolean inside = playerSection >= min && playerSection <= max;
             // A falling player outruns the seconds-long regeneration; hold them while
             // the window is being moved so the band can catch up instead of chasing.
-            farlands$hold(player, !inside || IN_FLIGHT.contains(chunk.getPos()));
+            // Hold near the page edge while the server regenerates the next page;
+            // otherwise a falling player outruns the fill and the client renders a
+            // band the chunk does not have yet.
+            boolean nearEdge = playerSection < min + 4 || playerSection > max - 4;
+            farlands$hold(player, nearEdge || IN_FLIGHT.contains(chunk.getPos()));
         }
         follow(chunk, playerSection, tick);
     }

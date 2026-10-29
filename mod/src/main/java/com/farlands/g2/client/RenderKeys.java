@@ -50,6 +50,24 @@ public final class RenderKeys {
         }
     }
 
+    /** All registered render sections (for the limited far-band refill). */
+    public static java.util.Collection<SectionRenderDispatcher.RenderSection> all() {
+        return BY_KEY.values();
+    }
+
+    /** Last non-null frustum seen by the occlusion graph (band refill reuse). */
+    private static net.minecraft.client.renderer.culling.Frustum frustum;
+
+    public static void setFrustum(net.minecraft.client.renderer.culling.Frustum value) {
+        if (value != null) {
+            frustum = value;
+        }
+    }
+
+    public static net.minecraft.client.renderer.culling.Frustum frustum() {
+        return frustum;
+    }
+
     public static int size() {
         return BY_KEY.size();
     }

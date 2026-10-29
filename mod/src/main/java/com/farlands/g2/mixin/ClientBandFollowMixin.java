@@ -99,32 +99,13 @@ public class ClientBandFollowMixin {
                 System.out.flush();
             }
         }
-        // Keep the ViewArea band equal to the player chunk's actual window. When a
-        // falling player crosses a page, the server moves the chunk window but the
-        // render grid stays on the old band; every section then reads the wrong
-        // data and nothing compiles.
-        if (mc.player != null && mc.level != null) {
-            var bp = mc.player.blockPosition();
-            var pc = mc.level.getChunkSource().getChunk(bp.getX() >> 4, bp.getZ() >> 4,
-                net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false);
-            if (pc instanceof com.farlands.g2.runtime.WindowedChunk wc
-                && wc.farlands$windowMinSectionY() != viewArea.minSectionY()) {
-                int band = wc.farlands$windowMinSectionY();
-                if (band != farlands$lastBand) {
-                    farlands$lastBand = band;
-                    mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options,
-                        mc.gameRenderer.mainCamera(), mc.getBlockColors());
-                }
-                return;
-            }
-        }
         // The fork bypasses SectionOcclusionGraph.update, so applyFrustum only runs
         // when the camera rotation changes. After a band move with a still camera the
         // visible list stays empty and nothing is compiled; refill it from the grid.
         if (mc.levelRenderer.visibleSections().isEmpty()) {
             try {
                 mc.levelRenderer.sectionOcclusionGraph().waitAndReset(viewArea);
-                mc.levelRenderer.sectionOcclusionGraph().addSectionsInFrustum(null,
+                mc.levelRenderer.sectionOcclusionGraph().addSectionsInFrustum(com.farlands.g2.client.RenderKeys.frustum(),
                     mc.levelRenderer.visibleSections(), mc.levelRenderer.nearbyVisibleSections());
                 System.out.println("[YF-VIS] refilled visible="
                     + mc.levelRenderer.visibleSections().size());

@@ -74,10 +74,20 @@ public final class SectionOcclusionGraphPatch implements ClassPatch {
         LabelNode end = new LabelNode();
         LabelNode loop = new LabelNode();
         LabelNode skipNull = new LabelNode();
+        // Remember the last real frustum: the far-band refill reuses it instead of
+        // forcing every section visible.
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g2/client/RenderKeys",
+            "setFrustum", "(Lnet/minecraft/client/renderer/culling/Frustum;)V", false));
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "viewArea",
             "Lnet/minecraft/client/renderer/ViewArea;"));
         il.add(new JumpInsnNode(Opcodes.IFNULL, end));
+        // Remember the last real frustum: the far-band refill reuses it instead of
+        // forcing every section visible.
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "com/farlands/g2/client/RenderKeys",
+            "setFrustum", "(Lnet/minecraft/client/renderer/culling/Frustum;)V", false));
         il.add(new VarInsnNode(Opcodes.ALOAD, 0));
         il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "viewArea",
             "Lnet/minecraft/client/renderer/ViewArea;"));
