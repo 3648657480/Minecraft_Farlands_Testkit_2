@@ -227,6 +227,11 @@ public final class FarProjection {
     private static final boolean NARROW_GUARD = Boolean.getBoolean("farlands.diag.narrowGuard");
     private static final ThreadLocal<Long> NARROW_LAST = ThreadLocal.withInitial(() -> 0L);
 
+    /** True for Y values outside every dimension band (heightmaps cannot store them). */
+    public static boolean skipHeightmap(int y) {
+        return Math.abs((long) y) > 1_000_000L;
+    }
+
     /** Collision-domain X for the patched collision iterators. */
     public static double collisionX(int v) {
         return (double) v;

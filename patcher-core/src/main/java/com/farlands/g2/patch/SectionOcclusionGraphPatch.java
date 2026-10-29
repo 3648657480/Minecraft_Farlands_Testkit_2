@@ -97,6 +97,11 @@ public final class SectionOcclusionGraphPatch implements ClassPatch {
         il.add(new VarInsnNode(Opcodes.ASTORE, 5));
         il.add(new VarInsnNode(Opcodes.ALOAD, 5));
         il.add(new JumpInsnNode(Opcodes.IFNULL, skipNull));
+        // A null frustum means "force everything visible" (used by the Y band
+        // follow code); skip culling in that case.
+        LabelNode noFrustum = new LabelNode();
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new JumpInsnNode(Opcodes.IFNULL, noFrustum));
         // Frustum-cull this section using its (wide-origin) bounding box. Without
         // this the loop adds every section, so any camera rotation recompiles the
         // whole view area (freeze at far X).
@@ -107,6 +112,7 @@ public final class SectionOcclusionGraphPatch implements ClassPatch {
         il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/client/renderer/culling/Frustum",
             "isVisible", "(Lnet/minecraft/world/phys/AABB;)Z", false));
         il.add(new JumpInsnNode(Opcodes.IFEQ, skipNull));
+        il.add(noFrustum);
         il.add(new VarInsnNode(Opcodes.ALOAD, 2));
         il.add(new VarInsnNode(Opcodes.ALOAD, 5));
         il.add(new MethodInsnNode(Opcodes.INVOKEINTERFACE, "java/util/List", "add",

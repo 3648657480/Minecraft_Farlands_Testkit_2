@@ -123,7 +123,9 @@
         "NoiseChunkFarDensityMixin",
         "DensityTreeDiffMixin",
         "FlatCacheFarBypassMixin",
-        "LevelPlayLocalSoundWideMixin"
+        "LevelPlayLocalSoundWideMixin",
+        "CarverFarWindowSkipMixin",
+        "CarvingMaskWideMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }
