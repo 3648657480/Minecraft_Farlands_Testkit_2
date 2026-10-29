@@ -1,6 +1,8 @@
 package com.farlands.g2.runtime;
 
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.levelgen.DensityFunction;
+import net.minecraft.world.level.levelgen.PositionalRandomFactory;
 
 /**
  * Aquifer grid coordinates for the current {@code computeSubstance} call.
@@ -33,6 +35,19 @@ public final class FarAquiferHelper {
     public static void end() {
         GRID_X.remove();
         GRID_Z.remove();
+    }
+
+    /**
+     * Link target for {@code AquiferContextPatch}: patched MC calls
+     * {@code FarAquiferHelper.at(factory,x,y,z)}. Before this method existed the
+     * call threw {@code NoSuchMethodError} inside
+     * {@code Aquifer$NoiseBasedAquifer#computeSubstance}; NoiseChunkMixin caught
+     * it and silently fell back to the global fluid picker. Delegate to the
+     * vanilla int factory for now; wide aquifer positions come with the wide
+     * generation entry, not this hotfix.
+     */
+    public static RandomSource at(PositionalRandomFactory factory, int x, int y, int z) {
+        return factory.at(x, y, z);
     }
 
     /** Called by the patched {@code gridX}; {@code blockCoord} is already offset by -5. */

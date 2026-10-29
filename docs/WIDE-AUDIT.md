@@ -27,6 +27,19 @@ W0 还发现一条**现有红线**：含水层 patcher 调用了不存在的方�
   4. 再跑 seam/dist，确认旧结论是否仍成立。
 - **在 G0 修完并重跑之前，不引用任何“normal 指纹不变/2^53 已过”的结论。**
 
+### W0.5 结果（2026-10-29）
+
+- `FarAquiferHelper.at(PositionalRandomFactory,int,int,int)` 已补，委托 `factory.at(x,y,z)`；mod jar 已确认方法存在。
+- `NoiseChunkMixin` 内层 `catch(Throwable)` 加限流日志（前 5 次 + 每 10000 次）。
+- `verify.ps1` 五个模式全部通过，指纹与修复前**完全一致**：
+  - norm `surf=b9216bad2029 floor=8936c275d063 biome=4bf4e2ea5526`
+  - seam `maxDelta=1 maxFloorDelta=1 biomeMismatch=0/256`
+  - coll `CLIP=hit COLLBLK=n=1`
+  - save `gold + normal-band chest`
+  - dist `surf=879024146b33 floor=9319dd6a448a`
+- norm/seam/dist 日志无 `[FarLands] aquifer ... fallback`、无 `NoSuchMethodError`。
+- 结论：**链接修复行为中性；旧指纹在已测条件下仍有效**。但测试区不一定覆盖含水层，仍需一个专门的含水层世界/坐标探针，不能据此宣称“全球含水层已完全等价”。
+
 ## 2. 结构性缺口
 
 ### G1 服务端数据身份仍由 long 桥派生
