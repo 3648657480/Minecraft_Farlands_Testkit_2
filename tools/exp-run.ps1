@@ -38,7 +38,11 @@ $bgArg = ""
 if ($BgThreads -gt 0) { $bgArg = " -Dmax.bg.threads=$BgThreads" }
 $dimArg = ""
 if ($Dim -ne "") { $dimArg = " -Dfarlands.testgen.dim=$Dim" }
-$cmd = "cd /d $root && .\gradlew.bat -Dfarlands.wide=$Wide -Dfarlands.continuity=$Continuity -Dfarlands.epoch=$Epoch -Dfarlands.testgen=$TestGen -Dfarlands.testgen.stop=true -Dfarlands.testgen.settle=$Settle -Dfarlands.testgen.delay=$Delay$bgArg$dimArg $Extra $task --no-daemon -q > `"$log`" 2>&1"
+# Unique marker for THIS run: the cleanup below may only kill JVMs that carry it.
+# (The old cleanup killed every java started within TimeoutMin, including the
+# user's client. See G2-TODO trap 1.)
+$tagSafe = ($Tag -replace '[^A-Za-z0-9_.-]', '_')
+$cmd = "cd /d $root && .\gradlew.bat -Dfarlands.wide=$Wide -Dfarlands.continuity=$Continuity -Dfarlands.test.run=$tagSafe -Dfarlands.testgen=$TestGen -Dfarlands.testgen.stop=true -Dfarlands.testgen.settle=$Settle -Dfarlands.testgen.delay=$Delay$bgArg$dimArg $Extra $task --no-daemon -q > `"$log`" 2>&1"
 $proc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $cmd" -WindowStyle Hidden -PassThru
 
 $deadline = (Get-Date).AddMinutes($TimeoutMin)
@@ -58,7 +62,12 @@ if ($done) {
     while (-not $proc.HasExited -and $waited -lt 90) { Start-Sleep -Seconds 3; $waited += 3 }
 }
 if (-not $proc.HasExited) { taskkill /PID $proc.Id /T /F 2>$null | Out-Null }
-Get-Process -Name java -ErrorAction SilentlyContinue | Where-Object { $_.StartTime -gt (Get-Date).AddMinutes(-$TimeoutMin) } | Stop-Process -Force -ErrorAction SilentlyContinue
+# Kill only JVMs launched by THIS run (unique -Dfarlands.test.run marker).
+# A bare "all java started recently" kill would also kill the user's client.
+$marker = "-Dfarlands.test.run=$tagSafe"
+$victims = Get-CimInstance Win32_Process -Filter "Name='java.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -and $_.CommandLine.Contains($marker) }
+foreach ($v in $victims) { taskkill /PID $v.ProcessId /T /F 2>$null | Out-Null }
 
 "FLAGS($Tag): rig=$Rig wide=$Wide continuity=$Continuity epoch=$Epoch"
 "DONE: $done"
