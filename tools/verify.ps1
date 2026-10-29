@@ -139,7 +139,7 @@ function Test-Save() {
     if (Test-Path $world) { Remove-Item $world -Recurse -Force }
     Invoke-Run -tag $tagA -outDir "$aux\verify-save-a" -testGen "0,0" `
         -timeoutMin $SaveTimeoutMin -keepWorld `
-        -extra "-Dfarlands.test.allowDedicated=true -Dfarlands.y.window=true -Dfarlands.gen.cwg=true -Dfarlands.testgen.cwg=134217714 -Dfarlands.testgen.savemark=134217714"
+        -extra "-Dfarlands.test.allowDedicated=true -Dfarlands.y.window=true -Dfarlands.gen.cwg=true -Dfarlands.testgen.cwg=134217714 -Dfarlands.testgen.savemark=134217714 -Dfarlands.testgen.blockent=true"
     $logA = Get-Log $tagA
     $mark = Select-String -Path $logA -Pattern '\[SAVEMARK\].*read=Block\{minecraft:gold_block\}' |
         Select-Object -Last 1
@@ -149,12 +149,18 @@ function Test-Save() {
     }
     Invoke-Run -tag $tagB -outDir "$aux\verify-save-b" -testGen "0,0" `
         -timeoutMin $SaveTimeoutMin -keepWorld `
-        -extra "-Dfarlands.test.allowDedicated=true -Dfarlands.y.window=true -Dfarlands.farsex.save=false -Dfarlands.testgen.readsy=134217714"
+        -extra "-Dfarlands.test.allowDedicated=true -Dfarlands.y.window=true -Dfarlands.farsex.save=false -Dfarlands.testgen.readsy=134217714 -Dfarlands.testgen.readbe=true"
     $logB = Get-Log $tagB
     $read = Select-String -Path $logB -Pattern '\[READSY\].*ok=true' | Select-Object -Last 1
-    $ok = $null -ne $read
-    $detail = if ($ok) { "gold marker reloaded" } else { "marker lost on reload" }
-    Add-Result "save round-trip (far Y)" $ok $detail
+    $be = Select-String -Path $logB -Pattern '\[READBE\].*ok=true' | Select-Object -Last 1
+    $ok = ($null -ne $read) -and ($null -ne $be)
+    $detail = if ($ok) {
+        "gold marker + normal-band chest reloaded"
+    } else {
+        "gold=" + ($(if ($read) { "ok" } else { "missing" })) +
+        " chest=" + ($(if ($be) { "ok" } else { "missing" }))
+    }
+    Add-Result "save round-trip (far Y + block entity)" $ok $detail
 }
 
 function Test-Dist() {

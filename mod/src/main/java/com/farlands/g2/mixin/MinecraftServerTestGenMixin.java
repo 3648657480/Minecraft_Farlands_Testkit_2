@@ -493,6 +493,23 @@ public abstract class MinecraftServerTestGenMixin {
                         .mapToInt(s -> Integer.parseInt(s.trim())).toArray();
                     farlands$profile(profileChunk, bands, 0);
                 }
+                // B3: place the block entity BEFORE the window moves. Once at far Y
+                // the chunk's height predicate treats y=64 as outside the window and
+                // vanilla writes are rejected; old-band data must be written while
+                // the chunk is still on the dimension band.
+                if (Boolean.getBoolean("farlands.testgen.blockent")
+                    && chunk instanceof net.minecraft.world.level.chunk.LevelChunk beChunk) {
+                    net.minecraft.core.BlockPos chest = new net.minecraft.core.BlockPos(
+                        beChunk.getPos().getMinBlockX() + 9, 64,
+                        beChunk.getPos().getMinBlockZ() + 9);
+                    boolean chestOk = level.setBlock(chest,
+                        net.minecraft.world.level.block.Blocks.CHEST.defaultBlockState(), 3);
+                    var be = level.getBlockEntity(chest);
+                    System.out.println("[SAVEBE] pos=" + chest + " set=" + chestOk
+                        + " state=" + level.getBlockState(chest)
+                        + " be=" + (be == null ? "null" : be.getType()));
+                    System.out.flush();
+                }
                 // Cwg (infs) density probe: fill a chunk window with the Cwg noise chain.
                 String cwgSy = System.getProperty("farlands.testgen.cwg");
                 if (cwgSy != null && !cwgSy.isEmpty()
@@ -540,6 +557,23 @@ public abstract class MinecraftServerTestGenMixin {
                         + " band=" + ((com.farlands.g2.runtime.WindowedChunk) readChunk)
                             .farlands$windowMinSectionY()
                         + ".." + ((com.farlands.g2.runtime.WindowedChunk) readChunk)
+                            .farlands$windowMaxSectionY());
+                    System.out.flush();
+                }
+                if (Boolean.getBoolean("farlands.testgen.readbe")
+                    && chunk instanceof net.minecraft.world.level.chunk.LevelChunk beChunk) {
+                    net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(
+                        beChunk.getPos().getMinBlockX() + 9, 64,
+                        beChunk.getPos().getMinBlockZ() + 9);
+                    var state = level.getBlockState(pos);
+                    var be = level.getBlockEntity(pos);
+                    boolean ok = state.is(net.minecraft.world.level.block.Blocks.CHEST) && be != null;
+                    System.out.println("[READBE] pos=" + pos + " state=" + state
+                        + " be=" + (be == null ? "null" : be.getType())
+                        + " ok=" + ok + " minY=" + beChunk.getMinY()
+                        + " band=" + ((com.farlands.g2.runtime.WindowedChunk) beChunk)
+                            .farlands$windowMinSectionY()
+                        + ".." + ((com.farlands.g2.runtime.WindowedChunk) beChunk)
                             .farlands$windowMaxSectionY());
                     System.out.flush();
                 }

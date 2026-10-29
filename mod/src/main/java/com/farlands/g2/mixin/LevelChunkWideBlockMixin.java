@@ -13,10 +13,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(LevelChunk.class)
 public class LevelChunkWideBlockMixin {
 
+    /** True when y is outside the chunk's current 24-section window (any band). */
+    private static boolean farlands$outsideWindow(LevelChunk chunk, long y) {
+        if (y < Integer.MIN_VALUE || y > Integer.MAX_VALUE) {
+            return true;
+        }
+        int index = chunk.getSectionIndex((int) y);
+        return index < 0 || index >= chunk.getSections().length;
+    }
+
     @Inject(method = "getBlockState", at = @At("HEAD"), cancellable = true)
     private void farlands$wideGet(BlockPos pos, CallbackInfoReturnable<BlockState> cir) {
-        if (WideBlockAccess.isWide(pos.getLongX(), pos.getLongY(), pos.getLongZ())) {
-            cir.setReturnValue(WideBlockAccess.get((LevelChunk) (Object) this,
+        LevelChunk chunk = (LevelChunk) (Object) this;
+        if (WideBlockAccess.isWide(pos.getLongX(), pos.getLongY(), pos.getLongZ())
+            || farlands$outsideWindow(chunk, pos.getLongY())) {
+            cir.setReturnValue(WideBlockAccess.get(chunk,
                 pos.getLongX(), pos.getLongY(), pos.getLongZ()));
         }
     }
@@ -24,8 +35,10 @@ public class LevelChunkWideBlockMixin {
     @Inject(method = "getFluidState", at = @At("HEAD"), cancellable = true)
     private void farlands$wideFluid(BlockPos pos,
         org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<net.minecraft.world.level.material.FluidState> cir) {
-        if (WideBlockAccess.isWide(pos.getLongX(), pos.getLongY(), pos.getLongZ())) {
-            cir.setReturnValue(WideBlockAccess.getFluid((net.minecraft.world.level.chunk.ChunkAccess) (Object) this,
+        LevelChunk chunk = (LevelChunk) (Object) this;
+        if (WideBlockAccess.isWide(pos.getLongX(), pos.getLongY(), pos.getLongZ())
+            || farlands$outsideWindow(chunk, pos.getLongY())) {
+            cir.setReturnValue(WideBlockAccess.getFluid(chunk,
                 pos.getLongX(), pos.getLongY(), pos.getLongZ()));
         }
     }
@@ -33,8 +46,10 @@ public class LevelChunkWideBlockMixin {
     @Inject(method = "setBlockState", at = @At("HEAD"), cancellable = true)
     private void farlands$wideSet(BlockPos pos, BlockState state, int flags,
         CallbackInfoReturnable<BlockState> cir) {
-        if (WideBlockAccess.isWide(pos.getLongX(), pos.getLongY(), pos.getLongZ())) {
-            cir.setReturnValue(WideBlockAccess.set((LevelChunk) (Object) this,
+        LevelChunk chunk = (LevelChunk) (Object) this;
+        if (WideBlockAccess.isWide(pos.getLongX(), pos.getLongY(), pos.getLongZ())
+            || farlands$outsideWindow(chunk, pos.getLongY())) {
+            cir.setReturnValue(WideBlockAccess.set(chunk,
                 pos.getLongX(), pos.getLongY(), pos.getLongZ(), state));
         }
     }

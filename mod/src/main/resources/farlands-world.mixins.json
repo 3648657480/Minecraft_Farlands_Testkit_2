@@ -33,6 +33,7 @@
         "PlayerSpawnFinderWindowMixin",
         "SerializableChunkDataWindowMixin",
         "SerializableChunkDataFarStoreMixin",
+        "LevelChunkPostLoadFarStoreMixin",
         "SerializableChunkDataAccessor",
         "ChunkStepCaptureMixin",
         "ServerTickFollowMixin",

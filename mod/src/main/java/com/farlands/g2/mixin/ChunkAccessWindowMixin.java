@@ -40,13 +40,19 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
     @Shadow @Final protected ChunkPos chunkPos;
     @Shadow @Final protected LevelChunkSection[] sections;
 
-    @Unique private final Map<WideSectionKey2560, LevelChunkSection> farlands$all = new LinkedHashMap<>();
+    @Unique private Map<WideSectionKey2560, LevelChunkSection> farlands$all = new LinkedHashMap<>();
     @Unique private WideSectionCoord512 farlands$centerY = WideSectionCoord512.ZERO;
     @Unique private int farlands$minSy;
     @Unique private int farlands$maxSy;
     @Unique private boolean farlands$windowReady;
     @Unique private boolean farlands$heightmapsPrimed;
     @Unique private PalettedContainerFactory farlands$factory;
+    /** Shared empty section returned by out-of-view reads (never inserted). */
+    @Unique private LevelChunkSection farlands$emptyView;
+    /** Far pages kept in memory: current window + up to N-1 pages of history. */
+    @Unique private static final int farlands$MAX_SECTIONS =
+        Integer.getInteger("farlands.y.maxSections", 24 * 32);
+    @Unique private boolean farlands$evictLogged;
 
     /**
      * Saved heightmaps are band-relative; when the window is not the dimension
@@ -77,6 +83,10 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         PalettedContainerFactory containerFactory, long inhabitedTime, LevelChunkSection[] sections,
         BlendingData blendingData, CallbackInfo ci) {
         this.farlands$factory = containerFactory;
+        // Mixin field-initialiser ordering is not guaranteed for every constructor
+        // path (ChunkMap.createEmptyChunk calls the 7-arg ctor directly); never rely
+        // on farlands$all being non-null here.
+        farlands$allSections();
         int dimensionMin = heightAccessor.getMinSectionY();
         int dimensionMax = heightAccessor.getMaxSectionY();
         int len = this.sections.length;
@@ -102,16 +112,14 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         } else if (override != null && !override.isEmpty()) {
             center = Integer.parseInt(override);
         }
-        // Seed the wide map with the window applyWindow is about to use. The
-        // incoming sections array is a far window when the chunk came from a
-        // ProtoChunk (e.g. sidecar load); seeding under dimensionMin+i would label
-        // far sections as dimension-band entries and applyWindow would then replace
-        // them with fresh empties (gold marker restored, then lost).
-        int start = (len == dimensionMax - dimensionMin + 1
-            && center >= dimensionMin && center <= dimensionMax)
-            ? dimensionMin : VerticalBounds.pageStart(center, len);
+        // Seed the wide map with the incoming sections under the DIMENSION band.
+        // For a fresh ProtoChunk the incoming array is the dimension band; for a
+        // loaded far chunk the sidecar restore below puts the far sections back.
+        // Labelling dimension sections with far keys loses the normal band (and
+        // with it block entities at y=64).
+        int start = dimensionMin;
         for (int i = 0; i < len; i++) {
-            this.farlands$all.put(farlands$key(start + i), this.sections[i]);
+            this.farlands$allSections().put(farlands$key(start + i), this.sections[i]);
         }
         farlands$applyWindow(center);
         // Sidecar restore on every server-side construction (ProtoChunk and the
@@ -123,7 +131,7 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         }
         if (Boolean.getBoolean("farlands.y.diag") && pos.x() == 0 && pos.z() == 0) {
             var probeKey = farlands$key(134217714);
-            var fromMap = this.farlands$all.get(probeKey);
+            var fromMap = farlands$allSections().get(probeKey);
             int idx = 134217714 - farlands$minSy;
             var fromArr = idx >= 0 && idx < this.sections.length ? this.sections[idx] : null;
             System.out.println("[YWIN2] ctor start=" + start + " center=" + center
@@ -156,6 +164,7 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
     /** Rebuild the window at an explicit (already clamped) page start. */
     @Unique
     private void farlands$applyWindowStart(int minSy) {
+        farlands$allSections();
         int len = this.sections.length;
         int half = (len - 1) / 2;
         int maxStart = VerticalBounds.MAX_PLAYABLE_SECTION - len + 1;
@@ -178,12 +187,51 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         for (int i = 0; i < len; i++) {
             int sy = minSy + i;
             WideSectionKey2560 key = farlands$key(sy);
-            LevelChunkSection section = this.farlands$all.get(key);
+            LevelChunkSection section = farlands$allSections().get(key);
             if (section == null) {
                 section = new LevelChunkSection(this.farlands$factory);
-                this.farlands$all.put(key, section);
+                this.farlands$allSections().put(key, section);
             }
             this.sections[i] = section;
+        }
+        farlands$evictFarPages();
+    }
+
+    /**
+     * Bound the far-page memory. Normal-band sections are never evicted (block
+     * entities/player builds live there); only far pages outside the current
+     * window are dropped, oldest insertion first. A sidecar save keeps whatever
+     * is still in the map; evicted pages are gone until regenerated.
+     */
+    @Unique
+    private void farlands$evictFarPages() {
+        Map<WideSectionKey2560, LevelChunkSection> all = farlands$allSections();
+        if (all.size() <= farlands$MAX_SECTIONS) {
+            return;
+        }
+        int dimensionMin = this.levelHeightAccessor.getMinSectionY();
+        int dimensionMax = this.levelHeightAccessor.getMaxSectionY();
+        int before = all.size();
+        java.util.Iterator<Map.Entry<WideSectionKey2560, LevelChunkSection>> it =
+            all.entrySet().iterator();
+        while (it.hasNext() && all.size() > farlands$MAX_SECTIONS) {
+            Map.Entry<WideSectionKey2560, LevelChunkSection> entry = it.next();
+            int sy = (int) entry.getKey().y().toBigInteger().longValueExact();
+            if (sy >= this.farlands$minSy && sy <= this.farlands$maxSy) {
+                continue; // current window
+            }
+            if (sy >= dimensionMin && sy <= dimensionMax) {
+                continue; // normal band: block entities/builds
+            }
+            it.remove();
+        }
+        int evicted = before - all.size();
+        if (evicted > 0 && !this.farlands$evictLogged) {
+            this.farlands$evictLogged = true;
+            System.out.println("[WSECT] evicted=" + evicted + " size="
+                + all.size() + " max=" + farlands$MAX_SECTIONS
+                + " band=" + this.farlands$minSy + ".." + this.farlands$maxSy);
+            System.out.flush();
         }
     }
 
@@ -200,20 +248,23 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
             && !Boolean.getBoolean("farlands.y.abs")) {
             return;
         }
+        // Called from ChunkAccess/ProtoChunk constructors before our mixin fields
+        // are initialised (ChunkMap.createEmptyChunk). Let vanilla answer then.
+        if (this.farlands$all == null || this.farlands$factory == null) {
+            return;
+        }
         if (sectionIndex < 0 || sectionIndex >= this.sections.length) {
             int absoluteSectionY = farlands$minSy + sectionIndex;
-            if (Math.abs((long) absoluteSectionY) > 1_000_000L) {
-                // Route D0: the data layer is absolute; the 24-slot array is only
-                // the current view. Out-of-view reads resolve by absolute section Y.
-                cir.setReturnValue(farlands$sectionAt(
-                    WideSectionCoord512.of((long) absoluteSectionY)));
-                return;
-            }
-            cir.setReturnValue(farlands$emptySection());
+            // Any absolute section that exists in the wide map is readable, not
+            // only the far ones: after a band move the normal-band sections (block
+            // entities, player builds) are still in the map and must resolve.
+            LevelChunkSection existing = farlands$allSections().get(
+                farlands$key(WideSectionCoord512.of((long) absoluteSectionY)));
+            cir.setReturnValue(existing != null ? existing : farlands$emptyViewSection());
             return;
         }
         int sy = farlands$minSy + sectionIndex;
-        LevelChunkSection section = farlands$all.get(farlands$key(sy));
+        LevelChunkSection section = farlands$allSections().get(farlands$key(sy));
         if (Boolean.getBoolean("farlands.y.diag") && sy == 134217714) {
             System.out.println("[YSEC] index=" + sectionIndex + " sy=" + sy
                 + " map=" + (section == null ? "null" : section.getBlockState(8, 8, 8))
@@ -228,8 +279,11 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
     }
 
     @Unique
-    private LevelChunkSection farlands$emptySection() {
-        return new LevelChunkSection(this.farlands$factory);
+    private LevelChunkSection farlands$emptyViewSection() {
+        if (this.farlands$emptyView == null) {
+            this.farlands$emptyView = new LevelChunkSection(this.farlands$factory);
+        }
+        return this.farlands$emptyView;
     }
 
     @Override
@@ -244,6 +298,9 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
 
     @Override
     public Map<WideSectionKey2560, LevelChunkSection> farlands$allSections() {
+        if (this.farlands$all == null) {
+            this.farlands$all = new LinkedHashMap<>();
+        }
         return farlands$all;
     }
 
@@ -282,7 +339,7 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
 
     @Override
     public LevelChunkSection farlands$sectionAt(WideSectionCoord512 absoluteSectionY) {
-        return this.farlands$all.computeIfAbsent(farlands$key(absoluteSectionY),
+        return farlands$allSections().computeIfAbsent(farlands$key(absoluteSectionY),
             ignored -> new LevelChunkSection(this.farlands$factory));
     }
 }

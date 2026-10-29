@@ -93,6 +93,10 @@ public final class FarSectionStore {
                         System.out.println("[FARSEC] save sy=" + sy
                             + " center=" + entry.getValue().getBlockState(8, 8, 8)
                             + " air=" + entry.getValue().hasOnlyAir());
+                        if (sy == 4) {
+                            System.out.println("[FARSEC] save s4(9,0,9)="
+                                + entry.getValue().getBlockState(9, 0, 9));
+                        }
                     }
                     data.writeInt(sy);
                     data.writeInt(bytes.length);
@@ -149,6 +153,10 @@ public final class FarSectionStore {
                     System.out.println("[FARSEC] load sy=" + sy
                         + " center=" + section.getBlockState(8, 8, 8)
                         + " air=" + section.hasOnlyAir());
+                    if (sy == 4) {
+                        System.out.println("[FARSEC] load s4(9,0,9)="
+                            + section.getBlockState(9, 0, 9));
+                    }
                 }
                 windowed.farlands$allSections().put(windowed.farlands$key(sy), section);
                 restored++;
