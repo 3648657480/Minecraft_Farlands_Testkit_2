@@ -126,7 +126,8 @@
         "LevelPlayLocalSoundWideMixin",
         "CarverFarWindowSkipMixin",
         "CarvingMaskWideMixin",
-        "EntityFluidInteractionFarYMixin"
+        "EntityFluidInteractionFarYMixin",
+        "EntityCheckInsideBlocksFarYMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }
