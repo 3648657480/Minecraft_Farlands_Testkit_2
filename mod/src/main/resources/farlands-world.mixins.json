@@ -125,7 +125,8 @@
         "FlatCacheFarBypassMixin",
         "LevelPlayLocalSoundWideMixin",
         "CarverFarWindowSkipMixin",
-        "CarvingMaskWideMixin"
+        "CarvingMaskWideMixin",
+        "EntityFluidInteractionFarYMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }
