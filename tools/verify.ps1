@@ -1,9 +1,10 @@
 param(
-    [ValidateSet("norm", "seam", "coll", "save", "all")][string]$Mode = "all",
+    [ValidateSet("norm", "seam", "coll", "save", "dist", "all")][string]$Mode = "all",
     [int]$NormTimeoutMin = 8,
     [int]$SeamTimeoutMin = 14,
     [int]$CollTimeoutMin = 8,
     [int]$SaveTimeoutMin = 8,
+    [int]$DistTimeoutMin = 12,
     [switch]$AllowConcurrent
 )
 
@@ -156,6 +157,26 @@ function Test-Save() {
     Add-Result "save round-trip (far Y)" $ok $detail
 }
 
+function Test-Dist() {
+    $tag = "verify-dist53"
+    Invoke-Run -tag $tag -outDir "$aux\verify-dist53" -testGen "562949953421312,0" `
+        -timeoutMin $DistTimeoutMin `
+        -extra "-Dfarlands.test.allowDedicated=true"
+    $log = Get-Log $tag
+    $gen = Select-String -Path $log -Pattern 'gen OK region \(562949953421312,0\)' |
+        Select-Object -Last 1
+    $sec = Select-String -Path $log -Pattern 'section2560 x=562949953421312.*ok=true' |
+        Select-Object -Last 1
+    $ok = ($null -ne $gen) -and ($null -ne $sec)
+    $detail = if ($ok) {
+        $hash = [regex]::Match($gen.Line, 'wgHash=surf=([0-9a-f]+) floor=([0-9a-f]+)')
+        "chunk 2^49 / block 2^53 gen OK; surf=$($hash.Groups[1].Value) floor=$($hash.Groups[2].Value)"
+    } else {
+        "2^53 generation or section2560 check missing"
+    }
+    Add-Result "distance 2^53 (chunk 2^49)" $ok $detail
+}
+
 Assert-NoConcurrentClient
 
 switch ($Mode) {
@@ -163,11 +184,13 @@ switch ($Mode) {
     "seam" { Test-Seam }
     "coll" { Test-Coll }
     "save" { Test-Save }
+    "dist" { Test-Dist }
     "all" {
         Test-Norm
         Test-Seam
         Test-Coll
         Test-Save
+        Test-Dist
     }
 }
 
