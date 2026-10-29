@@ -14,6 +14,7 @@
 | 远 Y Cwg 填充 | `sy=134217703..726 filled=46080` | `exp-run` + `testgen.cwg` |
 | 远 Y 页预取/交换 | `PREFETCH applied band=134217672 filled=46080`、`PAGETEST applied=true` | `testgen.pageprefetch` + `y.prefetchSync` |
 | 远 Y 跟随/重生成 | `YFOLLOW trigger` → `CWGFILL filled=46080` → `done ok=true` | `testgen.followsy` |
+| 远 Y 客户端渲染 | `dataSec=24 meshNonEmpty=3 below=stone viewY==chunkWin=134217703..726`（spectator，Y=2147483250） | 2026-10-29 17:03 截图 |
 | 远 Y 存档 | **不成立**（见 §2） | 未门禁 |
 | 联机 | **不支持**（见 §2） | 未门禁 |
 
@@ -51,12 +52,14 @@ cd C:\Project-G2
 | 预取 key | `PageStore.Key(pos, pageMin)` | clamp 后的页起点；顶页/当前页不预取 |
 | fill 槽 | `FILL_SLOTS`（公平，下限 1） | 预取至少留 1 个给重生成 |
 | 远 Y Entity 效果扫描 | `applyEffectsFromBlocks` 系列 | `EntityCheckInsideBlocksFarYMixin`（26.2 已改名） |
+| 客户端 ViewArea band | 玩家页（`pageStart(playerSection,24)`） | `ViewAreaWindowMixin`；`ClientBandFollow` 页不一致即重建 |
 
 ## 5. A 批改了什么
 
 - `f1ef54d` 工具：`exp-run` 只杀自己 `-Dfarlands.test.run` 的 JVM；新增 `verify.ps1`。
 - `9e58f0c` 会话生命周期 reset（跨世界不串页/推送/按住）；失败 override 回滚；`noGravity` 停止时释放；失败退避 + 日志限流；预取 clamp 后 key、顶页/当前页跳过、留槽；`prefetch` 临时 override 修 `filled=0`；`applyPrepared` 更新并落盘 override。
 - `89a6da2` 远 Y Entity 守卫从失效的 `checkInsideBlocks` 改挂 `applyEffectsFromBlocks`。
+- `band-smoke`（2026-10-29 17:03）客户端 band：`ViewArea` 用玩家页；`ClientBandFollow` 在“玩家还在旧 ViewArea 内但页起点不同”时也重建（此前直接 return，viewY 696..719 与 chunkWin 703..726 只重叠 17 段）。spectator smoke：`dataSec=24 meshNonEmpty=3 below=stone`，截图 `mod/run/screenshots/2026-10-29_17.03.52.png`。
 
 ## 6. 仍然打开（下一批按这个顺序）
 

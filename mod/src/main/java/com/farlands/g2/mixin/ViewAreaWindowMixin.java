@@ -70,6 +70,22 @@ public class ViewAreaWindowMixin {
         if (mc != null && !mc.hasSingleplayerServer()) {
             return null; // multiplayer unsupported: keep the dimension band
         }
+        // Prefer the player's own page for far Y. The per-chunk window may have
+        // been pushed to a different page (prefetch/other neighbours); taking it
+        // as the ViewArea band made viewY disagree with the player's page and the
+        // client rendered an empty band (smoke: chunkWin 672..695, viewY 696..719).
+        if (mc != null && mc.level != null && mc.player != null) {
+            int playerSection = (int) Math.floorDiv(
+                mc.player.blockPosition().getLongY(), 16L);
+            if (playerSection < mc.level.getMinSectionY()
+                || playerSection > mc.level.getMaxSectionY()) {
+                int pageMin = com.farlands.g2.runtime.VerticalBounds.pageStart(playerSection, 24);
+                System.out.println("[YF-BAND] source=player-page band=" + pageMin
+                    + ".." + (pageMin + 23));
+                System.out.flush();
+                return farlands$result(pageMin, pageMin + 23);
+            }
+        }
         // Prefer the client chunk's own window band: it is the same band the server
         // regenerated and sent, so the section graph and the grid cannot disagree.
         if (mc != null && mc.level != null && mc.player != null) {

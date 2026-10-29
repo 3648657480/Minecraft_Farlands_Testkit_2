@@ -21,6 +21,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class ClientBandFollowMixin {
 
     @org.spongepowered.asm.mixin.Unique private static int farlands$lastBand = Integer.MIN_VALUE;
+    /** Last far page the renderer was rebuilt for (page start section). */
+    @org.spongepowered.asm.mixin.Unique private static int farlands$lastPage = Integer.MIN_VALUE;
 
     /** Last level the wide-key table was built for; cleared when the level changes. */
     private static Object farlands$lastLevel;
@@ -157,12 +159,34 @@ public class ClientBandFollowMixin {
             System.out.flush();
         }
         int playerSection = (int) Math.floorDiv(mc.player.blockPosition().getLongY(), 16L);
-        if (playerSection >= viewArea.minSectionY() && playerSection <= viewArea.maxSectionY()) {
+        if (com.farlands.g2.client.BandState.far()) {
+            // SectionPos cannot encode a far camera Y, so repositionCamera would
+            // loop forever. But the ViewArea band must be rebuilt when the PLAYER'S
+            // PAGE differs from the ViewArea's page, even while the player is still
+            // inside the old band: smoke showed viewY 696..719 / chunkWin 703..726
+            // (17-section overlap) because 710 is inside 696..719.
+            int pageMin = com.farlands.g2.runtime.VerticalBounds.pageStart(playerSection, 24);
+            int viewPageMin = com.farlands.g2.runtime.VerticalBounds.pageStart(
+                viewArea.minSectionY(), 24);
+            if (playerSection >= viewArea.minSectionY()
+                && playerSection <= viewArea.maxSectionY()
+                && pageMin == viewPageMin) {
+                return;
+            }
+            if (pageMin == farlands$lastPage) {
+                return;
+            }
+            farlands$lastPage = pageMin;
+            System.out.println("[YF-REBUILD] far page playerSection=" + playerSection
+                + " page=" + pageMin + " viewPage=" + viewPageMin
+                + " oldView=" + viewArea.minSectionY()
+                + ".." + viewArea.maxSectionY());
+            System.out.flush();
+            mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options, camera,
+                mc.getBlockColors());
             return;
         }
-        if (com.farlands.g2.client.BandState.far()) {
-            // The ViewArea band already follows the far window; SectionPos cannot
-            // encode a far camera Y, so repositioning here would loop forever.
+        if (playerSection >= viewArea.minSectionY() && playerSection <= viewArea.maxSectionY()) {
             return;
         }
         System.out.println("[YF-REBUILD] playerSection=" + playerSection + " oldView="
