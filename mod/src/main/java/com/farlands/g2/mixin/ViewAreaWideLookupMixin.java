@@ -36,8 +36,7 @@ public abstract class ViewAreaWideLookupMixin {
         int iy = (int) sy;
         int iz = (int) sz;
         if (sx != (long) ix || sy != (long) iy || sz != (long) iz) {
-            cir.setReturnValue(null); // beyond int section space: not addressable yet
-            return;
+            return; // beyond int section space: let the 2560-key path resolve it
         }
         cir.setReturnValue(this.getRenderSection(SectionPos.asLong(ix, iy, iz)));
     }
