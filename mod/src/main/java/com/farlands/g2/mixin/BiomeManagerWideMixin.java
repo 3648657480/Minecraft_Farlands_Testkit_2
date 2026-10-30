@@ -2,6 +2,8 @@ package com.farlands.g2.mixin;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.util.LinearCongruentialGenerator;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeManager;
 import org.spongepowered.asm.mixin.Mixin;
@@ -21,6 +23,43 @@ public abstract class BiomeManagerWideMixin {
     private static double getFiddledDistance(long seed, int xRandom, int yRandom, int zRandom,
         double distanceX, double distanceY, double distanceZ) {
         throw new AssertionError();
+    }
+
+    @Shadow
+    private static double getFiddle(long rval) {
+        throw new AssertionError();
+    }
+
+    @org.spongepowered.asm.mixin.Unique
+    private static long farlands$mix(long rval, long value) {
+        // Fold the high 32 bits through the same LCG alongside the low half.
+        rval = LinearCongruentialGenerator.next(rval, (int) value);
+        rval = LinearCongruentialGenerator.next(rval, (int) (value >>> 32));
+        return rval;
+    }
+
+    @org.spongepowered.asm.mixin.Unique
+    private static double farlands$fiddledDistanceWide(long seed, long xRandom, long yRandom,
+        long zRandom, double distanceX, double distanceY, double distanceZ) {
+        if (xRandom == (long) (int) xRandom && yRandom == (long) (int) yRandom
+            && zRandom == (long) (int) zRandom) {
+            return getFiddledDistance(seed, (int) xRandom, (int) yRandom, (int) zRandom,
+                distanceX, distanceY, distanceZ);
+        }
+        long rval = seed;
+        rval = farlands$mix(rval, xRandom);
+        rval = farlands$mix(rval, yRandom);
+        rval = farlands$mix(rval, zRandom);
+        rval = farlands$mix(rval, xRandom);
+        rval = farlands$mix(rval, yRandom);
+        rval = farlands$mix(rval, zRandom);
+        double fiddleX = getFiddle(rval);
+        rval = LinearCongruentialGenerator.next(rval, (int) seed);
+        double fiddleY = getFiddle(rval);
+        rval = LinearCongruentialGenerator.next(rval, (int) seed);
+        double fiddleZ = getFiddle(rval);
+        return Mth.square(distanceZ + fiddleZ) + Mth.square(distanceY + fiddleY)
+            + Mth.square(distanceX + fiddleX);
     }
 
     @Inject(method = "getBiome", at = @At("HEAD"), cancellable = true)
@@ -49,8 +88,8 @@ public abstract class BiomeManagerWideMixin {
             double distanceX = xEven ? fractX : fractX - 1.0;
             double distanceY = yEven ? fractY : fractY - 1.0;
             double distanceZ = zEven ? fractZ : fractZ - 1.0;
-            double next = getFiddledDistance(biomeZoomSeed, (int) cornerX, (int) cornerY,
-                (int) cornerZ, distanceX, distanceY, distanceZ);
+            double next = farlands$fiddledDistanceWide(biomeZoomSeed, cornerX, cornerY,
+                cornerZ, distanceX, distanceY, distanceZ);
             if (minFiddledDistance > next) {
                 minI = i;
                 minFiddledDistance = next;

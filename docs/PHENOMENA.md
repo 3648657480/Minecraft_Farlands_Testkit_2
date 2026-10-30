@@ -127,13 +127,22 @@ int cellX = Mth.floor(cloudX / 12.0);
 
 不再是 int 截断后的 `ocean`。`norm` 与 `seam` 均通过（normal 快速路径未变）。
 
+**wide zoom（2026-10-30）**：`BiomeManagerWideMixin` 新增
+`farlands$fiddledDistanceWide`：corner 坐标超出 int 时，把 long 的低/高 32 位
+分别过同一个 LCG；normal 仍走原 `getFiddledDistance` int 路径。
+
+```text
+[BIOMEFAR] x=2^53..+31：20 列 stony_shore，12 列 birch_forest
+```
+
+`norm` 与 `seam` 均通过（normal 快速路径未变）。
+
 **剩余**：
 
-- biome zoom 的 `getFiddledDistance` 仍用 int corner hash；8 个相邻列在 2^53 可能仍选同一 corner；
 - `End`/`Fixed`/`Checkerboard` 等其它 `BiomeSource` 还没有 wide 入口；
 - 客户端 `BiomeManager` 仍只走 ServerLevel wide 分支。
 
-**状态**：wide 入口已工作；zoom/其它 source 另做，不宣称“全部 biome 已宽”。
+**状态**：wide 入口 + wide zoom 已工作；其它 source/client 另做，不宣称“全部 biome 已宽”。
 
 ## 记录规则
 

@@ -9,7 +9,7 @@
 > **W0 审计（完成 2026-10-29）**：`docs/WIDE-AUDIT.md`；**先看 G0 含水层红线**——现有 normal/seam/dist 指纹可能建立在含水层降级地形上。
 > **W0.5（已修 2026-10-29）**：`FarAquiferHelper.at` 链接已补 + 限流 fallback 日志；5/5 门禁指纹不变、无 fallback 日志。行为中性，旧指纹在已测条件下仍有效。
 > **W1-0a（2026-10-30）**：`ChunkAccessWindowMixin.farlands$key` 改用 `chunkPos.widePos()`，不再用 `xLong/zLong`；norm/dist 通过。
-> **距离现象登记（2026-10-30）**：`docs/PHENOMENA.md`；**P0 2^53–56 密度 double 阶梯已实测**；P1 2^53 方块碰撞、P2 云消失 = **保留**；P5 2^53 块访问 alias = **已修**；P6 2^53 biome long-quart 入口 = **已接通**（zoom 仍 int）。
+> **距离现象登记（2026-10-30）**：`docs/PHENOMENA.md`；**P0 2^53–56 密度 double 阶梯已实测**；P1 2^53 方块碰撞、P2 云消失 = **保留**；P5 2^53 块访问 alias = **已修**；P6 2^53 biome long-quart + wide zoom = **已接通**（20/32 stony_shore，12/32 birch_forest）。
 
 ## 1. 现在什么能用（有门禁）
 
