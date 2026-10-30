@@ -3,7 +3,10 @@ package com.farlands.g2.mixin;
 import com.farlands.g2.client.RenderKeys;
 import com.farlands.g2.runtime.section.RenderSectionKeyAccessor;
 import com.farlands.g2.runtime.section.SectionKey;
+import com.farlands.g2.runtime.section.WideSectionAnchor;
+import java.math.BigInteger;
 import java.util.Iterator;
+import java.util.Objects;
 import net.minecraft.client.RotatingSectionStorage;
 import net.minecraft.core.SectionPos;
 import org.spongepowered.asm.mixin.Final;
@@ -32,13 +35,23 @@ public abstract class RotatingSectionStorageKeyMixin {
     @Shadow @Final private int sectionGridSizeXZ;
 
     @Unique private SectionPos farlands$lastCenter;
+    @Unique private BigInteger farlands$lastAnchorX;
+    @Unique private BigInteger farlands$lastAnchorZ;
+    @Unique private boolean farlands$loggedWideKey;
 
-    @Inject(method = "repositionCenter", at = @At("TAIL"))
+    @Inject(method = "repositionCenter", at = @At("RETURN"))
     private void farlands$assignKeys(SectionPos newCenter, CallbackInfoReturnable<Boolean> cir) {
-        if (newCenter.equals(this.farlands$lastCenter)) {
-            return; // same grid origin: keys cannot have changed
+        WideSectionAnchor anchor = (WideSectionAnchor) (Object) this;
+        BigInteger anchorX = anchor.farlands$wideAnchorX();
+        BigInteger anchorZ = anchor.farlands$wideAnchorZ();
+        if (newCenter.equals(this.farlands$lastCenter)
+            && Objects.equals(anchorX, this.farlands$lastAnchorX)
+            && Objects.equals(anchorZ, this.farlands$lastAnchorZ)) {
+            return; // same grid origin + anchor: keys cannot have changed
         }
         this.farlands$lastCenter = newCenter;
+        this.farlands$lastAnchorX = anchorX;
+        this.farlands$lastAnchorZ = anchorZ;
         int gridXZ = this.sectionGridSizeXZ;
         int gridY = this.sectionGridSizeY;
         int lowestX = newCenter.x() - this.radius;
@@ -54,7 +67,18 @@ public abstract class RotatingSectionStorageKeyMixin {
                 int z = rest / gridY;
                 int worldX = lowestX + Math.floorMod(x - lowestX, gridXZ);
                 int worldZ = lowestZ + Math.floorMod(z - lowestZ, gridXZ);
-                SectionKey key = SectionKey.of(worldX, this.minY + y, worldZ);
+                BigInteger keyX = anchorX == null ? BigInteger.valueOf(worldX)
+                    : anchorX.add(BigInteger.valueOf((long) worldX - newCenter.x()));
+                BigInteger keyZ = anchorZ == null ? BigInteger.valueOf(worldZ)
+                    : anchorZ.add(BigInteger.valueOf((long) worldZ - newCenter.z()));
+                SectionKey key = SectionKey.of(keyX, BigInteger.valueOf(this.minY + y), keyZ);
+                if (!farlands$loggedWideKey && anchorX != null
+                    && anchorX.abs().bitLength() > 40) {
+                    farlands$loggedWideKey = true;
+                    System.out.println("[WIDEKEY] anchor=" + anchorX + "," + anchorZ
+                        + " center=" + newCenter + " key=" + key);
+                    System.out.flush();
+                }
                 if (!key.equals(accessor.farlands$getKey())) {
                     accessor.farlands$setKey(key);
                 } else if (value instanceof net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection section) {

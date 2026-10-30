@@ -93,6 +93,20 @@ public class ClientBandFollowMixin {
         if (viewArea == null) {
             return;
         }
+        var camPos = mc.gameRenderer.mainCamera().position();
+        if (Math.abs(camPos.x) > 1.0E12
+            && viewArea instanceof com.farlands.g2.runtime.section.WideViewArea wideView) {
+            java.math.BigInteger ax = java.math.BigInteger.valueOf(
+                Math.floorDiv((long) Math.floor(camPos.x), 16L));
+            java.math.BigInteger az = java.math.BigInteger.valueOf(
+                Math.floorDiv((long) Math.floor(camPos.z), 16L));
+            if (wideView.farlands$setWideAnchor(ax, az)) {
+                viewArea.repositionCamera(net.minecraft.core.SectionPos.of(
+                    mc.player.blockPosition()));
+                System.out.println("[WIDESET] anchor=" + ax + "," + az);
+                System.out.flush();
+            }
+        }
         // On re-entry the chunks load with the window already moved and no band
         // bridge runs, so nothing marks the sections dirty; force one full renderer
         // reload when the player first stands in a far window.

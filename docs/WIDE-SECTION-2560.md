@@ -30,7 +30,7 @@
 |---|---|---|
 | chunk section 存储 | `WindowedChunk.farlands$all` key = `WideSectionKey2560` | 部分（far-Y 侧车） |
 | 存档 sidecar | v2：section key 写 2560（X/Y/Z BigInteger），文件名 wide chunk 哈希；v1 可读 | **是（S1 完成）** |
-| render key | `SectionKey` 已是 2560-native BigInteger（2^1016 可构造）；render grid 仍 int | 部分（S2 key 完成，S2b grid 未做） |
+| render key | `SectionKey` 2560-native；storage 持 wide anchor，node key=2^49；ViewArea/culling 仍 int | 部分（S2b1/2 完成，S2b3 未做） |
 | block 访问 | `WideBlockAccess` 用 wide chunk + `WideSectionCoord512` | 部分 |
 | entity/light/POI/ViewArea | `SectionPos.asLong` / int 视图 | **否** |
 | 客户端 wide chunk | `WideChunkPacketStore`/`WideClientChunkStore` 用 wide ChunkPos，但段仍数组/无 2560 SectionPos | **否** |
@@ -48,7 +48,8 @@
 
 - [x] S1 存档：section key 写 2560（X/Y/Z BigInteger），read/write 往返；v1 兼容；
 - [x] S2 render key：`SectionKey` 2560-native（无 `longValueExact`），默认使用；long 只做视图；
-- [ ] S2b render grid：`RotatingSectionStorageKeyMixin`/`ViewArea` 仍用 int 坐标；far X 的 wide frame 未接通；
+- [x] **S2b1/S2b2**：storage 持 wide anchor；node key = anchor + local cell（2^49 实测）；
+- [ ] **S2b3**：ViewArea/SectionOcclusionGraph/culling 走 wide；当前 `camSection=absent`、`meshSec=0`；
 - [ ] S3 entity/light/POI/ViewArea：section 查找走 2560，long 只做局部；
 - [ ] S4 测试：2^53、2^88、2^1016 的 section key round-trip；save/reload；render key；无 int/long alias；
 - [ ] S5 门禁：默认配置下跑通 norm/seam/dist/save/render，不需要 `-D` 开关。

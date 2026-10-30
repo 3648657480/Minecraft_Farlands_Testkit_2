@@ -1,7 +1,21 @@
 # S2b：wide render grid（正路）
 
-> 2026-10-30。**状态：设计完成，代码未开始。**
+> 2026-10-30。**状态：S2b1/S2b2 已工作；S2b3 ViewArea/culling 未完成。**
 > 前提：S1 存档 2560、S2 `SectionKey` 2560-native 已完成；2560 生产门槛仍 NOT MET。
+
+**S2b1/S2b2 实测**：
+
+```text
+[WIDEKEY] anchor=562949953421312,0 center=(0,6,0)
+  key=SectionKey[562949953421312, -4, 0]
+```
+
+`RotatingSectionStorage` 现在持有 wide anchor，node 的 `SectionKey` 由
+`anchor + local cell` 生成；`@Inject` 从 `TAIL` 改为 `RETURN`，否则
+`repositionCenter` 的 HEAD early-return 会跳过 key 分配。
+
+仍未渲染：`camSection=absent`、`meshSec=0`，因为 `ViewArea` 的
+center/occlusion 仍是 int（S2b3）。
 
 ## 为什么不能“补 anchor”
 
@@ -32,11 +46,11 @@ WideSectionGrid
 
 ## 步骤
 
-- **S2b1**：`RotatingSectionStorage` 增加 wide center（BigInteger X/Z）；`repositionCenterWide(anchor, localCenter)`；旧的 int `repositionCenter` 只作为 local view 入口。
-- **S2b2**：每个 node 存 `SectionKey`（anchor + local cell）与 local `sectionNode`；`RenderSectionKey` 默认写入；`RenderKeys` 用 2560 key。
-- **S2b3**：`ViewArea.getRenderSection`/`getRenderSectionAt` 走 wide key；`SectionOcclusionGraph` 用 local handle；culling/AABB 读 wide key。
-- **S2b4**：2^53 客户端验证 `[WIDEKEY]` 真实 key = 2^49 段；随后 2^88；2^1016 的 render origin 另做 BigInteger 帧。
-- **S2b5**：norm/seam/coll 不回归；默认开启，无 `-D`。
+- [x] **S2b1**：`RotatingSectionStorage` 增加 wide center（BigInteger X/Z）；`ViewArea` 暴露 anchor；旧 int center 只作 local view。
+- [x] **S2b2**：每个 node 存 `SectionKey`（anchor + local cell）；`RenderSectionKey` 默认写入；`RenderKeys` 用 2560 key。
+- [ ] **S2b3**：`ViewArea.getRenderSection`/`getRenderSectionAt` 走 wide key；`SectionOcclusionGraph` 用 local handle；culling/AABB 读 wide key。
+- [ ] **S2b4**：2^53 客户端验证 `[WIDEKEY]` 真实 key = 2^49 段（已见）；随后 2^88；2^1016 的 render origin 另做 BigInteger 帧。
+- [ ] **S2b5**：norm/seam/coll 不回归；默认开启，无 `-D`。
 
 ## 硬约束
 
