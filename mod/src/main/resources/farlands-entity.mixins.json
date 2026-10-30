@@ -11,6 +11,8 @@
         "TeleportCommandMixin",
         "EntityMixin",
         "EntitySectionStorageMixin",
+        "BlockCollisionsWideChunkMixin",
+        "BlockCollisionsProbeMixin",
         "EntityFluidInteractionFarGuardMixin",
         "ChunkMapPlayerCloseMixin"
     ],

@@ -32,6 +32,25 @@ public class LevelAbsYFastMixin {
 
     @Inject(method = "getBlockState", at = @At("HEAD"), cancellable = true)
     private void farlands$absGet(BlockPos pos, CallbackInfoReturnable<BlockState> cir) {
+        // Far X/Z: Level.getBlockState uses getChunk(int,int) directly and never
+        // reaches the wide getChunkAt path. Resolve the wide chunk here so reads
+        // and writes at block 2^53 address the same chunk.
+        long x = pos.getLongX();
+        long z = pos.getLongZ();
+        if (x != (long) (int) x || z != (long) (int) z) {
+            Level self = (Level) (Object) this;
+            if (self instanceof net.minecraft.server.level.ServerLevel server) {
+                long cx = Math.floorDiv(x, 16L);
+                long cz = Math.floorDiv(z, 16L);
+                var chunk = server.getChunkSource().farlands$getChunkWide(
+                    new net.minecraft.world.level.ChunkPos(
+                        com.scalarwide.mc.WideChunkPos.of(cx, cz)));
+                if (chunk != null) {
+                    cir.setReturnValue(chunk.getBlockState(pos));
+                    return;
+                }
+            }
+        }
         long y = pos.getLongY();
         if (!farlands$far(y)) {
             return;

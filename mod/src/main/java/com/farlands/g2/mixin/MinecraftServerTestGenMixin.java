@@ -1162,6 +1162,9 @@ public abstract class MinecraftServerTestGenMixin {
                 if (Boolean.getBoolean("farlands.diag.collision")) {
                     farlands$collisionProbe(level);
                 }
+                if (Boolean.getBoolean("farlands.diag.collisionWide")) {
+                    farlands$collisionWideProbe(level);
+                }
                 // Collision + picking at y = 2^31 (block 2147483648).
                 if (Boolean.getBoolean("farlands.diag.collisionY")) {
                     farlands$collisionYProbe(level);
@@ -1260,7 +1263,85 @@ public abstract class MinecraftServerTestGenMixin {
     }
 
     /**
-     * Far-Y collision / picking probe: block {@code y = 2^31} (section
+     * W1 far collision probe: place stone at block x=2^53 and iterate
+     * {@code level.getBlockCollisions}. Before the wide chunk lookup the
+     * collision path narrowed chunk 2^49 to int and queried the wrong chunk;
+     * expected after the fix: {@code n >= 1}. Also clip straight down to see
+     * whether the one-shot interaction path reaches the block at this scale.
+     */
+    @Unique
+    private static void farlands$collisionWideProbe(ServerLevel level) {
+        final long px = 1L << 53;
+        final int pz = 0;
+        try {
+            com.scalarwide.mc.WideChunkPos wide =
+                com.scalarwide.mc.WideChunkPos.of(px >> 4, pz >> 4);
+            net.minecraft.server.level.ServerChunkCache sc =
+                (net.minecraft.server.level.ServerChunkCache) level.getChunkSource();
+            net.minecraft.world.level.ChunkPos widePos =
+                new net.minecraft.world.level.ChunkPos(wide);
+            sc.farlands$addTicketWithRadiusW(
+                net.minecraft.server.level.TicketType.FORCED, widePos, 1);
+            net.minecraft.server.level.ChunkMap cm = sc.chunkMap;
+            net.minecraft.server.level.ChunkHolder holder = null;
+            for (int spin = 0; spin < 600; spin++) {
+                cm.getDistanceManager().runAllUpdates(cm);
+                cm.runGenerationTasks();
+                holder = cm.farlands$getUpdatingChunkW(wide);
+                if (holder != null && holder.getFullChunkFuture().isDone()) {
+                    break;
+                }
+                Thread.onSpinWait();
+            }
+            var chunk = sc.farlands$getChunkWide(widePos);
+            int surf = chunk == null ? 64
+                : chunk.getHeight(Heightmap.Types.WORLD_SURFACE, 0, 0);
+            int py = surf + 6;
+            net.minecraft.core.BlockPos bp =
+                new net.minecraft.core.BlockPos(px, py, pz);
+            if (chunk != null) {
+                chunk.setBlockState(bp,
+                    net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
+            }
+            boolean set = chunk != null
+                && chunk.getBlockState(bp).is(net.minecraft.world.level.block.Blocks.STONE);
+            String placed = level.getBlockState(bp).getBlock().toString();
+            String chunkState = chunk == null ? "null" : chunk.getBlockState(bp).toString();
+            net.minecraft.world.phys.AABB small = new net.minecraft.world.phys.AABB(
+                px + 0.2, py, pz + 0.2, px + 0.8, py + 1.8, pz + 0.8);
+            net.minecraft.world.phys.AABB wideBox = new net.minecraft.world.phys.AABB(
+                px + 0.2, py, pz + 0.2, px + 2.8, py + 2.8, pz + 2.8);
+            int n06 = 0;
+            for (var ignored : level.getBlockCollisions(null, small)) {
+                n06++;
+            }
+            int n25 = 0;
+            for (var ignored : level.getBlockCollisions(null, wideBox)) {
+                n25++;
+            }
+            net.minecraft.world.phys.BlockHitResult hit = level.clip(
+                new net.minecraft.world.level.ClipContext(
+                    new net.minecraft.world.phys.Vec3(px + 0.5, py + 3.0, pz + 0.5),
+                    new net.minecraft.world.phys.Vec3(px + 0.5, py - 1.0, pz + 0.5),
+                    net.minecraft.world.level.ClipContext.Block.OUTLINE,
+                    net.minecraft.world.level.ClipContext.Fluid.NONE,
+                    net.minecraft.world.phys.shapes.CollisionContext.empty()));
+            boolean miss = hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS;
+            System.out.println("[COLLWIDE] x=" + px + " y=" + py
+                + " chunk=" + (px >> 4) + " surf=" + surf
+                + " set=" + set + " placed=" + placed + " chunkState=" + chunkState
+                + " n06=" + n06 + " n25=" + n25 + " clipMiss=" + miss
+                + (miss ? "" : (" clipBlock=" + hit.getBlockPos().getLongX() + ","
+                    + hit.getBlockPos().getLongY() + ","
+                    + hit.getBlockPos().getLongZ())));
+        } catch (Throwable t) {
+            System.out.println("[COLLWIDE] FAILED: " + t);
+            t.printStackTrace(System.out);
+        }
+        System.out.flush();
+    }
+
+    /**
      * 134217728), flag {@code -Dfarlands.diag.collisionY=true}.
      *
      * <p>Places stone at {@code (8, 2147483648, 8)}, then:</p>

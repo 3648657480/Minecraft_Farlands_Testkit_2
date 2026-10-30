@@ -66,7 +66,9 @@ public class LevelGetChunkAtWideMixin {
                 System.out.flush();
             }
         }
-        if (Math.abs((long) sx) < 134_217_000L && Math.abs((long) sz) < 134_217_000L) {
+        if (trueSectionX == (long) sx && trueSectionZ == (long) sz
+            && Math.abs(trueSectionX) < 134_217_000L
+            && Math.abs(trueSectionZ) < 134_217_000L) {
             cir.setReturnValue(self.getChunk(sx, sz));
             return;
         }
