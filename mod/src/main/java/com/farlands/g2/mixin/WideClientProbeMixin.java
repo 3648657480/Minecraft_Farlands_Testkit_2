@@ -31,10 +31,25 @@ public class WideClientProbeMixin {
             return;
         }
         for (var packet : WideChunkPacketStore.all()) {
+            var buffer = new net.minecraft.network.FriendlyByteBuf(
+                io.netty.buffer.Unpooled.wrappedBuffer(packet.data()));
+            int count = buffer.readVarInt();
+            int minSy = buffer.readVarInt();
+            int nonAir = 0;
+            for (int i = 0; i < count; i++) {
+                var section = new net.minecraft.world.level.chunk.LevelChunkSection(
+                    mc.level.palettedContainerFactory());
+                section.read(buffer);
+                if (!section.hasOnlyAir()) {
+                    nonAir++;
+                }
+            }
             System.out.println("[WIDECLIENT] pos=" + packet.pos()
                 + " minSy=" + packet.minSectionY()
                 + " sections=" + packet.sections()
-                + " bytes=" + packet.data().length);
+                + " bytes=" + packet.data().length
+                + " decodedSections=" + count + " minSyRead=" + minSy
+                + " nonAirSections=" + nonAir);
         }
         System.out.flush();
     }
