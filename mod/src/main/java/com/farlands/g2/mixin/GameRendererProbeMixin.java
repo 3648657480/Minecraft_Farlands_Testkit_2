@@ -66,7 +66,7 @@ public class GameRendererProbeMixin {
         }
         if (!farlands$shot && mc.player != null
             && Math.abs(mc.player.getX()) > 1.0E12) {
-            if (++farlands$farFrames >= 30) {
+            if (++farlands$farFrames >= 3000) {
                 farlands$shot = true;
                 net.minecraft.client.Screenshot.grab(mc, false);
                 System.out.println("[WIDESHOT] grabbed at " + mc.player.position());
