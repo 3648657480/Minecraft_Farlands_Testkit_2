@@ -98,7 +98,8 @@ public abstract class BiomeManagerWideMixin {
         long biomeX = (minI & 4) == 0 ? parentX : parentX + 1L;
         long biomeY = (minI & 2) == 0 ? parentY : parentY + 1L;
         long biomeZ = (minI & 1) == 0 ? parentZ : parentZ + 1L;
-        if (noiseBiomeSource instanceof net.minecraft.server.level.ServerLevel server) {
+        if (Boolean.getBoolean("farlands.biome.wide")
+            && noiseBiomeSource instanceof net.minecraft.server.level.ServerLevel server) {
             var sampler = server.getChunkSource().randomState().sampler();
             var source = server.getChunkSource().getGenerator().getBiomeSource();
             if (source instanceof com.farlands.g2.runtime.WideBiomeSource wide) {

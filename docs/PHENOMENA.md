@@ -142,7 +142,11 @@ int cellX = Mth.floor(cloudX / 12.0);
 - `End`/`Fixed`/`Checkerboard` 等其它 `BiomeSource` 还没有 wide 入口；
 - 客户端 `BiomeManager` 仍只走 ServerLevel wide 分支。
 
-**状态**：wide 入口 + wide zoom 已工作；其它 source/client 另做，不宣称“全部 biome 已宽”。
+**状态**：wide 入口 + wide zoom 已工作；但**默认关闭**
+（`-Dfarlands.biome.wide=true` 才启用）。默认生产路径仍走 int quart，
+2^53 保留 `ocean` 的 int 现象；wide 的 `stony_shore`/混合群系只是诊断对照，
+用于验证 long-quart 链路，不作为默认现象替换。其它 `End`/`Fixed`/`Checkerboard`
+与客户端另做，不宣称“全部 biome 已宽”。
 
 ## 记录规则
 

@@ -12,6 +12,18 @@
 - 默认开启，不能靠 `-Dfarlands.render.wideKeys=true` 才启用；
 - 生产路径上不得出现 `longValueExact()` 把 2560 压回 long 的身份转换。
 
+## 现象保留原则（所有者 2026-10-30）
+
+**wide 只负责寻址；距离现象留在原来的 int/long/double 路径。**
+
+- 身份/寻址：`WideSectionKey2560`；
+- 现象：该用 int 的地方继续 int（饱和、wrap、clamp），该用 long 的继续 long，
+  该用 double 的继续 double（ulp/rounding）；
+- 从 2560 到 int/long 的转换必须是**显式 view**，不能在身份层静默截断；
+- 不允许因为“宽化”而把 int-only/long-only 现象“修正”掉；
+- 例：P1 碰撞 AABB 继续 double；P2 云继续 int；P6 默认 biome 继续 int quart，
+  wide biome 仅诊断开关。
+
 ## 当前审计
 
 | 路径 | 现状 | 满足? |
