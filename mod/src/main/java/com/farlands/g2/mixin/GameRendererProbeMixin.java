@@ -17,6 +17,8 @@ public class GameRendererProbeMixin {
 
     @Unique private static boolean farlands$logged;
     @Unique private static boolean farlands$loggedGizmo;
+    @Unique private static boolean farlands$shot;
+    @Unique private static int farlands$farFrames;
 
     @Inject(method = "render", at = @At("HEAD"))
     private void farlands$probe(CallbackInfo ci) {
@@ -61,6 +63,15 @@ public class GameRendererProbeMixin {
             System.out.println("[WIDEGIZMO] sections=" + drawn + " at " + x + "," + z
                 + " minSy=" + minSy);
             System.out.flush();
+        }
+        if (!farlands$shot && mc.player != null
+            && Math.abs(mc.player.getX()) > 1.0E12) {
+            if (++farlands$farFrames >= 30) {
+                farlands$shot = true;
+                net.minecraft.client.Screenshot.grab(mc, false);
+                System.out.println("[WIDESHOT] grabbed at " + mc.player.position());
+                System.out.flush();
+            }
         }
     }
 }
