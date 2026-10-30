@@ -104,6 +104,23 @@ int cellX = Mth.floor(cloudX / 12.0);
 
 **现状**：`[COLLWIDE]` 中 `placed=stone`、`chunkState=stone`；这是身份修复，不改变 P1 的 AABB 塌缩。
 
+## P6 — 2^53 biome 仍是 int quart alias（待宽化）
+
+**实测**：`-Dfarlands.testgen.biomefar=9007199254740992,8,0,64`，`Level.getBiome` 在
+`x=2^53..2^53+7` 全部返回 `minecraft:ocean`。
+
+**代码**：
+
+- `BiomeManagerWideMixin:52/59-61` 仍把 `cornerX/biomeX` cast 成 int；
+- `NoiseBiomeSource.getNoiseBiome(int,int,int)` 是 int quart API；
+- `Climate.Sampler.sample(int quartX,...)` 也是 int quart API。
+
+2^53 的 quart 是 2^51，无法进入这些 API；因此 biome 仍会被 int 截断。
+这不是“改一个 cast”，需要 long/wide quart 的 `Climate.Sampler` + `NoiseBiomeSource` +
+`BiomeManager` 链路；属于 W1-5 的结构性工作，暂不改。
+
+**状态**：阻塞于 int quart API；先记录，不修。
+
 ## 记录规则
 
 - 每条必须写：构建/commit、种子、坐标、开关、预期、实测、结论；

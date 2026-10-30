@@ -510,6 +510,24 @@ public abstract class MinecraftServerTestGenMixin {
                         + " be=" + (be == null ? "null" : be.getType()));
                     System.out.flush();
                 }
+                // W1-5 biome: sample Level.getBiome at far X. Format: x0,count,z,y.
+                String biomeFar = System.getProperty("farlands.testgen.biomefar");
+                if (biomeFar != null && !biomeFar.isEmpty()) {
+                    String[] bp = biomeFar.split(",");
+                    long bx0 = Long.parseLong(bp[0].trim());
+                    int bcount = bp.length > 1 ? Integer.parseInt(bp[1].trim()) : 8;
+                    int bz = bp.length > 2 ? Integer.parseInt(bp[2].trim()) : 0;
+                    int by = bp.length > 3 ? Integer.parseInt(bp[3].trim()) : 64;
+                    for (int i = 0; i < bcount; i++) {
+                        long bx = bx0 + i;
+                        var biome = level.getBiome(new net.minecraft.core.BlockPos(bx, by, bz));
+                        String key = biome.unwrapKey()
+                            .map(Object::toString).orElse("unregistered");
+                        System.out.println("[BIOMEFAR] x=" + bx + " y=" + by + " z=" + bz
+                            + " dx=" + i + " biome=" + key);
+                    }
+                    System.out.flush();
+                }
                 // W1-5: absolute-double density at a far X. Format:
                 // x0,count,z,y -- samples x0..x0+count-1 with the real router.
                 String densityFar = System.getProperty("farlands.testgen.densityfar");
