@@ -10,6 +10,7 @@
         "ClientAutoTestMixin",
         "SkyFlickerProbeMixin",
         "WideClientProbeMixin",
+        "WideChunkHudMixin",
         "FrustumMixin",
         "OctreeMixin",
         "CameraMixin",

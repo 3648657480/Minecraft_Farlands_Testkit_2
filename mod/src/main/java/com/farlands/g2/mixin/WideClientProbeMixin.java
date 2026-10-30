@@ -35,15 +35,20 @@ public class WideClientProbeMixin {
                 io.netty.buffer.Unpooled.wrappedBuffer(packet.data()));
             int count = buffer.readVarInt();
             int minSy = buffer.readVarInt();
+            var sections = new net.minecraft.world.level.chunk.LevelChunkSection[count];
             int nonAir = 0;
             for (int i = 0; i < count; i++) {
                 var section = new net.minecraft.world.level.chunk.LevelChunkSection(
                     mc.level.palettedContainerFactory());
                 section.read(buffer);
+                sections[i] = section;
                 if (!section.hasOnlyAir()) {
                     nonAir++;
                 }
             }
+            com.farlands.g2.client.WideClientChunkStore.set(
+                new com.farlands.g2.client.WideClientChunkStore.Data(
+                    packet.pos(), minSy, sections));
             System.out.println("[WIDECLIENT] pos=" + packet.pos()
                 + " minSy=" + packet.minSectionY()
                 + " sections=" + packet.sections()
