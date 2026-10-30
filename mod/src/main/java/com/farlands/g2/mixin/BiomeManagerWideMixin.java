@@ -56,9 +56,18 @@ public abstract class BiomeManagerWideMixin {
                 minFiddledDistance = next;
             }
         }
-        int biomeX = (int) ((minI & 4) == 0 ? parentX : parentX + 1L);
-        int biomeY = (int) ((minI & 2) == 0 ? parentY : parentY + 1L);
-        int biomeZ = (int) ((minI & 1) == 0 ? parentZ : parentZ + 1L);
-        cir.setReturnValue(noiseBiomeSource.getNoiseBiome(biomeX, biomeY, biomeZ));
+        long biomeX = (minI & 4) == 0 ? parentX : parentX + 1L;
+        long biomeY = (minI & 2) == 0 ? parentY : parentY + 1L;
+        long biomeZ = (minI & 1) == 0 ? parentZ : parentZ + 1L;
+        if (noiseBiomeSource instanceof net.minecraft.server.level.ServerLevel server) {
+            var sampler = server.getChunkSource().randomState().sampler();
+            var source = server.getChunkSource().getGenerator().getBiomeSource();
+            if (source instanceof com.farlands.g2.runtime.WideBiomeSource wide) {
+                cir.setReturnValue(wide.getNoiseBiomeWide(biomeX, biomeY, biomeZ, sampler));
+                return;
+            }
+        }
+        cir.setReturnValue(noiseBiomeSource.getNoiseBiome((int) biomeX, (int) biomeY,
+            (int) biomeZ));
     }
 }

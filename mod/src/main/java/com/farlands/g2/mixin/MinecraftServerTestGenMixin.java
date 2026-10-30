@@ -510,6 +510,35 @@ public abstract class MinecraftServerTestGenMixin {
                         + " be=" + (be == null ? "null" : be.getType()));
                     System.out.flush();
                 }
+                // W1-5 long-quart biome probe: x0,count,z,y.
+                String biomeWide = System.getProperty("farlands.testgen.biomewide");
+                if (biomeWide != null && !biomeWide.isEmpty()) {
+                    String[] wp = biomeWide.split(",");
+                    long wx0 = Long.parseLong(wp[0].trim());
+                    int wcount = wp.length > 1 ? Integer.parseInt(wp[1].trim()) : 8;
+                    int wz = wp.length > 2 ? Integer.parseInt(wp[2].trim()) : 0;
+                    int wy = wp.length > 3 ? Integer.parseInt(wp[3].trim()) : 64;
+                    var wSampler = level.getChunkSource().randomState().sampler();
+                    var wSource = level.getChunkSource().getGenerator().getBiomeSource();
+                    if (wSource instanceof com.farlands.g2.runtime.WideBiomeSource wb) {
+                        for (int i = 0; i < wcount; i++) {
+                            long wx = wx0 + i;
+                            long qx = Math.floorDiv(wx, 4L);
+                            long qy = Math.floorDiv(wy, 4L);
+                            long qz = Math.floorDiv(wz, 4L);
+                            var biome = wb.getNoiseBiomeWide(qx, qy, qz, wSampler);
+                            String key = biome.unwrapKey()
+                                .map(Object::toString).orElse("unregistered");
+                            System.out.println("[BIOMEWIDE] x=" + wx + " y=" + wy + " z=" + wz
+                                + " quart=" + qx + "," + qy + "," + qz
+                                + " dx=" + i + " biome=" + key);
+                        }
+                    } else {
+                        System.out.println("[BIOMEWIDE] unsupported source="
+                            + wSource.getClass().getName());
+                    }
+                    System.out.flush();
+                }
                 // W1-5 biome: sample Level.getBiome at far X. Format: x0,count,z,y.
                 String biomeFar = System.getProperty("farlands.testgen.biomefar");
                 if (biomeFar != null && !biomeFar.isEmpty()) {

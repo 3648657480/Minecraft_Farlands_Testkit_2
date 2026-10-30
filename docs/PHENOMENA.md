@@ -104,22 +104,36 @@ int cellX = Mth.floor(cloudX / 12.0);
 
 **现状**：`[COLLWIDE]` 中 `placed=stone`、`chunkState=stone`；这是身份修复，不改变 P1 的 AABB 塌缩。
 
-## P6 — 2^53 biome 仍是 int quart alias（待宽化）
+## P6 — 2^53 biome long-quart（入口已接通）
 
-**实测**：`-Dfarlands.testgen.biomefar=9007199254740992,8,0,64`，`Level.getBiome` 在
-`x=2^53..2^53+7` 全部返回 `minecraft:ocean`。
+**修复前**：`-Dfarlands.testgen.biomefar=9007199254740992,8,0,64`，`Level.getBiome` 在
+`x=2^53..2^53+7` 全部返回 `minecraft:ocean`；`BiomeManagerWideMixin` 仍把
+`cornerX/biomeX` cast 成 int，`NoiseBiomeSource`/`Climate.Sampler` 都是 int quart API。
 
-**代码**：
+**实现**：
 
-- `BiomeManagerWideMixin:52/59-61` 仍把 `cornerX/biomeX` cast 成 int；
-- `NoiseBiomeSource.getNoiseBiome(int,int,int)` 是 int quart API；
-- `Climate.Sampler.sample(int quartX,...)` 也是 int quart API。
+- `ClimateWide.target`：long quart → long block → `RealContext`，算六个 climate 值；
+- `WideBiomeSource` + `MultiNoiseBiomeSourceWideMixin`：long quart 的
+  `getNoiseBiomeWide`，走同一个 `ParameterList`；
+- `BiomeManagerWideMixin`：far 路径对 `ServerLevel` 取 generator/sampler，调用
+  wide 入口；normal 仍走 int 快速路径。
 
-2^53 的 quart 是 2^51，无法进入这些 API；因此 biome 仍会被 int 截断。
-这不是“改一个 cast”，需要 long/wide quart 的 `Climate.Sampler` + `NoiseBiomeSource` +
-`BiomeManager` 链路；属于 W1-5 的结构性工作，暂不改。
+**实测 after**：
 
-**状态**：阻塞于 int quart API；先记录，不修。
+```text
+[BIOMEFAR] x=2^53..+7 biome=minecraft:stony_shore
+[BIOMEWIDE] quart=2251799813685248,... biome=minecraft:stony_shore
+```
+
+不再是 int 截断后的 `ocean`。`norm` 与 `seam` 均通过（normal 快速路径未变）。
+
+**剩余**：
+
+- biome zoom 的 `getFiddledDistance` 仍用 int corner hash；8 个相邻列在 2^53 可能仍选同一 corner；
+- `End`/`Fixed`/`Checkerboard` 等其它 `BiomeSource` 还没有 wide 入口；
+- 客户端 `BiomeManager` 仍只走 ServerLevel wide 分支。
+
+**状态**：wide 入口已工作；zoom/其它 source 另做，不宣称“全部 biome 已宽”。
 
 ## 记录规则
 

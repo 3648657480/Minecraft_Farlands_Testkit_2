@@ -34,6 +34,7 @@
         "SerializableChunkDataWindowMixin",
         "SerializableChunkDataFarStoreMixin",
         "LevelChunkPostLoadFarStoreMixin",
+        "MultiNoiseBiomeSourceWideMixin",
         "SerializableChunkDataAccessor",
         "ChunkStepCaptureMixin",
         "ServerTickFollowMixin",
