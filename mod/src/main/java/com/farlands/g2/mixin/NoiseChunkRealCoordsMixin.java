@@ -49,11 +49,11 @@ public abstract class NoiseChunkRealCoordsMixin implements com.farlands.g2.runti
                 + " inCellX=" + this.inCellX + " => wx=" + wx);
             System.out.flush();
         }
-        return (double) wx;
+        return (double) this.farlands$cellStartBlockXLong + (double) this.inCellX;
     }
 
     public double getBlockYDouble() {
-        return (double) (cellStartBlockY + inCellY);
+        return (double) this.cellStartBlockY + (double) this.inCellY;
     }
 
     public double getBlockZDouble() {
@@ -65,6 +65,6 @@ public abstract class NoiseChunkRealCoordsMixin implements com.farlands.g2.runti
                 + " inCellZ=" + this.inCellZ + " => wz=" + wz);
             System.out.flush();
         }
-        return (double) wz;
+        return (double) this.farlands$cellStartBlockZLong + (double) this.inCellZ;
     }
 }

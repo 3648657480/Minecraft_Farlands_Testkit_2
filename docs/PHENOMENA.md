@@ -40,6 +40,10 @@ double 行为，不是 int/模型。`prelim` 也随组跳变（48/56/64/80/88/11
 （`heights=68,62,62,62,62,62,62,62`，68 是探针放的石头），不能用来判定高度平台；
 密度层已经是直接证据。
 
+**实际 chunk 路径**：`NoiseChunkRealCoordsMixin.getBlockX/ZDouble` 已从
+`(double)(abs+local)` 改为 `(double)abs + local`；`norm` 与 `dist` 指纹不变，
+因为 chunk 2^49 的平坦海洋对 1 ulp 不敏感。该改动是形式正确性，不是新现象。
+
 ## P1 — 2^53 方块碰撞失效（保留）
 
 **条件**：`-Dfarlands.diag.collisionWide=true`；testgen 0,0；wide chunk 2^49 加载；在 `(2^53, 68, 0)` 直接 `chunk.setBlockState(STONE)`；AABB 0.6 和 2.5 格。
