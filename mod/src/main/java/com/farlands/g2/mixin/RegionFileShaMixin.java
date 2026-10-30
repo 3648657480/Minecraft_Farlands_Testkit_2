@@ -26,20 +26,53 @@ import org.spongepowered.asm.mixin.injection.Inject;
  *
  * <p>The old implementation hashed on every chunk read/write and used the first
  * 8 digest bytes as the cache key, so it paid SHA for cache hits and could alias
- * two different regions on a 64-bit digest collision. This version keys the LRU
- * by an exact {@code (rx,rz)} pair and computes the digest only on a miss.
- * The filename scheme is unchanged, so existing region files keep working.</p>
+ * two different regions on a 64-bit digest collision. This version keys a
+ * sharded LRU by the exact {@code (rx,rz)} pair and computes the digest only on
+ * a miss. Hits on different shards do not serialize on one global lock.</p>
+ *
+ * <p>The filename scheme is unchanged, so existing region files keep working.</p>
  */
 @Mixin(RegionFileStorage.class)
 public class RegionFileShaMixin {
+
+    private static final int SHARDS = 16;
+    private static final int PER_SHARD = 16;
 
     @Shadow @Final private RegionStorageInfo info;
     @Shadow @Final private Path folder;
     @Shadow @Final private boolean sync;
 
     @Unique
-    private final LinkedHashMap<RegionKey, RegionFile> farlands$regions =
-        new LinkedHashMap<>(256, 0.75f, true);
+    @SuppressWarnings("unchecked")
+    private volatile Map<RegionKey, RegionFile>[] farlands$shards;
+
+    @Unique
+    private volatile Object[] farlands$locks;
+
+    @Unique
+    private void farlands$ensureTables() {
+        if (this.farlands$shards != null && this.farlands$locks != null) {
+            return;
+        }
+        synchronized (this) {
+            if (this.farlands$shards == null) {
+                this.farlands$shards = (Map<RegionKey, RegionFile>[]) new Map[SHARDS];
+            }
+            if (this.farlands$locks == null) {
+                Object[] locks = new Object[SHARDS];
+                for (int i = 0; i < SHARDS; i++) {
+                    locks[i] = new Object();
+                }
+                this.farlands$locks = locks;
+            }
+        }
+    }
+
+    @Unique
+    private static int farlands$shard(long rx, long rz) {
+        long h = rx * 0x9E3779B97F4A7C15L ^ rz * 0xC2B2AE3D27D4EB4FL ^ (rz >>> 32);
+        return (int) (h & (SHARDS - 1));
+    }
 
     /**
      * @author G2
@@ -51,14 +84,20 @@ public class RegionFileShaMixin {
         long rx = pos.xLong() >> 5;
         long rz = pos.zLong() >> 5;
         RegionKey key = new RegionKey(rx, rz);
-        synchronized (this.farlands$regions) {
-            RegionFile hit = this.farlands$regions.get(key);
+        farlands$ensureTables();
+        int shard = farlands$shard(rx, rz);
+        synchronized (this.farlands$locks[shard]) {
+            Map<RegionKey, RegionFile> regions = this.farlands$shards[shard];
+            if (regions == null) {
+                regions = new LinkedHashMap<>(PER_SHARD, 0.75f, true);
+                this.farlands$shards[shard] = regions;
+            }
+            RegionFile hit = regions.get(key);
             if (hit != null) {
                 return hit;
             }
-            if (this.farlands$regions.size() >= 256) {
-                Iterator<Map.Entry<RegionKey, RegionFile>> it =
-                    this.farlands$regions.entrySet().iterator();
+            if (regions.size() >= PER_SHARD) {
+                Iterator<Map.Entry<RegionKey, RegionFile>> it = regions.entrySet().iterator();
                 if (it.hasNext()) {
                     RegionFile eldest = it.next().getValue();
                     it.remove();
@@ -70,22 +109,29 @@ public class RegionFileShaMixin {
             net.minecraft.util.FileUtil.createDirectoriesSafe(this.folder);
             Path file = this.folder.resolve(name);
             RegionFile created = new RegionFile(this.info, file, this.folder, this.sync);
-            this.farlands$regions.put(key, created);
+            regions.put(key, created);
             return created;
         }
     }
 
     @Inject(method = "close", at = @At("HEAD"))
     private void farlands$closeRegions(org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
-        synchronized (this.farlands$regions) {
-            for (RegionFile region : this.farlands$regions.values()) {
-                try {
-                    region.close();
-                } catch (IOException e) {
-                    System.out.println("[MCA] close failed: " + e);
+        farlands$ensureTables();
+        for (int i = 0; i < SHARDS; i++) {
+            synchronized (this.farlands$locks[i]) {
+                Map<RegionKey, RegionFile> regions = this.farlands$shards[i];
+                if (regions == null) {
+                    continue;
                 }
+                for (RegionFile region : regions.values()) {
+                    try {
+                        region.close();
+                    } catch (IOException e) {
+                        System.out.println("[MCA] close failed: " + e);
+                    }
+                }
+                regions.clear();
             }
-            this.farlands$regions.clear();
         }
     }
 
