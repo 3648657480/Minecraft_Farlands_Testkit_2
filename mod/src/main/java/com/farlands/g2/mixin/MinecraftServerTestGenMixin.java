@@ -510,6 +510,26 @@ public abstract class MinecraftServerTestGenMixin {
                         + " be=" + (be == null ? "null" : be.getType()));
                     System.out.flush();
                 }
+                // W1-6/S4: 2560-bit SectionKey round-trip at 2^53/2^88/2^1016.
+                String sectionKeyProbe = System.getProperty("farlands.testgen.sectionkey");
+                if (sectionKeyProbe != null && !sectionKeyProbe.isEmpty()) {
+                    for (int exp : new int[] {53, 88, 1016}) {
+                        java.math.BigInteger v = java.math.BigInteger.ONE.shiftLeft(exp);
+                        var key = com.farlands.g2.runtime.section.SectionKey.of(
+                            v, java.math.BigInteger.valueOf(4), v.negate());
+                        var restored = com.farlands.g2.runtime.section.SectionKey.of(key.wide);
+                        boolean same = key.equals(restored) && key.hashCode() == restored.hashCode();
+                        boolean offset = key.offset(1, 0, -1).equals(
+                            com.farlands.g2.runtime.section.SectionKey.of(
+                                v.add(java.math.BigInteger.ONE),
+                                java.math.BigInteger.valueOf(4), v.negate().subtract(
+                                    java.math.BigInteger.ONE)));
+                        System.out.println("[SECTIONKEY] exp=" + exp + " fitsLong="
+                            + key.fitsLong() + " same=" + same + " offset=" + offset
+                            + " key=" + key + " wideX=" + key.wide.x());
+                    }
+                    System.out.flush();
+                }
                 // W1-5 long-quart biome probe: x0,count,z,y.
                 String biomeWide = System.getProperty("farlands.testgen.biomewide");
                 if (biomeWide != null && !biomeWide.isEmpty()) {

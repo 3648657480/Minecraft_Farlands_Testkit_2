@@ -30,24 +30,25 @@
 |---|---|---|
 | chunk section 存储 | `WindowedChunk.farlands$all` key = `WideSectionKey2560` | 部分（far-Y 侧车） |
 | 存档 sidecar | v2：section key 写 2560（X/Y/Z BigInteger），文件名 wide chunk 哈希；v1 可读 | **是（S1 完成）** |
-| render key | `SectionKey` 包 2560，但 `of(Wide)` 用 `longValueExact`；`render.wideKeys` 默认关；`SectionPosHandles` key 是 int | **否** |
+| render key | `SectionKey` 已是 2560-native BigInteger（2^1016 可构造）；render grid 仍 int | 部分（S2 key 完成，S2b grid 未做） |
 | block 访问 | `WideBlockAccess` 用 wide chunk + `WideSectionCoord512` | 部分 |
 | entity/light/POI/ViewArea | `SectionPos.asLong` / int 视图 | **否** |
 | 客户端 wide chunk | `WideChunkPacketStore`/`WideClientChunkStore` 用 wide ChunkPos，但段仍数组/无 2560 SectionPos | **否** |
 
 ## 阻塞点
 
-1. `SectionKey.of(WideSectionKey2560)` 用 `longValueExact()`，超过 long 直接抛；`lx/ly/lz` 是 long 身份。
+1. （S2 已解）`SectionKey` 不再用 `longValueExact`；2560 身份可到 2^1016。
 2. `SectionPosHandles` 的 key 是 `(int,int,int)`，且默认关闭；handle 只是局部句柄。
 3. `SectionPos`（vanilla）是 29/29/6 long 打包；entity/light/ViewArea 仍以它为身份。
-4. 客户端只到 wide chunk store/HUD，没有 2560 SectionPos。
+4. 客户端只到 wide chunk store/HUD，没有 2560 SectionPos；render grid 仍 int（S2b）。
 
 （S1 已把 sidecar 改成 v2 2560 key；v1 仍可读。）
 
 ## 生产 DoD
 
 - [x] S1 存档：section key 写 2560（X/Y/Z BigInteger），read/write 往返；v1 兼容；
-- [ ] S2 render：`SectionKey` 2560-native（无 longValueExact），默认开启；handle 只做局部视图；
+- [x] S2 render key：`SectionKey` 2560-native（无 `longValueExact`），默认使用；long 只做视图；
+- [ ] S2b render grid：`RotatingSectionStorageKeyMixin`/`ViewArea` 仍用 int 坐标；far X 的 wide frame 未接通；
 - [ ] S3 entity/light/POI/ViewArea：section 查找走 2560，long 只做局部；
 - [ ] S4 测试：2^53、2^88、2^1016 的 section key round-trip；save/reload；render key；无 int/long alias；
 - [ ] S5 门禁：默认配置下跑通 norm/seam/dist/save/render，不需要 `-D` 开关。
@@ -55,6 +56,9 @@
 **S1 证据**：`verify -Mode save` 通过；v2 文件由 wide chunk 哈希命名，section key
 写 BigInteger X/Y/Z；far-Y gold marker + normal-band chest 均 reload。当前测试的
 section Y 仍在 int 范围，但格式本身不再用 `longValueExact` 限制。
+
+**S2 证据**：`[SECTIONKEY]` 在 2^53 / 2^88 / 2^1016 均 `same=true offset=true`；
+2^88/2^1016 `fitsLong=false`，key 仍可构造/还原；`norm`/`coll` 通过。
 
 ## 规则
 
