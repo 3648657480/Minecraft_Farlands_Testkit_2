@@ -3,6 +3,32 @@
 > 2026-10-30，`main`。本文件只记录**我们构建/种子/坐标/条件下**的行为；外部文档（包括 1.19.2）只作 hypothesis，不作证据。
 > 原则：现象是真实引擎行为；只有破坏身份/存档/地形时才修。**现象保留，身份修复。**
 
+## P0 — 2^53 密度 double 平台（已实测，保留）
+
+**条件**：`-Dfarlands.testgen.densityfar=9007199254740992,8,0,64`；testgen 0,0；直接调用
+`level.getChunkSource().randomState().router().finalDensity().compute(new RealContext(x,64,0))`；未生成 chunk。
+
+**实测**：
+
+```text
+x=2^53+0  final=-0.14233328442531368  prelim=48
+x=2^53+1  final=-0.14233328442531368  prelim=48   ← 与 +0 相同
+x=2^53+2  final=-0.09500174422721318  prelim=56
+x=2^53+3  final=-0.10162980503114623  prelim=56
+x=2^53+4  final=-0.10162980503114623  prelim=56
+x=2^53+5  final=-0.10162980503114623  prelim=56
+x=2^53+6  final=-0.10447167056142298  prelim=56
+x=2^53+7  final=-0.1053947523069987   prelim=56
+```
+
+**机制**：`RealContext` 把 long 绝对坐标转成 double；2^53 的 `ulp=2`，
+`2^53` 与 `2^53+1` round 到同一个 double；`+3/+4/+5` round 到 `+4`。
+这是**绝对 double 量化**，不是 int clamp。
+
+**状态**：保留，已实测。实际 chunk 的高度扫描在 chunk 2^49 是平坦海洋
+（`heights=68,62,62,62,62,62,62,62`，68 是探针放的石头），不能用来判定高度平台；
+密度层已经是直接证据。
+
 ## P1 — 2^53 方块碰撞失效（保留）
 
 **条件**：`-Dfarlands.diag.collisionWide=true`；testgen 0,0；wide chunk 2^49 加载；在 `(2^53, 68, 0)` 直接 `chunk.setBlockState(STONE)`；AABB 0.6 和 2.5 格。

@@ -510,6 +510,26 @@ public abstract class MinecraftServerTestGenMixin {
                         + " be=" + (be == null ? "null" : be.getType()));
                     System.out.flush();
                 }
+                // W1-5: absolute-double density at a far X. Format:
+                // x0,count,z,y -- samples x0..x0+count-1 with the real router.
+                String densityFar = System.getProperty("farlands.testgen.densityfar");
+                if (densityFar != null && !densityFar.isEmpty()) {
+                    String[] fp = densityFar.split(",");
+                    long fx0 = Long.parseLong(fp[0].trim());
+                    int fcount = fp.length > 1 ? Integer.parseInt(fp[1].trim()) : 6;
+                    int fz = fp.length > 2 ? Integer.parseInt(fp[2].trim()) : 0;
+                    int fy = fp.length > 3 ? Integer.parseInt(fp[3].trim()) : 64;
+                    var fRouter = level.getChunkSource().randomState().router();
+                    for (int i = 0; i < fcount; i++) {
+                        long fx = fx0 + i;
+                        var fctx = new com.farlands.g2.runtime.RealContext(fx, fy, fz);
+                        double fd = fRouter.finalDensity().compute(fctx);
+                        double fpv = fRouter.preliminarySurfaceLevel().compute(fctx);
+                        System.out.println("[DENSITYFAR] x=" + fx + " y=" + fy + " z=" + fz
+                            + " dx=" + i + " final=" + fd + " prelim=" + fpv);
+                    }
+                    System.out.flush();
+                }
                 // Cwg (infs) density probe: fill a chunk window with the Cwg noise chain.
                 String cwgSy = System.getProperty("farlands.testgen.cwg");
                 if (cwgSy != null && !cwgSy.isEmpty()
@@ -1307,6 +1327,13 @@ public abstract class MinecraftServerTestGenMixin {
                 && chunk.getBlockState(bp).is(net.minecraft.world.level.block.Blocks.STONE);
             String placed = level.getBlockState(bp).getBlock().toString();
             String chunkState = chunk == null ? "null" : chunk.getBlockState(bp).toString();
+            StringBuilder heights = new StringBuilder();
+            if (chunk != null) {
+                for (int lx = 0; lx < 8; lx++) {
+                    heights.append(chunk.getHeight(Heightmap.Types.WORLD_SURFACE, lx, 0))
+                        .append(lx == 7 ? "" : ",");
+                }
+            }
             net.minecraft.world.phys.AABB small = new net.minecraft.world.phys.AABB(
                 px + 0.2, py, pz + 0.2, px + 0.8, py + 1.8, pz + 0.8);
             net.minecraft.world.phys.AABB wideBox = new net.minecraft.world.phys.AABB(
@@ -1330,6 +1357,7 @@ public abstract class MinecraftServerTestGenMixin {
             System.out.println("[COLLWIDE] x=" + px + " y=" + py
                 + " chunk=" + (px >> 4) + " surf=" + surf
                 + " set=" + set + " placed=" + placed + " chunkState=" + chunkState
+                + " heights=" + heights
                 + " n06=" + n06 + " n25=" + n25 + " clipMiss=" + miss
                 + (miss ? "" : (" clipBlock=" + hit.getBlockPos().getLongX() + ","
                     + hit.getBlockPos().getLongY() + ","
