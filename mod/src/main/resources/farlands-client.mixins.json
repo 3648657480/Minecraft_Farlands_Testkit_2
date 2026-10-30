@@ -9,6 +9,7 @@
         "ClientChunkCacheSeamLookupMixin",
         "ClientAutoTestMixin",
         "SkyFlickerProbeMixin",
+        "WideClientProbeMixin",
         "FrustumMixin",
         "OctreeMixin",
         "CameraMixin",

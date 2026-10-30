@@ -1374,6 +1374,26 @@ public abstract class MinecraftServerTestGenMixin {
                 && chunk.getBlockState(bp).is(net.minecraft.world.level.block.Blocks.STONE);
             String placed = level.getBlockState(bp).getBlock().toString();
             String chunkState = chunk == null ? "null" : chunk.getBlockState(bp).toString();
+            if (Boolean.getBoolean("farlands.diag.clientWideChunk") && chunk != null
+                && chunk instanceof com.farlands.g2.runtime.WindowedChunk windowed) {
+                int minSy = windowed.farlands$windowMinSectionY();
+                var sections = chunk.getSections();
+                var buffer = new net.minecraft.network.FriendlyByteBuf(
+                    io.netty.buffer.Unpooled.buffer());
+                buffer.writeVarInt(sections.length);
+                buffer.writeVarInt(minSy);
+                for (var section : sections) {
+                    section.write(buffer);
+                }
+                byte[] data = io.netty.buffer.ByteBufUtil.getBytes(buffer);
+                com.farlands.g2.runtime.WideChunkPacketStore.put(
+                    new com.farlands.g2.runtime.WideChunkPacketStore.Packet(
+                        chunk.getPos().widePos(), minSy, sections.length, data));
+                System.out.println("[WIDEPUSH] pos=" + chunk.getPos().widePos()
+                    + " minSy=" + minSy + " sections=" + sections.length
+                    + " bytes=" + data.length);
+                System.out.flush();
+            }
             StringBuilder heights = new StringBuilder();
             if (chunk != null) {
                 for (int lx = 0; lx < 8; lx++) {
