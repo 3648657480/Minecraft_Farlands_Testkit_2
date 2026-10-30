@@ -38,16 +38,28 @@ public class GameRendererProbeMixin {
         }
         double x = data.pos().x().toBigInteger().doubleValue() * 16.0;
         double z = data.pos().z().toBigInteger().doubleValue() * 16.0;
-        double y = data.minSectionY() * 16.0;
-        double height = data.sections().length * 16.0;
-        AABB box = new AABB(x, y, z, x + 16.0, y + height, z + 16.0);
+        int minSy = data.minSectionY();
+        int drawn = 0;
         try (Gizmos.TemporaryCollection collection =
                  mc.levelRenderer.collectPerFrameRenderThreadGizmos()) {
-            Gizmos.cuboid(box, GizmoStyle.stroke(0xFF00FF00, 4.0F));
+            for (int i = 0; i < data.sections().length; i++) {
+                var section = data.sections()[i];
+                if (section == null || section.hasOnlyAir()) {
+                    continue;
+                }
+                int sy = minSy + i;
+                double y0 = sy * 16.0;
+                AABB box = new AABB(x, y0, z, x + 16.0, y0 + 16.0, z + 16.0);
+                int color = section.getBlockState(8, 8, 8).is(net.minecraft.world.level.block.Blocks.WATER)
+                    ? 0x8000FFFF : 0xC0AAAAAA;
+                Gizmos.cuboid(box, GizmoStyle.stroke(color, 2.0F));
+                drawn++;
+            }
         }
         if (!farlands$loggedGizmo) {
             farlands$loggedGizmo = true;
-            System.out.println("[WIDEGIZMO] box=" + box);
+            System.out.println("[WIDEGIZMO] sections=" + drawn + " at " + x + "," + z
+                + " minSy=" + minSy);
             System.out.flush();
         }
     }
