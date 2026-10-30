@@ -3,7 +3,7 @@
 > 状态：**COMPLETE**（2026-10-29）
 > HEAD `5a9782f`；分支 `main`；5 个只读子智能体并行审计（A 服务端 chunk、B 生成/采样、C 客户端/渲染、D 持久化/网络、E 实体/tick/碰撞/testgen）。
 > 方式：read/grep/glob + 只读反编译；**未 build、未运行、未改代码**。
-> 契约：`docs/WIDE-CONTRACT.md` v1。
+> 契约：`docs/WIDE-CONTRACT.md` v2（2026-10-30）。
 
 ## 0. 一句话结论
 
@@ -77,11 +77,12 @@ W0 还发现一条**现有红线**：含水层 patcher 调用了不存在的方�
 
 - 身份层 wide 只在 key/调度；生成层最宽是 long：`ChunkPos.x/z` long（block ≤2^67）、`WideFrame`/`FramedPos` 全 long 且 **0 消费者**、`RealContext` 依赖 int/ThreadLocal。
 - **2^1016 地形在架构上不可达**（不是精度问题，是类型问题）；2^88 可达，但所有走 int 绝对的采样点会变成镜像别名。
+- 项目所有者 v2 已确认：**2^1016 inclusive 必须地形，>2^1016 才 void**。因此这里不是“改口径”，而是**必须补 wide 生成入口 + 非 int 采样**，是 W1-5 的硬里程碑。
 - `NoiseChunkRealCoordsMixin:42/56/60` 的 `(double)(long abs + int local)` 是契约禁止形；2^53~2^56 会比参考多出 1 ulp 级“过度精确”，Y 仍是 int 绝对。
 - 仍存活的 int 绝对：biome/climate quart（2^33 起）、prelim surface `ColumnPos` 键（2^31）、aquifer 流体格 `BlockPos.asLong`（2^31）、aquifer grid 下标（2^35）、Beardifier/Blender。
 - 后果：**密度形状 double 可能正确，但群系/流体/地表规则是镜像/低位别名**；不炸，且双跑一致，现有 norm/seam/dist 看不出。
 - `FarProjection.ORIGIN_X/Z`、`SurfaceWide.CURRENT`、`FarAquiferHelper.GRID` 是 ThreadLocal，契约禁止且从不清理；`FarRandom`/`SurfaceWide` 仍做 epoch 折叠；`applySamplePolicy` 的 clamp/quantize 仍在代码里；`NoiseChunkFarDensityMixin` 是 far 专用 raw 路径（默认关）。
-- `2^1016` 若本来只指 void/寻址而非地形，契约 §3 必须改写；若指地形，需要 wide 生成入口 + 非 int 采样，独立大工程。
+- 结论：**2^1016 地形是硬要求**；不得用 void/寻址口径替代；wide 生成入口是 W1-5 必需。
 
 ### G6 实体/tick/碰撞/POI（E）
 
@@ -157,13 +158,13 @@ W0 还发现一条**现有红线**：含水层 patcher 调用了不存在的方�
 - full 2560；saveX（chunk 2^28/2^31/2^49）；collwide；enttick；region；packet；aquifer 链接自检；normal 指纹。
 - BigInteger testgen（2^88/2^1027），失败显式 `input-unsupported`，不能混成 CRASH。
 
-## 6. 契约 v2 候选（需所有者批准，不改 v1）
+## 6. 契约 v2 已确认口径（2026-10-30）
 
-1. `save.max_xz`：`2^1027` → `2^1027−1`，或把 X/Z chunk 提到 1025 位。
-2. `save.max_y`：`2^515−1` 保持；§4 的“Y 侧车 int→long”改为“512 位 Y”。
-3. `save.format=wide-v1`：明确当前未实现，先不宣称。
-4. `generation.max_xz=2^1016`：当前生成架构只到 2^67（long），2^88 需 wide 入口；2^1016 地形需 wide 生成 + 非 int 采样。要么改口径为“2^1016 只 void/寻址”，要么加里程碑。
-5. 包：明确“单机也有包”，列出 X/Z 2^35、Y 2^31 的不支持清单，或列入 W1-4。
+1. `save.max_xz = 2^1027−1`（接受差 1 位，不加位）。
+2. `save.max_y = 2^515−1`；Y 侧车字段 **512 位**（不是 long）。
+3. `save.format=wide-v1`；**旧存档直接丢弃**，不读旧 NBT/旧侧车，不做迁移。
+4. `generation.max_xz=2^1016` **inclusive 必须地形**；>2^1016 void；2^88 是里程碑，不是上限。W1-5 必须补 wide 生成入口。
+5. 渲染：**无坐标 cap**；先拆 2^35 的 int 包/段墙，之后 double/float 自然失效；2^88/2^1016 是验收里程碑，不是停止条件。
 6. 移除契约禁止但代码存在的：`applySamplePolicy`、`FarRandom` epoch、ThreadLocal origin、far 专用 raw 双路径。
 
 ## 7. 开放问题
@@ -180,5 +181,5 @@ W0 还发现一条**现有红线**：含水层 patcher 调用了不存在的方�
 
 - **W0 的第一结论是基线红线，不是 wide 进度**：先修含水层链接并重跑，否则 normal/seam/dist 不可信。
 - **2^53 只是 headless 地形的窄胜利**；2^88/2^1027 需要 wide chunk 入口、Y 512、wide render frame、wide-v1 存档/包、实体/tick 宽键、生成采样宽化。
-- 2^1016 地形当前架构不可达；需契约 v2 明确“只 void/寻址”或加 wide 生成里程碑。
-- 之前“2^88 首版 5–9 天”的估算**作废**；W0.5/W1-0 完成后再给新估算。
+- v2 确认 **2^1016 inclusive 必须地形**；当前架构不可达，W1-5 必须补 wide 生成入口 + 非 int 采样；不得改成“只 void/寻址”。
+- 之前“2^88 首版 5–9 天”的估算**作废**；W0.5 已完成，W1-0a（wide key）已通过 norm/dist，后续按 W1 重估。

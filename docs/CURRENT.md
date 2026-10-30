@@ -5,9 +5,10 @@
 > B2/B3 tag `stabilize/B2-green-2026-10-29`；C 批 tag `stabilize/C-green-2026-10-29`；
 > D 批 tag `stabilize/D-green-2026-10-29`。
 > 新会话先读本页 + 跑 `tools\verify.ps1`，不要从 50 份文档里猜。
-> **世界契约（LOCKED 2026-10-29）**：`docs/WIDE-CONTRACT.md`；任何契约变更必须升版并显式批准，**不做游戏内热调试**。
+> **世界契约（LOCKED v2 2026-10-30）**：`docs/WIDE-CONTRACT.md`；任何契约变更必须升版并显式批准，**不做游戏内热调试**。
 > **W0 审计（完成 2026-10-29）**：`docs/WIDE-AUDIT.md`；**先看 G0 含水层红线**——现有 normal/seam/dist 指纹可能建立在含水层降级地形上。
 > **W0.5（已修 2026-10-29）**：`FarAquiferHelper.at` 链接已补 + 限流 fallback 日志；5/5 门禁指纹不变、无 fallback 日志。行为中性，旧指纹在已测条件下仍有效。
+> **W1-0a（2026-10-30）**：`ChunkAccessWindowMixin.farlands$key` 改用 `chunkPos.widePos()`，不再用 `xLong/zLong`；norm/dist 通过。
 
 ## 1. 现在什么能用（有门禁）
 

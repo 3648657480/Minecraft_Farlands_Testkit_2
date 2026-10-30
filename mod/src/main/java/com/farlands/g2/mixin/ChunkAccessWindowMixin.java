@@ -326,10 +326,12 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
 
     @Override
     public WideSectionKey2560 farlands$key(WideSectionCoord512 sectionY) {
-        // 512-bit Y identity. The scalar here is exact for every reachable value
-        // (block Y is bounded by double precision), so limb(0) is lossless.
-        return WideSectionKey2560.of(chunkPos.xLong(),
-            sectionY.toBigInteger().longValueExact(), chunkPos.zLong());
+        // W1-0: derive the 2560-bit key from the wide ChunkPos identity, not its
+        // 64-bit compatibility bridge. xLong()/zLong() are limb(0) only; at chunk
+        // 2^84 (block 2^88) they collapse to 0 and every far chunk shares a key.
+        var wide = chunkPos.widePos();
+        return WideSectionKey2560.of(wide.x().toBigInteger(),
+            sectionY.toBigInteger(), wide.z().toBigInteger());
     }
 
     @Override

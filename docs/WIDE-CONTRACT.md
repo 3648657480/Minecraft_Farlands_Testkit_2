@@ -1,9 +1,10 @@
-# G2 WIDE CONTRACT v1（锁定）
+# G2 WIDE CONTRACT v2（锁定）
 
-> 状态：**LOCKED**（2026-10-29）
+> 状态：**LOCKED v2**（2026-10-30；supersedes v1 2026-10-29）
 > 适用：`main`（`92b6244` 之后）
-> 决策人：项目所有者；本文是本轮对话的落盘记录。
-> 规则：契约变更必须升版（v2）并显式批准；**不做游戏内热调试**；上下文丢失时以本文为准。
+> 决策人：项目所有者；本文是对话决策的落盘记录。
+> v2 变更：地形上限保持 **2^1016 inclusive**；存档上限改为 **2^1027−1**；**旧存档直接丢弃**；Y 侧车改 **512 位**；**渲染无坐标 cap，自然失效**；2^88/2^1016 是里程碑。
+> 规则：契约变更必须再升版并显式批准；**不做游戏内热调试**；上下文丢失时以本文为准。
 
 ## 0. 一句话
 
@@ -14,18 +15,22 @@
 创建世界时写入存档 metadata（`level.dat` 或 sidecar），之后只读：
 
 ```text
-contract.version       = 1
+contract.version       = 2
 frame.layout           = section
 frame.localBits        = 4
 frame.context          = explicit          # 代码实现，不是玩家选项
 generation.mode        = hard_void          # X/Z；attempt 为实验档
-generation.max_xz      = 2^1016            # inclusive
+generation.max_xz      = 2^1016            # inclusive；2^1016 本身要地形
 generation.max_y       = 2^512             # inclusive
 y.hard_cap             = 2^515-1
 y.overflow             = fatal
-save.max_xz            = 2^1027            # 目标；精确边界见 §2
+y.sidecar              = 512-bit           # 文件 Y 字段必须 512 位
+save.max_xz            = 2^1027-1          # 有符号 1024 位 chunk 的精确上限
 save.max_y             = 2^515-1
 save.format            = wide-v1            # 计划中，未实现
+old_saves              = unsupported       # 旧存档直接丢弃，不做迁移
+render.mode            = natural           # 无坐标 cap；由 double/float 自然失效
+render.milestones      = 2^88/171.103, 2^1016
 multiplayer            = false
 ```
 
@@ -35,8 +40,8 @@ multiplayer            = false
 - 读档以存档契约为准，**配置不覆盖**；不一致时警告并忽略配置，或拒绝加载（测试世界除外）。
 - 警告放三处：创建世界界面、配置界面、启动日志。
 - 测试覆盖只允许 `-Dfarlands.test.contractOverride=true` + 一次性测试世界；普通世界拒绝。
-- 旧世界没有契约的，按默认写一次并标记 legacy；不静默改 frame/generation。
-- 改契约 = 新建世界，或显式迁移工具（另立项）；不是热调试。
+- 旧存档**不支持**：`wide-v1` 只写新格式，不读旧 NBT/旧侧车，不做迁移；旧世界直接重建。
+- 改契约 = 新建世界；不是热调试。
 
 ## 2. 坐标、身份、frame
 
@@ -58,7 +63,7 @@ multiplayer            = false
 - **section frame**：anchor = `WideSectionKey2560`，local = 0..15 三轴；绝对 = anchor + local。
 - **显式 `WideFrame`**：作为参数/上下文字段传递；不使用 ThreadLocal；normal 世界 anchor = 0，local 即绝对视图。
 - frame 不是 epoch：不持久化、不改变身份；距离按 abs wide/double 算。
-- **2^1027 精确边界**：`WideSectionKey` X/Z 1024 位有符号的 section 上限是 `2^1023−1`，对应 block 上限 `2^1027−1`。目标写 2^1027；W0 审计确认是否需要 1 位余量；**在验证前不宣称 2^1027 本身可寻址**。
+- **2^1027 精确边界**：`WideSectionKey` X/Z 1024 位有符号的 section 上限是 `2^1023−1`，对应 block 上限 **`2^1027−1`**。v2 明确写 `2^1027−1`；不宣称 block 2^1027 本身可寻址。
 - Y 只要求 512 位：section 上限 `2^511−1`，block 上限 `2^515−1`；不按 2^1027 规划 Y。
 
 ## 3. 生成、void、Y
@@ -66,7 +71,7 @@ multiplayer            = false
 | 区间 | 行为 |
 |---|---|
 | X/Z ≤ 2^1016 且 Y ≤ 2^512 | 正常生成（vanilla 路径 + wide 身份） |
-| X/Z > 2^1016 或 Y ∈ (2^512, 2^515−1] | **void**：chunk 存在、空气、无地形；允许 setblock/存档；不生成实体/tick；不要求渲染 |
+| X/Z > 2^1016 或 Y ∈ (2^512, 2^515−1] | **void**：chunk 存在、空气、无地形；允许 setblock/存档；不生成实体/tick；渲染按 §5 自然退化 |
 | Y > 2^515−1 | **fatal**：显式报错后崩游戏；不 clamp、不静默回绕 |
 
 细节：
@@ -83,9 +88,10 @@ multiplayer            = false
 
 ## 4. 存档、配置、联机
 
-- X/Z 存档目标 **2^1027**；Y 存档到 **2^515−1**；**不联机**。
-- 存档用 wide 键/NBT/region；Y 侧车从 int 改 **long**。现有 B1 侧车是 2^31 int Y，不是最终格式。
-- `save.format=wide-v1` 是计划项；未实现前不宣称 2^1027 存档已可用。
+- X/Z 存档上限 **2^1027−1**；Y 存档到 **2^515−1**；**不联机**。
+- 存档用 wide 键/NBT/region；Y 侧车字段必须 **512 位**（`long` 只到 block 2^67，不够）。现有 B1 侧车是 int Y，**不兼容、直接丢弃**。
+- `save.format=wide-v1` 是计划项；未实现前不宣称 2^1027−1 存档已可用。
+- **旧存档不支持**：不读旧 NBT/旧侧车，不做迁移；旧世界重建。
 - mode/max 创建时锁定；写入存档；读档以存档为准；不允许运行中改。
 - 配置来源：全局模板 + 每世界 `farlands.properties` + `-Dfarlands.*` 仅测试；普通世界不覆盖契约。
 
@@ -108,31 +114,38 @@ multiplayer            = false
   >2^1024     → double = Infinity（自然失效）
   ```
 
-- 2^1016 是最后一个“要求有地形”的档；>2^1016 不生成；2^1027 只寻址/存档/void，不宣称地形/渲染。
+- 2^1016 是最后一个“要求有地形”的档（inclusive）；>2^1016 不生成地形；2^1027−1 只寻址/存档/void。
+- **渲染无坐标 cap**：先拆掉 2^35 的 int 包/段墙；之后同一套代码一直画，由 double/float 自然失效（2^88 巨量量化、2^1016 更大图案/黑屏、>2^1024 Infinity）。2^88/2^1016 是验收里程碑，不是停止条件。
 - 2^88/171.103 是项目所有者给定的目标坐标；本项目只声明“在我们构建/种子/条件下的结果”，不评价外部记录。
 
 ## 6. 里程碑与验收
 
-- 档位：2^53（校准）→ 2^55/2^56 → 2^63 → 2^88/171.103 → 2^1016 → 2^1027（只寻址/存档/void）。
+- 档位：2^53（校准）→ 2^55/2^56 → 2^63 → **2^88/171.103（首个远域里程碑）** → **2^1016（地形上限）** → **2^1027−1（只寻址/存档/void）**。
 - 每档验收：wide identity round-trip；采样步长 = `Math.ulp`；同一坐标双跑一致；normal 指纹不变；无 Cwg/模型；没有 long/int 身份重建。
 - W0：wide 审计（`getLong*`/`ChunkPos.xLong`/`SectionPos.asLong`）+ `assert.wide` + BigInteger testgen。
-- 首个 pre-release 计划切 **2^88/171.103**；完整 2^1016/2^1027/Y 2^512 后续。**时间估算不是契约**，以 W0 结果为准。
+- 首个 pre-release 计划切 **2^88/171.103**；2^1016 地形/客户端随 W1 后续；**渲染无 cap，2^1016 是自然退化**。时间估算不是契约。
 
 ## 7. 明确不做 / 边界
 
 - 不做联机。
-- 不在 2^1027 做地形、不做渲染（void/setblock/存档可以）。
+- 2^1027−1 无地形（void/setblock/存档可以）；不设渲染 cap，客户端自然退化。
 - 不在 void 内生成实体/tick。
-- 不要求 2^1016 可玩渲染；2^1016 本身可能“炸稀碎”。
+- 2^1016 要求地形，但渲染不保证可玩；不设坐标 cap，由 double/float 自然失效。
 - 不要求 Y > 2^515−1；超过 fatal。
 - 不在 >2^1016 做地形；不在 >2^1024 做非 double 采样（没有地形，只有 Infinity/void）。
 - 不恢复 epoch/local domain；不做热调试；不静默回绕；不让 `Vec3i` 成为第二套身份。
 
 ## 8. 变更控制
 
-- 本文件 v1 = 锁定；任何契约字段变更必须升 v2，写清原因、影响、迁移、验收，并经项目所有者批准。
+- v1（2026-10-29）→ v2（2026-10-30）：
+  - 地形上限明确为 **2^1016 inclusive**；2^88 是里程碑；
+  - 存档上限改为 **2^1027−1**；
+  - **旧存档直接丢弃**，不做迁移；
+  - Y 侧车改 **512 位**；
+  - **渲染无坐标 cap，自然失效**；拆 2^35 类型墙。
+- 本文件 v2 = 锁定；再改必须升 v3，写清原因、影响、迁移、验收，并经项目所有者批准。
 - 代码/文档不得静默偏离本文件；发现冲突时以本文件为准并记录。
-- 旧世界保留自己的契约；不因新配置改旧世界。
+- 旧存档不保留、不迁移；新世界按 v2 契约创建。
 - 上下文丢失时：先读本文件 + `docs/CURRENT.md` + `docs/TOMBSTONE.md`。
 
 ## 9. 参考
