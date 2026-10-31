@@ -69,7 +69,8 @@ public class ClientAutoTestMixin {
         farlands$ticks++;
         switch (farlands$phase) {
             case 0 -> {
-                if (farlands$ticks > 100) {
+                int delayTicks = Integer.getInteger("farlands.autotest.delayTicks", 100);
+                if (farlands$ticks > delayTicks) {
                     mc.player.connection.sendCommand(Boolean.getBoolean("farlands.autotest.spectator")
                         ? "gamemode spectator" : "gamemode creative");
                     double tx = Double.parseDouble(System.getProperty("farlands.autotest.x", "2147483648.0"));
