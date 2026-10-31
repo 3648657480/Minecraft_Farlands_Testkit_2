@@ -8,4 +8,11 @@ public interface RenderSectionKeyAccessor {
     SectionKey farlands$getKey();
 
     void farlands$setKey(SectionKey key);
+
+    /** Wide section origin in blocks; not an int view. */
+    long farlands$wideOriginX();
+
+    long farlands$wideOriginY();
+
+    long farlands$wideOriginZ();
 }

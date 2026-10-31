@@ -28,10 +28,28 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
     @Shadow public abstract long getSectionNode();
 
     @Unique private SectionKey farlands$key;
+    @Unique private long farlands$wideOriginX;
+    @Unique private long farlands$wideOriginY;
+    @Unique private long farlands$wideOriginZ;
 
     @Override
     public SectionKey farlands$getKey() {
         return this.farlands$key;
+    }
+
+    @Override
+    public long farlands$wideOriginX() {
+        return this.farlands$wideOriginX;
+    }
+
+    @Override
+    public long farlands$wideOriginY() {
+        return this.farlands$wideOriginY;
+    }
+
+    @Override
+    public long farlands$wideOriginZ() {
+        return this.farlands$wideOriginZ;
     }
 
     @Inject(method = "setSectionNode", at = @At("HEAD"))
@@ -51,6 +69,9 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
         long lx = key.lx << 4;
         long ly = key.ly << 4;
         long lz = key.lz << 4;
+        this.farlands$wideOriginX = lx;
+        this.farlands$wideOriginY = ly;
+        this.farlands$wideOriginZ = lz;
         this.renderOrigin.set((int) lx, (int) ly, (int) lz);
         this.bb = new AABB((double) lx, (double) ly, (double) lz,
             (double) (lx + 16L), (double) (ly + 16L), (double) (lz + 16L));
