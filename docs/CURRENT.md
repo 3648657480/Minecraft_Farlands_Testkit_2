@@ -10,7 +10,7 @@
 > **W0.5（已修 2026-10-29）**：`FarAquiferHelper.at` 链接已补 + 限流 fallback 日志；5/5 门禁指纹不变、无 fallback 日志。行为中性，旧指纹在已测条件下仍有效。
 > **W1-0a（2026-10-30）**：`ChunkAccessWindowMixin.farlands$key` 改用 `chunkPos.widePos()`，不再用 `xLong/zLong`；norm/dist 通过。
 > **距离现象登记（2026-10-30）**：`docs/PHENOMENA.md`；**P0 2^53–56 密度 double 阶梯已实测**；P1 2^53 方块碰撞、P2 云消失 = **保留**；P5 2^53 块访问 alias = **已修**；P6 2^53 biome：默认 **int quart 现象保留**（ocean）；long-quart+wide zoom 仅 `-Dfarlands.biome.wide=true` 诊断。
-> **2560 生产门槛（2026-10-31）**：`docs/WIDE-SECTION-2560.md`；**NOT MET**。S1/S2/S2b1-3 完成；S2b4 单列 far mesh 已通（`356adfe`），2^53 手动正常，`norm/seam/coll/save/dist53` 全 PASS。首个预览门槛收窄为 **2^53**，S3 仅要求**玩家正常**（移动/碰撞/交互/存档）；其它实体、POI、光照不在首预览；2^88/2^1016 延后。剩余 2^53 玩家 soak、S5 默认门禁；pre-release 仍阻塞。
+> **2560 生产门槛（2026-10-31）**：`docs/WIDE-SECTION-2560.md`；**NOT MET**。S1/S2/S2b1-3 完成；S2b4 origin/far 数据/单列复制已修（`356adfe`），`norm/seam/coll/save/dist53` 全 PASS。首预览只承诺 **2^53**，目标稳定形态是 **3×3 far chunk 可显示、可保存、服务端持续发包**；9×9 同步生成会过载（451 ticks behind、rx=0），已回退为测试参数。多 chunk 渲染仍只覆盖中心；保存退出 ticket 移除补丁（`544f556`/141）未手动复验。S3 仅要求玩家正常；其它实体/POI/光照不在首预览；2^88/2^1016 延后。pre-release 仍阻塞。
 > **Checkpoint（2026-10-31）**：`docs/CHECKPOINT-2026-10-31.md`；HEAD `b10ad82`，`PATCH_REVISION 137`，树干净。
 
 ## 1. 现在什么能用（有门禁）
