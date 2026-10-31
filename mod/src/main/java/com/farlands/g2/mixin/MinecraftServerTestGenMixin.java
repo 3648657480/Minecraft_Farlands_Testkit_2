@@ -1367,8 +1367,10 @@ public abstract class MinecraftServerTestGenMixin {
                 (net.minecraft.server.level.ServerChunkCache) level.getChunkSource();
             net.minecraft.world.level.ChunkPos widePos =
                 new net.minecraft.world.level.ChunkPos(wide);
+            int pushRadius = Math.max(1,
+                Integer.getInteger("farlands.testgen.pushRadius", 1));
             sc.farlands$addTicketWithRadiusW(
-                net.minecraft.server.level.TicketType.FORCED, widePos, 1);
+                net.minecraft.server.level.TicketType.FORCED, widePos, pushRadius);
             net.minecraft.server.level.ChunkMap cm = sc.chunkMap;
             net.minecraft.server.level.ChunkHolder holder = null;
             for (int spin = 0; spin < 600; spin++) {
@@ -1396,9 +1398,10 @@ public abstract class MinecraftServerTestGenMixin {
             String chunkState = chunk == null ? "null" : chunk.getBlockState(bp).toString();
             if (Boolean.getBoolean("farlands.diag.clientWideChunk") && chunk != null) {
                 farlands$pushWideChunk(chunk);
+                int pushed = 1;
                 var base = chunk.getPos().widePos();
-                for (int dx = -1; dx <= 1; dx++) {
-                    for (int dz = -1; dz <= 1; dz++) {
+                for (int dx = -pushRadius; dx <= pushRadius; dx++) {
+                    for (int dz = -pushRadius; dz <= pushRadius; dz++) {
                         if (dx == 0 && dz == 0) {
                             continue;
                         }
@@ -1409,9 +1412,12 @@ public abstract class MinecraftServerTestGenMixin {
                             new net.minecraft.world.level.ChunkPos(neighbor));
                         if (neighborChunk != null) {
                             farlands$pushWideChunk(neighborChunk);
+                            pushed++;
                         }
                     }
                 }
+                System.out.println("[WIDEPUSH] radius=" + pushRadius + " pushed=" + pushed);
+                System.out.flush();
             }
             StringBuilder heights = new StringBuilder();
             if (chunk != null) {
