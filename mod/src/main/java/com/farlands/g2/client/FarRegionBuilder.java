@@ -19,11 +19,18 @@ public final class FarRegionBuilder {
 
     private static Constructor<SectionCopy> ctor;
     private static boolean logged;
+    private static int entered;
 
     private FarRegionBuilder() {
     }
 
     public static RenderSectionRegion create(ClientLevel level, long sectionNode) {
+        if (entered++ < 5) {
+            System.out.println("[FARREGION] enter node=" + sectionNode + " key="
+                + RenderKeys.keyOf(sectionNode) + " store="
+                + (WideClientChunkStore.current() != null));
+            System.out.flush();
+        }
         SectionKey key = RenderKeys.keyOf(sectionNode);
         if (key != null && !logged) {
             logged = true;
