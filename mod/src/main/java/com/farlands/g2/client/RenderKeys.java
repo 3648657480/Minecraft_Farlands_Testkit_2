@@ -85,7 +85,7 @@ public final class RenderKeys {
         return BY_KEY.get(key);
     }
 
-    private static SectionKey keyOf(long node) {
+    public static SectionKey keyOf(long node) {
         SectionRenderDispatcher.RenderSection section = BY_NODE.get(node);
         if (section instanceof com.farlands.g2.runtime.section.RenderSectionKeyAccessor accessor) {
             return accessor.farlands$getKey();
