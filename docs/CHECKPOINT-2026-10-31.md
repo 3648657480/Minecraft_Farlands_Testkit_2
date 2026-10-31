@@ -51,6 +51,14 @@ tag：`stabilize/autotest-delay-2026-10-31` 等。
 3. 让 far section 进 `sectionUpdateRenderStates`，由 vanilla 编译循环调 `compileAsync`；
 4. 有 `[FARREGION]` 后再看 `meshNonEmpty` 和截图。
 
+## 2026-10-31 16:39 更新（far 单列修复后）
+
+- `356adfe`：`WideClientChunkStore` 只允许 `data.pos` 的那一列 section；重复区块消失；
+- 手动 2^53：只剩一个真实 far chunk，用户确认“一切正常”；
+- `norm`、`seam`、`coll`、`save`、`dist53` 全 PASS；
+- **首个预览版门槛收窄为 2^53**：2^88 / 2^1016 放到预览版之后；
+- 仍未做：S3 entity/light、2^53 长时 soak、默认门禁 S5。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
