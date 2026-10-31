@@ -1394,25 +1394,24 @@ public abstract class MinecraftServerTestGenMixin {
                 && chunk.getBlockState(bp).is(net.minecraft.world.level.block.Blocks.STONE);
             String placed = level.getBlockState(bp).getBlock().toString();
             String chunkState = chunk == null ? "null" : chunk.getBlockState(bp).toString();
-            if (Boolean.getBoolean("farlands.diag.clientWideChunk") && chunk != null
-                && chunk instanceof com.farlands.g2.runtime.WindowedChunk windowed) {
-                int minSy = windowed.farlands$windowMinSectionY();
-                var sections = chunk.getSections();
-                var buffer = new net.minecraft.network.FriendlyByteBuf(
-                    io.netty.buffer.Unpooled.buffer());
-                buffer.writeVarInt(sections.length);
-                buffer.writeVarInt(minSy);
-                for (var section : sections) {
-                    section.write(buffer);
+            if (Boolean.getBoolean("farlands.diag.clientWideChunk") && chunk != null) {
+                farlands$pushWideChunk(chunk);
+                var base = chunk.getPos().widePos();
+                for (int dx = -1; dx <= 1; dx++) {
+                    for (int dz = -1; dz <= 1; dz++) {
+                        if (dx == 0 && dz == 0) {
+                            continue;
+                        }
+                        var neighbor = com.scalarwide.mc.WideChunkPos.of(
+                            base.x().toBigInteger().add(java.math.BigInteger.valueOf(dx)),
+                            base.z().toBigInteger().add(java.math.BigInteger.valueOf(dz)));
+                        var neighborChunk = sc.farlands$getChunkWide(
+                            new net.minecraft.world.level.ChunkPos(neighbor));
+                        if (neighborChunk != null) {
+                            farlands$pushWideChunk(neighborChunk);
+                        }
+                    }
                 }
-                byte[] data = io.netty.buffer.ByteBufUtil.getBytes(buffer);
-                com.farlands.g2.runtime.WideChunkPacketStore.put(
-                    new com.farlands.g2.runtime.WideChunkPacketStore.Packet(
-                        chunk.getPos().widePos(), minSy, sections.length, data));
-                System.out.println("[WIDEPUSH] pos=" + chunk.getPos().widePos()
-                    + " minSy=" + minSy + " sections=" + sections.length
-                    + " bytes=" + data.length);
-                System.out.flush();
             }
             StringBuilder heights = new StringBuilder();
             if (chunk != null) {
@@ -1748,6 +1747,29 @@ public abstract class MinecraftServerTestGenMixin {
             }
         }
         return h;
+    }
+
+    private static void farlands$pushWideChunk(net.minecraft.world.level.chunk.LevelChunk chunk) {
+        if (!(chunk instanceof com.farlands.g2.runtime.WindowedChunk windowed)) {
+            return;
+        }
+        int minSy = windowed.farlands$windowMinSectionY();
+        var sections = chunk.getSections();
+        var buffer = new net.minecraft.network.FriendlyByteBuf(
+            io.netty.buffer.Unpooled.buffer());
+        buffer.writeVarInt(sections.length);
+        buffer.writeVarInt(minSy);
+        for (var section : sections) {
+            section.write(buffer);
+        }
+        byte[] data = io.netty.buffer.ByteBufUtil.getBytes(buffer);
+        com.farlands.g2.runtime.WideChunkPacketStore.put(
+            new com.farlands.g2.runtime.WideChunkPacketStore.Packet(
+                chunk.getPos().widePos(), minSy, sections.length, data));
+        System.out.println("[WIDEPUSH] pos=" + chunk.getPos().widePos()
+            + " minSy=" + minSy + " sections=" + sections.length
+            + " bytes=" + data.length);
+        System.out.flush();
     }
 
     private static long farlands$digest(net.minecraft.world.level.chunk.LevelChunk chunk) {

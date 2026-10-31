@@ -2,20 +2,26 @@ package com.farlands.g2.client;
 
 import com.scalarwide.mc.WideChunkPos;
 import com.scalarwide.mc.WideSectionKey2560;
+import java.math.BigInteger;
+import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 
-/** W1-4b2a: decoded far chunk kept on the client for the HUD wide view. */
+/** Decoded far chunks kept on the client, keyed by wide ChunkPos. */
 public final class WideClientChunkStore {
 
     public record Data(WideChunkPos pos, int minSectionY, LevelChunkSection[] sections) {
     }
 
+    private static final Map<WideChunkPos, Data> BY_CHUNK = new ConcurrentHashMap<>();
     private static volatile Data current;
 
     private WideClientChunkStore() {
     }
 
     public static void set(Data data) {
+        BY_CHUNK.put(data.pos(), data);
         current = data;
     }
 
@@ -23,19 +29,19 @@ public final class WideClientChunkStore {
         return current;
     }
 
+    public static Collection<Data> all() {
+        return BY_CHUNK.values();
+    }
+
     /** Section for an exact 2560 key, or null. */
     public static LevelChunkSection section(WideSectionKey2560 key) {
-        Data data = current;
-        if (data == null || key == null) {
+        if (key == null) {
             return null;
         }
-        // This store holds exactly one vertical section column (one section per Y),
-        // not a full 16x16 chunk of sections. Allow only that column; otherwise the
-        // same section is copied into all 256 columns of the chunk.
-        java.math.BigInteger baseX = data.pos().x().toBigInteger();
-        java.math.BigInteger baseZ = data.pos().z().toBigInteger();
-        if (!key.x().toBigInteger().equals(baseX)
-            || !key.z().toBigInteger().equals(baseZ)) {
+        BigInteger chunkX = floorDiv16(key.x().toBigInteger());
+        BigInteger chunkZ = floorDiv16(key.z().toBigInteger());
+        Data data = BY_CHUNK.get(WideChunkPos.of(chunkX, chunkZ));
+        if (data == null) {
             return null;
         }
         long sectionY;
@@ -51,7 +57,13 @@ public final class WideClientChunkStore {
         return data.sections()[index];
     }
 
+    private static BigInteger floorDiv16(BigInteger v) {
+        return v.signum() < 0 ? v.subtract(BigInteger.valueOf(15)).divide(BigInteger.valueOf(16))
+            : v.divide(BigInteger.valueOf(16));
+    }
+
     public static void clear() {
+        BY_CHUNK.clear();
         current = null;
     }
 }
