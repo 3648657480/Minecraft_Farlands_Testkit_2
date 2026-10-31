@@ -31,7 +31,8 @@ public final class FarRegionBuilder {
         }
         boolean far = key.lx != (long) (int) key.lx || key.ly != (long) (int) key.ly
             || key.lz != (long) (int) key.lz;
-        if (far && entered++ < 12) {
+        boolean log = far && entered++ < 12;
+        if (log) {
             System.out.println("[FARREGION] enter node=" + sectionNode + " key=" + key
                 + " far=" + far + " store=true");
             System.out.flush();
@@ -51,6 +52,20 @@ public final class FarRegionBuilder {
                     copies[index] = copy(states, level);
                 }
             }
+        }
+        if (log) {
+            int nonNull = 0;
+            for (SectionCopy copy : copies) {
+                if (copy != null) {
+                    nonNull++;
+                }
+            }
+            LevelChunkSection center = WideClientChunkStore.section(key.wide);
+            String centerState = center == null ? "null"
+                : center.getBlockState(8, 8, 8).toString();
+            System.out.println("[FARREGION] built key=" + key + " copiesNonNull=" + nonNull
+                + " center=" + centerState);
+            System.out.flush();
         }
         return new RenderSectionRegion(level, -1, -1, -1, copies);
     }
