@@ -20,6 +20,7 @@ public final class FarRegionBuilder {
     private static Constructor<SectionCopy> ctor;
     private static boolean logged;
     private static int entered;
+    private static int nonAirLogged;
 
     private FarRegionBuilder() {
     }
@@ -53,6 +54,12 @@ public final class FarRegionBuilder {
                 }
             }
         }
+        LevelChunkSection center = WideClientChunkStore.section(key.wide);
+        if (center != null && !center.hasOnlyAir() && nonAirLogged++ < 12) {
+            System.out.println("[FARREGION] nonair key=" + key
+                + " center=" + center.getBlockState(8, 8, 8));
+            System.out.flush();
+        }
         if (log) {
             int nonNull = 0;
             for (SectionCopy copy : copies) {
@@ -60,7 +67,6 @@ public final class FarRegionBuilder {
                     nonNull++;
                 }
             }
-            LevelChunkSection center = WideClientChunkStore.section(key.wide);
             String centerState = center == null ? "null"
                 : center.getBlockState(8, 8, 8).toString();
             System.out.println("[FARREGION] built key=" + key + " copiesNonNull=" + nonNull
