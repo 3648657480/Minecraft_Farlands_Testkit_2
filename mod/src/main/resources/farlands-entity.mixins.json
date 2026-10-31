@@ -14,6 +14,7 @@
         "BlockCollisionsWideChunkMixin",
         "BlockCollisionsProbeMixin",
         "EntityFluidInteractionFarGuardMixin",
+        "LivingEntityClimbFarGuardMixin",
         "ChunkMapPlayerCloseMixin"
     ],
     "injectors": { "defaultRequire": 1 }
