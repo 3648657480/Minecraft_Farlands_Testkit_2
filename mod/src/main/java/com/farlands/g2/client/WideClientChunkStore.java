@@ -31,10 +31,8 @@ public final class WideClientChunkStore {
         }
         // This store currently holds one chunk. A 3x3x3 region must not copy its
         // sections into every neighbour chunk; that is the repeated-terrain bug.
-        java.math.BigInteger baseX = data.pos().x().toBigInteger()
-            .multiply(java.math.BigInteger.valueOf(16));
-        java.math.BigInteger baseZ = data.pos().z().toBigInteger()
-            .multiply(java.math.BigInteger.valueOf(16));
+        java.math.BigInteger baseX = data.pos().x().toBigInteger();
+        java.math.BigInteger baseZ = data.pos().z().toBigInteger();
         java.math.BigInteger keyX = key.x().toBigInteger();
         java.math.BigInteger keyZ = key.z().toBigInteger();
         if (keyX.compareTo(baseX) < 0
