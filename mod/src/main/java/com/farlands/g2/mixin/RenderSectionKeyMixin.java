@@ -3,6 +3,7 @@ package com.farlands.g2.mixin;
 import com.farlands.g2.client.RenderKeys;
 import com.farlands.g2.runtime.section.RenderSectionKeyAccessor;
 import com.farlands.g2.runtime.section.SectionKey;
+import com.farlands.g2.runtime.section.WideOriginHolder;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.core.BlockPos;
@@ -72,6 +73,11 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
         this.farlands$wideOriginX = lx;
         this.farlands$wideOriginY = ly;
         this.farlands$wideOriginZ = lz;
+        boolean far = lx != (long) (int) lx || ly != (long) (int) ly
+            || lz != (long) (int) lz;
+        if (far && this instanceof WideOriginHolder holder) {
+            holder.g2SetWideOrigin(lx, ly, lz);
+        }
         this.renderOrigin.set((int) lx, (int) ly, (int) lz);
         this.bb = new AABB((double) lx, (double) ly, (double) lz,
             (double) (lx + 16L), (double) (ly + 16L), (double) (lz + 16L));

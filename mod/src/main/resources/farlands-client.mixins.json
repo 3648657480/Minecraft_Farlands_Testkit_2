@@ -15,7 +15,6 @@
         "FrustumMixin",
         "OctreeMixin",
         "CameraMixin",
-        "RenderSectionFloatingOriginMixin",
         "RenderSectionVertexSortingMixin",
         "RenderSectionWideOriginMixin",
         "GlobalSettingsUniformGrabMixin",
