@@ -29,16 +29,13 @@ public final class WideClientChunkStore {
         if (data == null || key == null) {
             return null;
         }
-        // This store currently holds one chunk. A 3x3x3 region must not copy its
-        // sections into every neighbour chunk; that is the repeated-terrain bug.
+        // This store holds exactly one vertical section column (one section per Y),
+        // not a full 16x16 chunk of sections. Allow only that column; otherwise the
+        // same section is copied into all 256 columns of the chunk.
         java.math.BigInteger baseX = data.pos().x().toBigInteger();
         java.math.BigInteger baseZ = data.pos().z().toBigInteger();
-        java.math.BigInteger keyX = key.x().toBigInteger();
-        java.math.BigInteger keyZ = key.z().toBigInteger();
-        if (keyX.compareTo(baseX) < 0
-            || keyX.compareTo(baseX.add(java.math.BigInteger.valueOf(16))) >= 0
-            || keyZ.compareTo(baseZ) < 0
-            || keyZ.compareTo(baseZ.add(java.math.BigInteger.valueOf(16))) >= 0) {
+        if (!key.x().toBigInteger().equals(baseX)
+            || !key.z().toBigInteger().equals(baseZ)) {
             return null;
         }
         long sectionY;
