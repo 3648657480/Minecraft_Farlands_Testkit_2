@@ -10,6 +10,7 @@
         "ClientAutoTestMixin",
         "SkyFlickerProbeMixin",
         "WideClientProbeMixin",
+        "LevelExtractorDirtyProbeMixin",
         "GameRendererProbeMixin",
         "WideChunkHudMixin",
         "FrustumMixin",

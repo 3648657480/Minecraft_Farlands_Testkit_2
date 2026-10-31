@@ -25,24 +25,17 @@ public final class FarRegionBuilder {
     }
 
     public static RenderSectionRegion create(ClientLevel level, long sectionNode) {
-        if (entered++ < 5) {
-            System.out.println("[FARREGION] enter node=" + sectionNode + " key="
-                + RenderKeys.keyOf(sectionNode) + " store="
-                + (WideClientChunkStore.current() != null));
-            System.out.flush();
-        }
         SectionKey key = RenderKeys.keyOf(sectionNode);
-        if (key != null && !logged) {
-            logged = true;
-            System.out.println("[FARREGION] key=" + key + " store="
-                + (WideClientChunkStore.current() != null));
-            System.out.flush();
-        }
         if (key == null || WideClientChunkStore.current() == null) {
             return null;
         }
         boolean far = key.lx != (long) (int) key.lx || key.ly != (long) (int) key.ly
             || key.lz != (long) (int) key.lz;
+        if (far && entered++ < 12) {
+            System.out.println("[FARREGION] enter node=" + sectionNode + " key=" + key
+                + " far=" + far + " store=true");
+            System.out.flush();
+        }
         if (!far) {
             return null;
         }
