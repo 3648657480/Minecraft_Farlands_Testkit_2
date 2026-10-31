@@ -59,11 +59,27 @@ public final class ServerChunkCacheWidePatch implements ClassPatch {
             "(" + TICKET_TYPE_D + "L" + CHUNK_POS + ";I)V", false));
         il.add(new InsnNode(Opcodes.RETURN));
         node.methods.add(mn);
+        node.methods.add(removeTicketWide());
         node.methods.add(getChunkWide(node));
 
         ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
         node.accept(cw);
         return cw.toByteArray();
+    }
+
+    private static MethodNode removeTicketWide() {
+        MethodNode mn = new MethodNode(Opcodes.ACC_PUBLIC, "farlands$removeTicketWithRadiusW",
+            "(" + TICKET_TYPE_D + "L" + CHUNK_POS + ";I)Z", null, null);
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new FieldInsnNode(Opcodes.GETFIELD, TARGET, "ticketStorage", TICKET_STORAGE_D));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 2));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 3));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TICKET_STORAGE,
+            "farlands$removeTicketWithRadiusW", "(" + TICKET_TYPE_D + "L" + CHUNK_POS + ";I)Z", false));
+        il.add(new InsnNode(Opcodes.IRETURN));
+        return mn;
     }
 
     /**

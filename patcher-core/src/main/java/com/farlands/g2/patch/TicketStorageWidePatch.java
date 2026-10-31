@@ -85,6 +85,7 @@ public final class TicketStorageWidePatch implements ClassPatch {
         node.methods.add(addTicketW());
         node.methods.add(removeTicketW());
         node.methods.add(addTicketWithRadiusW());
+        node.methods.add(removeTicketWithRadiusW());
         node.methods.add(setListenerW("farlands$setLoadingChunkUpdatedListenerW", "farlands$loadingListenerW"));
         node.methods.add(setListenerW("farlands$setSimulationChunkUpdatedListenerW", "farlands$simulationListenerW"));
 
@@ -504,6 +505,29 @@ public final class TicketStorageWidePatch implements ClassPatch {
             "(L" + CHUNK_POS + ";" + TICKET_D + ")Z", false));
         il.add(new InsnNode(Opcodes.POP));
         il.add(new InsnNode(Opcodes.RETURN));
+        return mn;
+    }
+
+    /** {@code farlands$removeTicketWithRadiusW(TicketType, ChunkPos, int)}. */
+    private static MethodNode removeTicketWithRadiusW() {
+        MethodNode mn = m(Opcodes.ACC_PUBLIC, "farlands$removeTicketWithRadiusW",
+            "(L" + TICKET_TYPE + ";L" + CHUNK_POS + ";I)Z");
+        InsnList il = mn.instructions;
+        il.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 2));
+        il.add(new org.objectweb.asm.tree.TypeInsnNode(Opcodes.NEW, TICKET));
+        il.add(new InsnNode(Opcodes.DUP));
+        il.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        il.add(new FieldInsnNode(Opcodes.GETSTATIC, "net/minecraft/server/level/FullChunkStatus", "FULL",
+            "Lnet/minecraft/server/level/FullChunkStatus;"));
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "net/minecraft/server/level/ChunkLevel", "byStatus",
+            "(Lnet/minecraft/server/level/FullChunkStatus;)I", false));
+        il.add(new VarInsnNode(Opcodes.ILOAD, 3));
+        il.add(new InsnNode(Opcodes.ISUB));
+        il.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, TICKET, "<init>", "(" + TICKET_TYPE_D + "I)V", false));
+        il.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, TARGET, "farlands$removeTicketW",
+            "(L" + CHUNK_POS + ";" + TICKET_D + ")Z", false));
+        il.add(new InsnNode(Opcodes.IRETURN));
         return mn;
     }
 

@@ -1418,6 +1418,8 @@ public abstract class MinecraftServerTestGenMixin {
                 }
                 System.out.println("[WIDEPUSH] radius=" + pushRadius + " pushed=" + pushed);
                 System.out.flush();
+                sc.farlands$removeTicketWithRadiusW(
+                    net.minecraft.server.level.TicketType.FORCED, widePos, pushRadius);
             }
             StringBuilder heights = new StringBuilder();
             if (chunk != null) {
