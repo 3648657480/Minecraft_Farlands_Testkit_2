@@ -32,6 +32,9 @@ public class WideChunkHudMixin {
         if (!Boolean.getBoolean("farlands.diag.clientWideChunk")) {
             return;
         }
+        if (!Boolean.parseBoolean(System.getProperty("farlands.diag.hud", "true"))) {
+            return;
+        }
         WideClientChunkStore.Data data = WideClientChunkStore.current();
         if (data == null || data.sections().length == 0) {
             return;
