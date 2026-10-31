@@ -38,8 +38,8 @@ public final class WideClientChunkStore {
         if (key == null) {
             return null;
         }
-        BigInteger chunkX = floorDiv16(key.x().toBigInteger());
-        BigInteger chunkZ = floorDiv16(key.z().toBigInteger());
+        BigInteger chunkX = key.x().toBigInteger();
+        BigInteger chunkZ = key.z().toBigInteger();
         Data data = BY_CHUNK.get(WideChunkPos.of(chunkX, chunkZ));
         if (data == null) {
             return null;
@@ -55,11 +55,6 @@ public final class WideClientChunkStore {
             return null;
         }
         return data.sections()[index];
-    }
-
-    private static BigInteger floorDiv16(BigInteger v) {
-        return v.signum() < 0 ? v.subtract(BigInteger.valueOf(15)).divide(BigInteger.valueOf(16))
-            : v.divide(BigInteger.valueOf(16));
     }
 
     public static void clear() {
