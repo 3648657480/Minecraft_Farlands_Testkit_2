@@ -18,12 +18,19 @@ import net.minecraft.world.level.LevelHeightAccessor;
 public final class FarRegionBuilder {
 
     private static Constructor<SectionCopy> ctor;
+    private static boolean logged;
 
     private FarRegionBuilder() {
     }
 
     public static RenderSectionRegion create(ClientLevel level, long sectionNode) {
         SectionKey key = RenderKeys.keyOf(sectionNode);
+        if (key != null && !logged) {
+            logged = true;
+            System.out.println("[FARREGION] key=" + key + " store="
+                + (WideClientChunkStore.current() != null));
+            System.out.flush();
+        }
         if (key == null || WideClientChunkStore.current() == null) {
             return null;
         }
