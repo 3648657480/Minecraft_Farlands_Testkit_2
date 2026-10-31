@@ -66,6 +66,14 @@ tag：`stabilize/autotest-delay-2026-10-31` 等。
 - 2^53 光照仍是 far stub（返回 15、写忽略），unlit/全亮属于已知限制；
 - 2^88 / 2^1016 继续延后。
 
+## 后置项（alpha1 前必须解决）
+
+- **far 网格尚未遵守原版 render/simulation distance**：
+  当前由 `farlands.testgen.pushRadius` 直接决定 push 半径；
+  `renderDistance` / `simulationDistance` 对 2^53 far 路径无效。
+  预览期暂不处理；alpha1 前改成
+  `radius = min(server view distance, far cap)`，并记录 capped 日志。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
