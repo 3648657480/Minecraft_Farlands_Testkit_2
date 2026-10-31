@@ -55,6 +55,12 @@ public class WideClientProbeMixin {
                 + " bytes=" + packet.data().length
                 + " decodedSections=" + count + " minSyRead=" + minSy
                 + " nonAirSections=" + nonAir);
+            for (int i = 0; i < sections.length; i++) {
+                if (!sections[i].hasOnlyAir()) {
+                    System.out.println("[WIDESEC] y=" + (minSy + i)
+                        + " center=" + sections[i].getBlockState(8, 8, 8));
+                }
+            }
         }
         System.out.flush();
     }
