@@ -100,7 +100,8 @@ public class ClientAutoTestMixin {
                 }
             }
             case 1 -> {
-                if (farlands$ticks % 60 == 0) {
+                if (Boolean.parseBoolean(System.getProperty("farlands.autotest.hold", "false"))
+                    && farlands$ticks % 60 == 0) {
                     // Hold the player at the target so the window band can settle and
                     // the Cwg regeneration is not chased downward by falling.
                     mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
@@ -108,9 +109,9 @@ public class ClientAutoTestMixin {
                 }
                 if (Boolean.getBoolean("farlands.autotest.rotate") && farlands$ticks % 80 == 0) {
                     int yaw = (farlands$ticks / 80 * 90) % 360;
-                    mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
-                        "tp @s %.1f %.1f %.1f %d 0", farlands$holdX, farlands$holdY,
-                        farlands$holdZ, yaw));
+                    mc.player.setYRot(yaw);
+                    mc.player.setYHeadRot(yaw);
+                    mc.player.setXRot(0.0F);
                     System.out.println("[ROTATE] yaw=" + yaw);
                     System.out.flush();
                 }
