@@ -108,7 +108,7 @@ public final class FarChunkFeeder {
                     }
                 }
                 cache.farlands$addTicketWithRadiusW(TicketType.FORCED,
-                    new ChunkPos(batchCenter), 2);
+                    new ChunkPos(batchCenter), 3);
                 System.out.println("[FARPUSH] batch=" + batchIndex + "/" + batchCount
                     + " center=" + batchCenter + " chunks=" + batchChunks.size());
                 System.out.flush();
