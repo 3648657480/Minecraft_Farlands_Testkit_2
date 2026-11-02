@@ -149,6 +149,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 前进离开 9×9 数据区后 `farChunks=0`，属覆盖外；
 - 渲染覆盖 soak 需要限制移动范围后重测。
 
+## 2026-11-02 9×9 覆盖内 soak 10 分钟
+
+- `soakMoveTicks=50`，前进约 40 格后原地旋转；
+- 10 分钟：`farChunks 35..45`，`keySets=70581` 不变；
+- 无 crash，heap 峰值约 1.2GB / 8GB；
+- 之前 10 分钟前进出 9×9，只是覆盖外稳定性 soak。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
