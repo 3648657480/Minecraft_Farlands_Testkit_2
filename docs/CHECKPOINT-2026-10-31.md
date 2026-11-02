@@ -134,6 +134,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 覆盖区内 100 tick `keySets` 不变；
 - 离开覆盖区后的周期性 re-anchor 仍未消除，需要 rotating-grid 复用。
 
+## 2026-11-02 9×9 保存退出
+
+- save-only：81 个数据 chunk 到齐后 `halt(false)` + `mc.stop()`；
+- 实测 `Stopping server` / `Saving worlds` / `All dimensions are saved`；
+- 进程 exit code 0，无新 crash；
+- `[STOP] hasWork` 3s 兜底触发后保存完成。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
