@@ -22,6 +22,8 @@ public class ClientBandFollowMixin {
 
     @org.spongepowered.asm.mixin.Unique private static int farlands$lastBand = Integer.MIN_VALUE;
     @org.spongepowered.asm.mixin.Unique private static boolean farlands$anchorFrozen;
+    @org.spongepowered.asm.mixin.Unique private static long farlands$anchorSecX;
+    @org.spongepowered.asm.mixin.Unique private static long farlands$anchorSecZ;
     /** Last far page the renderer was rebuilt for (page start section). */
     @org.spongepowered.asm.mixin.Unique private static int farlands$lastPage = Integer.MIN_VALUE;
 
@@ -101,14 +103,28 @@ public class ClientBandFollowMixin {
                 Math.floorDiv((long) Math.floor(camPos.x), 16L));
             java.math.BigInteger az = java.math.BigInteger.valueOf(
                 Math.floorDiv((long) Math.floor(camPos.z), 16L));
-            if (!Boolean.getBoolean("farlands.anchor.freeze") || !farlands$anchorFrozen) {
-            if (wideView.farlands$setWideAnchor(ax, az)) {
+            long axL = ax.longValue();
+            long azL = az.longValue();
+            int leash = Integer.getInteger("farlands.anchor.leash", 4);
+            boolean freeze = Boolean.getBoolean("farlands.anchor.freeze");
+            boolean need;
+            if (!farlands$anchorFrozen) {
+                need = true;
+            } else if (freeze) {
+                need = false;
+            } else {
+                need = Math.max(Math.abs(axL - farlands$anchorSecX),
+                    Math.abs(azL - farlands$anchorSecZ)) >= leash;
+            }
+            if (need && wideView.farlands$setWideAnchor(ax, az)) {
                 farlands$anchorFrozen = true;
+                farlands$anchorSecX = axL;
+                farlands$anchorSecZ = azL;
                 viewArea.repositionCamera(net.minecraft.core.SectionPos.of(
                     mc.player.blockPosition()));
-                System.out.println("[WIDESET] anchor=" + ax + "," + az);
+                System.out.println("[WIDESET] anchor=" + ax + "," + az
+                    + " leash=" + leash);
                 System.out.flush();
-            }
             }
         }
         // On re-entry the chunks load with the window already moved and no band
