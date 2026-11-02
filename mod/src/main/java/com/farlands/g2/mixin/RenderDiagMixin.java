@@ -172,6 +172,8 @@ public class RenderDiagMixin {
         int dataSections = 0;
         int meshSections = 0;
         int meshNonEmpty = 0;
+        int farMeshSections = 0;
+        var farChunks = new java.util.HashSet<String>();
         if (mc.level != null && mc.player != null) {
             int ccx = (int) Math.floorDiv((long) Math.floor(mc.player.getX()), 16L);
             int ccz = (int) Math.floorDiv((long) Math.floor(mc.player.getZ()), 16L);
@@ -185,6 +187,14 @@ public class RenderDiagMixin {
             }
             for (var s : self.visibleSections()) {
                 var k = s instanceof com.farlands.g2.runtime.section.RenderSectionKeyAccessor a ? a.farlands$getKey() : null;
+                if (k != null
+                    && (k.lx != (long) (int) k.lx || k.ly != (long) (int) k.ly
+                        || k.lz != (long) (int) k.lz)
+                    && s.getSectionMesh() != CompiledSectionMesh.UNCOMPILED
+                    && s.getSectionMesh().hasRenderableLayers()) {
+                    farMeshSections++;
+                    farChunks.add(k.lx + "," + k.lz);
+                }
                 if (k != null && k.x == ccx && k.z == ccz
                     && s.getSectionMesh() != CompiledSectionMesh.UNCOMPILED) {
                     meshSections++;
@@ -287,6 +297,7 @@ public class RenderDiagMixin {
             + " innerUncompiled=" + innerUncompiled + " chunks5x5=" + chunkPresent
             + " dirtyNull=" + dirtyNull + " dirtyFalse=" + dirtyFalse + " noNeighbors=" + noNeighbors
             + " lightCam=" + lightCam + " light3x3=" + light3x3 + " dataSec=" + dataSections + " meshSec=" + meshSections + " meshNonEmpty=" + meshNonEmpty
+            + " farChunks=" + farChunks.size() + " farMeshSec=" + farMeshSections
             + " east=" + east + " eastCompiled=" + eastCompiled
             + " queue=" + disp.getCompileQueueSize()
             + " player=" + mc.player.getX() + "," + mc.player.getY() + "," + mc.player.getZ()
