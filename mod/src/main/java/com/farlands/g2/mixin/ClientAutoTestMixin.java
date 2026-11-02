@@ -107,7 +107,9 @@ public class ClientAutoTestMixin {
                     mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
                         "tp @s %.1f %.1f %.1f", farlands$holdX, farlands$holdY, farlands$holdZ));
                 }
-                if (Boolean.getBoolean("farlands.autotest.rotate") && farlands$ticks % 80 == 0) {
+                if (Boolean.getBoolean("farlands.autotest.rotate") && farlands$ticks % 80 == 0
+                    && com.farlands.g2.client.WideClientChunkStore.all().size()
+                        >= Integer.getInteger("farlands.autotest.rotateChunks", 81)) {
                     int yaw = (farlands$ticks / 80 * 90) % 360;
                     mc.player.setYRot(yaw);
                     mc.player.setYHeadRot(yaw);
