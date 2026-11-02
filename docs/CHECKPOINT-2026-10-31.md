@@ -187,6 +187,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 说明 far key 没有经过 `setKey` 的 `g2SetWideOrigin` 路径；
 - 下一步查 `RotatingSectionStorageKeyMixin` 的 key 赋值与 holder 设置顺序。
 
+## 2026-11-02 重进修复
+
+- `ViewArea` 重建时重置 `anchorFrozen`，重新 `setWideAnchor`；
+- 重进已保存 test7：`farChunks=45`，AABB 为 2^53，`uncompiled=0`；
+- 无新 crash；
+- 保存退出 + 重进渲染链路恢复。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
