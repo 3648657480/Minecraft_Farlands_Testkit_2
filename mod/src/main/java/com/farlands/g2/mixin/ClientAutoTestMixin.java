@@ -182,7 +182,9 @@ public class ClientAutoTestMixin {
                 System.out.flush();
             }
             if (farlands$dataTick >= 0 && farlands$ticks - farlands$dataTick >= 200) {
-                mc.options.keyUp.setDown(true);
+                int soakMoveTicks = Integer.getInteger("farlands.autotest.soakMoveTicks", 50);
+                long elapsed = farlands$ticks - farlands$dataTick - 200L;
+                mc.options.keyUp.setDown(elapsed < soakMoveTicks);
                 if (farlands$ticks % 200 == 0) {
                     int yaw = (farlands$ticks / 200 * 90) % 360;
                     mc.player.setYRot(yaw);
