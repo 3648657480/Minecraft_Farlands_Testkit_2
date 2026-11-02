@@ -26,6 +26,7 @@ public class ClientAutoTestMixin {
     private static boolean farlands$logged;
     private static boolean farlands$openedWorld;
     private static int farlands$dataTick = -1;
+    private static boolean farlands$rotateTp;
     private static boolean farlands$shot;
 
     @Inject(method = "runTick", at = @At("HEAD"))
@@ -68,6 +69,35 @@ public class ClientAutoTestMixin {
             System.out.flush();
         }
         farlands$ticks++;
+        if (Boolean.getBoolean("farlands.autotest.rotate") && mc.player != null) {
+            if (!farlands$rotateTp && farlands$ticks > 100) {
+                farlands$rotateTp = true;
+                double tx = Double.parseDouble(System.getProperty("farlands.autotest.x", "2147483648.0"));
+                double ty = Double.parseDouble(System.getProperty("farlands.autotest.y", "70"));
+                double tz = Double.parseDouble(System.getProperty("farlands.autotest.z", "0.5"));
+                mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
+                    "tp @s %.1f %.1f %.1f 0 35", tx, ty, tz));
+                System.out.println("[ROTATE] teleported");
+                System.out.flush();
+            }
+            int rotateChunks = Integer.getInteger("farlands.autotest.rotateChunks", 81);
+            if (com.farlands.g2.client.WideClientChunkStore.all().size() >= rotateChunks
+                && farlands$dataTick < 0) {
+                farlands$dataTick = farlands$ticks;
+                System.out.println("[ROTATE] data ready at " + farlands$ticks);
+                System.out.flush();
+            }
+            if (farlands$dataTick >= 0 && farlands$ticks - farlands$dataTick >= 200
+                && farlands$ticks % 200 == 0) {
+                int yaw = (farlands$ticks / 200 * 90) % 360;
+                mc.player.setYRot(yaw);
+                mc.player.setYHeadRot(yaw);
+                mc.player.setXRot(35.0F);
+                System.out.println("[ROTATE] yaw=" + yaw);
+                System.out.flush();
+            }
+            return;
+        }
         switch (farlands$phase) {
             case 0 -> {
                 int delayTicks = Integer.getInteger("farlands.autotest.delayTicks", 100);
