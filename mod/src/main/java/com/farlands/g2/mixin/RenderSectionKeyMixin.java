@@ -60,11 +60,15 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
 
     @Override
     public void farlands$setKey(SectionKey key) {
-        com.farlands.g2.client.RenderResetStats.keySet();
-        this.farlands$key = key;
         if (key == null) {
+            this.farlands$key = null;
             return;
         }
+        if (key.equals(this.farlands$key)) {
+            return;
+        }
+        com.farlands.g2.client.RenderResetStats.keySet();
+        this.farlands$key = key;
         this.reset();
         // X/Z long->double, following the X/Z render solution: the AABB carries the
         // exact position; the int origin is only a legacy view.

@@ -27,6 +27,7 @@ public class ClientAutoTestMixin {
     private static boolean farlands$openedWorld;
     private static int farlands$dataTick = -1;
     private static boolean farlands$rotateTp;
+    private static boolean farlands$moveTp;
     private static boolean farlands$shot;
 
     @Inject(method = "runTick", at = @At("HEAD"))
@@ -94,6 +95,34 @@ public class ClientAutoTestMixin {
                 mc.player.setYHeadRot(yaw);
                 mc.player.setXRot(35.0F);
                 System.out.println("[ROTATE] yaw=" + yaw);
+                System.out.flush();
+            }
+            return;
+        }
+        if (Boolean.getBoolean("farlands.autotest.move") && mc.player != null) {
+            if (!farlands$moveTp && farlands$ticks > 100) {
+                farlands$moveTp = true;
+                double tx = Double.parseDouble(System.getProperty("farlands.autotest.x", "2147483648.0"));
+                double ty = Double.parseDouble(System.getProperty("farlands.autotest.y", "70"));
+                double tz = Double.parseDouble(System.getProperty("farlands.autotest.z", "0.5"));
+                mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
+                    "tp @s %.1f %.1f %.1f 0 35", tx, ty, tz));
+                System.out.println("[MOVE] teleported");
+                System.out.flush();
+            }
+            int moveChunks = Integer.getInteger("farlands.autotest.moveChunks", 25);
+            if (com.farlands.g2.client.WideClientChunkStore.all().size() >= moveChunks
+                && farlands$dataTick < 0) {
+                farlands$dataTick = farlands$ticks;
+                System.out.println("[MOVE] data ready at " + farlands$ticks);
+                System.out.flush();
+            }
+            if (farlands$dataTick >= 0 && farlands$ticks - farlands$dataTick >= 100) {
+                mc.options.keyUp.setDown(true);
+            }
+            if (farlands$ticks % 40 == 0) {
+                System.out.println("[MOVE] tick=" + farlands$ticks + " pos=" + mc.player.position()
+                    + " keySets=" + com.farlands.g2.client.RenderResetStats.keySets());
                 System.out.flush();
             }
             return;
