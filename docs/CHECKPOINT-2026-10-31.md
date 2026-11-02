@@ -112,6 +112,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 之前 0 是编译滞后/远点 teleport 污染；
 - 边界重载、保存、soak 仍待。
 
+## 2026-11-02 边界 rekey 最小验证
+
+- 移动探针：真实前进，9×9 覆盖区内移动 100 tick；
+- `keySets` 在 anchor freeze 下保持 `130577` 不变；
+- `farChunks=71`，边界不再整片重载；
+- anchor freeze 仅测试用；正式版需要滞后/rotating-grid 复用。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
