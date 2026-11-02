@@ -3,7 +3,9 @@ package com.farlands.g2.runtime;
 import com.scalarwide.mc.WideChunkPos;
 import java.math.BigInteger;
 import java.util.ArrayDeque;
+import java.util.HashSet;
 import java.util.Queue;
+import java.util.Set;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
@@ -29,6 +31,7 @@ public final class FarChunkFeeder {
     private static int batchIndex;
     private static int batchCount;
     private static int radius;
+    private static Set<WideChunkPos> seen;
 
     private FarChunkFeeder() {
     }
@@ -41,6 +44,7 @@ public final class FarChunkFeeder {
         current = null;
         currentTicks = 0;
         batchIndex = 0;
+        seen = new HashSet<>();
         batches = new ArrayDeque<>();
         batchChunks = new ArrayDeque<>();
 
@@ -95,9 +99,12 @@ public final class FarChunkFeeder {
                 batchChunks = new ArrayDeque<>();
                 for (int dx = -2; dx <= 2; dx++) {
                     for (int dz = -2; dz <= 2; dz++) {
-                        batchChunks.add(WideChunkPos.of(
+                        WideChunkPos pos = WideChunkPos.of(
                             batchCenter.x().toBigInteger().add(BigInteger.valueOf(dx)),
-                            batchCenter.z().toBigInteger().add(BigInteger.valueOf(dz))));
+                            batchCenter.z().toBigInteger().add(BigInteger.valueOf(dz)));
+                        if (seen.add(pos)) {
+                            batchChunks.add(pos);
+                        }
                     }
                 }
                 cache.farlands$addTicketWithRadiusW(TicketType.FORCED,
