@@ -25,6 +25,7 @@ public class ClientAutoTestMixin {
     private static double farlands$holdX, farlands$holdY, farlands$holdZ;
     private static boolean farlands$logged;
     private static boolean farlands$openedWorld;
+    private static int farlands$dataTick = -1;
     private static boolean farlands$shot;
 
     @Inject(method = "runTick", at = @At("HEAD"))
@@ -107,10 +108,17 @@ public class ClientAutoTestMixin {
                     mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
                         "tp @s %.1f %.1f %.1f", farlands$holdX, farlands$holdY, farlands$holdZ));
                 }
-                if (Boolean.getBoolean("farlands.autotest.rotate") && farlands$ticks % 80 == 0
-                    && com.farlands.g2.client.WideClientChunkStore.all().size()
-                        >= Integer.getInteger("farlands.autotest.rotateChunks", 81)) {
-                    int yaw = (farlands$ticks / 80 * 90) % 360;
+                int rotateChunks = Integer.getInteger("farlands.autotest.rotateChunks", 81);
+                if (com.farlands.g2.client.WideClientChunkStore.all().size() >= rotateChunks
+                    && farlands$dataTick < 0) {
+                    farlands$dataTick = farlands$ticks;
+                    System.out.println("[ROTATE] data ready at " + farlands$ticks);
+                    System.out.flush();
+                }
+                if (Boolean.getBoolean("farlands.autotest.rotate") && farlands$dataTick >= 0
+                    && farlands$ticks - farlands$dataTick >= 200
+                    && farlands$ticks % 200 == 0) {
+                    int yaw = (farlands$ticks / 200 * 90) % 360;
                     mc.player.setYRot(yaw);
                     mc.player.setYHeadRot(yaw);
                     mc.player.setXRot(35.0F);
