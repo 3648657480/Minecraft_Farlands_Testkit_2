@@ -85,6 +85,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - far 非玩家实体在 `Level.guardEntityTick` 跳过，矿车额外 guard；
 - 无新 crash report。
 
+## 2026-11-02 9×9 batch 验收
+
+- `38133f3`：9×9 拆成 4 个 5×5 batch，每批 radius=2 ticket；
+- 实测 `pushed=100`（含重叠），`farChunks=81`，`farMeshSec=601`；
+- 无新 crash，无 `Can't keep up`；
+- 9×9 保存退出尚未复验。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
