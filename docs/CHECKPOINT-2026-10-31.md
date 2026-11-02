@@ -77,6 +77,14 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - X/Z matrix 修复已提交（`b3b8a10`）；
 - 曾尝试的 `FARMISS`（store vs visibleSections）口径错误，会把视锥剔除当缺失，已回退，不作为证据。
 
+## 2026-11-02 5×5 feeder 验收
+
+- `4982c3a`：`FarChunkFeeder` 每 tick 推进 1 个 chunk，ticket radius=0；
+- 5×5 实测 `pushed=25`，`[FARPUSH] done`；
+- 保存：3s 上限后 `All dimensions are saved`；
+- far 非玩家实体在 `Level.guardEntityTick` 跳过，矿车额外 guard；
+- 无新 crash report。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
