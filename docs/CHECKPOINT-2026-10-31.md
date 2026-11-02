@@ -8,6 +8,7 @@
 
 | commit | 内容 |
 |---|---|
+| `9c442b2` | far-X `hasAllNeighbors` 放行；3×3 meshNonEmpty=9（2026-11-02） |
 | `8ade119` | stopServer 等待上限 3s；单 chunk 保存通过（2026-11-02） |
 | `544f556` | push 后移除 wide FORCED ticket（保存卡死修复，141） |
 | `dd188b1` | SectionPos → chunk 映射修正（不再 floorDiv16） |
@@ -37,9 +38,11 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
    - 客户端 `rx=0`（收不到服务端包）；
    - 这是 testgen 推送方式，不是 2560 失败。
 
-2. **多 chunk 渲染仍只画中心**
-   - 9×9 数据已到，但画面仍主要是一个 chunk；
-   - 需要查 `RenderKeys`/`SectionUpdateRenderStates` 的 far 覆盖，而不是继续加数据。
+2. **多 chunk 渲染：far-X 门已修（3×3 验证）**
+   - `DIRTYPROBE`: dirty=true 但 neighbors=false -> inStates=false；
+   - `9c442b2` 放行 far-X/Z 的 `hasAllNeighbors`；
+   - 3×3 实测 `neighbors=true inStates=true meshNonEmpty=9`；
+   - 9×9 仍未做，需按 tick 增量推送。
 
 3. **保存退出：已修（单 chunk 复验通过）**
    - `stopServer` 的 `chunkMap.hasWork()` 在 `lambda$stopServer$0`；
@@ -62,9 +65,9 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 
 ## 下一步（按顺序）
 
-1. 用 `pushRadius=1` 或 `2` 重开，确认服务端持续发包、`rx` 正常；
-2. 修多 chunk 渲染覆盖；
-3. 再谈 9×9 按 tick 增量推送。
+1. 3×3 视觉验收 + 保存退出复验（far-X 门修复后）；
+2. 把 9×9/视距改成按 tick 增量推送；
+3. 之后才接 render/simulation distance。
 
 ## 规则
 
