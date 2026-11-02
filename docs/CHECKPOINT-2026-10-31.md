@@ -69,6 +69,14 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 2. 把 9×9/视距改成按 tick 增量推送；
 3. 之后才接 render/simulation distance。
 
+## 2026-11-02 3×3 验收
+
+- `farChunks=9`，`farMeshSec=75..79`；
+- 3×3 主地形连续，用户确认“这次没发现洞”；
+- 保存退出：3s 上限后完成，已复验；
+- X/Z matrix 修复已提交（`b3b8a10`）；
+- 曾尝试的 `FARMISS`（store vs visibleSections）口径错误，会把视锥剔除当缺失，已回退，不作为证据。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
