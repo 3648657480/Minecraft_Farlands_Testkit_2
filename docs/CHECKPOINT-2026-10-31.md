@@ -201,6 +201,14 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - `farChunks=35`（可见子集），移动期间无新 WIDESET；
 - 9×9 覆盖区内不再因 chunk 边界全量 re-anchor。
 
+## 2026-11-02 follow 窗口与重载
+
+- feeder follow：空闲时按玩家 chunk 再推 9×9 窗口，`seen` 持久化；
+- 缺失邻居改 air，far AABB 默认不裁剪；
+- store 仅首次填充时 invalidate，避免每个流式窗口重建 ViewArea；
+- 实测移动 116 格：8 个 FARPUSH 窗口、`farChunks=136`、仅 1 次 WIDESET、无 crash；
+- 旧窗口数据暂未卸载，`farChunks` 会随移动增长。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
