@@ -42,6 +42,7 @@ public class GameRendererProbeMixin {
         double z = data.pos().z().toBigInteger().doubleValue() * 16.0;
         int minSy = data.minSectionY();
         int drawn = 0;
+        if (Boolean.getBoolean("farlands.diag.gizmo")) {
         try (Gizmos.TemporaryCollection collection =
                  mc.levelRenderer.collectPerFrameRenderThreadGizmos()) {
             for (int i = 0; i < data.sections().length; i++) {
@@ -63,6 +64,7 @@ public class GameRendererProbeMixin {
             System.out.println("[WIDEGIZMO] sections=" + drawn + " at " + x + "," + z
                 + " minSy=" + minSy);
             System.out.flush();
+        }
         }
         if (!farlands$shot && mc.player != null
             && Math.abs(mc.player.getX()) > 1.0E12) {
