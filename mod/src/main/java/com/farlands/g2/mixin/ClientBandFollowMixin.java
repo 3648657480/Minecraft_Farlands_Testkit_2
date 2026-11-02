@@ -24,6 +24,7 @@ public class ClientBandFollowMixin {
     @org.spongepowered.asm.mixin.Unique private static boolean farlands$anchorFrozen;
     @org.spongepowered.asm.mixin.Unique private static long farlands$anchorSecX;
     @org.spongepowered.asm.mixin.Unique private static long farlands$anchorSecZ;
+    @org.spongepowered.asm.mixin.Unique private static Object farlands$lastViewArea;
     /** Last far page the renderer was rebuilt for (page start section). */
     @org.spongepowered.asm.mixin.Unique private static int farlands$lastPage = Integer.MIN_VALUE;
 
@@ -105,6 +106,10 @@ public class ClientBandFollowMixin {
                 Math.floorDiv((long) Math.floor(camPos.z), 16L));
             long axL = ax.longValue();
             long azL = az.longValue();
+            if (farlands$lastViewArea != viewArea) {
+                farlands$lastViewArea = viewArea;
+                farlands$anchorFrozen = false;
+            }
             int leash = Integer.getInteger("farlands.anchor.leash", 4);
             boolean freeze = Boolean.getBoolean("farlands.anchor.freeze");
             boolean need;

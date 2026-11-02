@@ -38,6 +38,7 @@ public abstract class RotatingSectionStorageKeyMixin {
     @Unique private BigInteger farlands$lastAnchorX;
     @Unique private BigInteger farlands$lastAnchorZ;
     @Unique private boolean farlands$loggedWideKey;
+    @Unique private static int farlands$keyLogs;
 
     @Inject(method = "repositionCenter", at = @At("RETURN"))
     private void farlands$assignKeys(SectionPos newCenter, CallbackInfoReturnable<Boolean> cir) {
@@ -72,6 +73,13 @@ public abstract class RotatingSectionStorageKeyMixin {
                 BigInteger keyZ = anchorZ == null ? BigInteger.valueOf(worldZ)
                     : anchorZ.add(BigInteger.valueOf((long) worldZ - newCenter.z()));
                 SectionKey key = SectionKey.of(keyX, BigInteger.valueOf(this.minY + y), keyZ);
+                if (Boolean.getBoolean("farlands.diag.origin") && i < 2
+                    && farlands$keyLogs++ < 12) {
+                    System.out.println("[KEYASSIGN] center=" + newCenter
+                        + " anchor=" + anchorX + "," + anchorZ
+                        + " world=" + worldX + "," + worldZ + " key=" + key);
+                    System.out.flush();
+                }
                 if (!farlands$loggedWideKey && anchorX != null
                     && anchorX.abs().bitLength() > 40) {
                     farlands$loggedWideKey = true;
