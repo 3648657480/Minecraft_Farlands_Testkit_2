@@ -8,6 +8,7 @@
 
 | commit | 内容 |
 |---|---|
+| `8ade119` | stopServer 等待上限 3s；单 chunk 保存通过（2026-11-02） |
 | `544f556` | push 后移除 wide FORCED ticket（保存卡死修复，141） |
 | `dd188b1` | SectionPos → chunk 映射修正（不再 floorDiv16） |
 | `2928f9e` | far push 半径可配置（默认 1） |
@@ -40,9 +41,10 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
    - 9×9 数据已到，但画面仍主要是一个 chunk；
    - 需要查 `RenderKeys`/`SectionUpdateRenderStates` 的 far 覆盖，而不是继续加数据。
 
-3. **保存退出**
-   - `while (chunkMap.hasWork())` 曾卡死；
-   - `544f556` 已移除 forced ticket，**尚未手动复验保存退出**。
+3. **保存退出：已修（单 chunk 复验通过）**
+   - `stopServer` 的 `chunkMap.hasWork()` 在 `lambda$stopServer$0`；
+   - `8ade119` 把等待上限设为 3s，随后强制继续保存；
+   - 实测 `Stopping server -> [STOP] -> All dimensions saved`。
 
 4. **far 半径未接原版视距**
    - 当前由 `farlands.testgen.pushRadius` 决定；
@@ -61,9 +63,8 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 ## 下一步（按顺序）
 
 1. 用 `pushRadius=1` 或 `2` 重开，确认服务端持续发包、`rx` 正常；
-2. 验证 `544f556` 后保存退出不再卡；
-3. 修多 chunk 渲染覆盖；
-4. 再谈 9×9 按 tick 增量推送。
+2. 修多 chunk 渲染覆盖；
+3. 再谈 9×9 按 tick 增量推送。
 
 ## 规则
 
