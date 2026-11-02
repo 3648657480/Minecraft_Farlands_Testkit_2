@@ -106,6 +106,14 @@ public class ClientAutoTestMixin {
                     mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
                         "tp @s %.1f %.1f %.1f", farlands$holdX, farlands$holdY, farlands$holdZ));
                 }
+                if (Boolean.getBoolean("farlands.autotest.rotate") && farlands$ticks % 80 == 0) {
+                    int yaw = (farlands$ticks / 80 * 90) % 360;
+                    mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
+                        "tp @s %.1f %.1f %.1f %d 0", farlands$holdX, farlands$holdY,
+                        farlands$holdZ, yaw));
+                    System.out.println("[ROTATE] yaw=" + yaw);
+                    System.out.flush();
+                }
                 if (farlands$ticks % 200 == 0) {
                     System.out.println("[AUTOTEST] wait ticks=" + farlands$ticks + " pos=" + mc.player.position());
                 }
