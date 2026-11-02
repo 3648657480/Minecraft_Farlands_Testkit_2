@@ -98,6 +98,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 9×9 实测 `pushed=81`（原 100），`farChunks=81`；
 - 旋转探针（`7e17eac`）本轮未进世界，360° 误剔除尚未有结论。
 
+## 2026-11-02 9×9 完整 mesh
+
+- batch ticket `radius=3`（7×7）解决 worldgen 邻居 holder null；
+- 9×9 实测 `pushed=81`，`farChunks=81`，`farMeshSec=592`；
+- 无新 crash；
+- 360° 旋转数据仍需在数据就绪阶段采集；保存/soak 未做。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
