@@ -73,7 +73,7 @@ public final class FarRegionBuilder {
                 + " center=" + centerState);
             System.out.flush();
         }
-        return new RenderSectionRegion(level, -1, -1, -1, copies);
+        return new FarRenderSectionRegion(level, key, copies);
     }
 
     @SuppressWarnings("unchecked")
