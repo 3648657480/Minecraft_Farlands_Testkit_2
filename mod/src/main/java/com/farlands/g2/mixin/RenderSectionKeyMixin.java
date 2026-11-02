@@ -60,6 +60,7 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
 
     @Override
     public void farlands$setKey(SectionKey key) {
+        com.farlands.g2.client.RenderResetStats.keySet();
         this.farlands$key = key;
         if (key == null) {
             return;

@@ -311,6 +311,7 @@ public class RenderDiagMixin {
             + " lightCam=" + lightCam + " light3x3=" + light3x3 + " dataSec=" + dataSections + " meshSec=" + meshSections + " meshNonEmpty=" + meshNonEmpty
             + " farChunks=" + farChunks.size() + " farMeshSec=" + farMeshSections
             + " farKeySec=" + farKeySections + " farKeyChunks=" + farKeyChunks.size()
+            + " keySets=" + com.farlands.g2.client.RenderResetStats.keySets()
             + " east=" + east + " eastCompiled=" + eastCompiled
             + " queue=" + disp.getCompileQueueSize()
             + " player=" + mc.player.getX() + "," + mc.player.getY() + "," + mc.player.getZ()
