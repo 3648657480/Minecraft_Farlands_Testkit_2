@@ -92,6 +92,12 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 无新 crash，无 `Can't keep up`；
 - 9×9 保存退出尚未复验。
 
+## 2026-11-02 batch 去重
+
+- `64999bf`：batch ticket 保留重叠，push 队列按 `WideChunkPos` 去重；
+- 9×9 实测 `pushed=81`（原 100），`farChunks=81`；
+- 旋转探针（`7e17eac`）本轮未进世界，360° 误剔除尚未有结论。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
