@@ -28,6 +28,8 @@ public class ClientAutoTestMixin {
     private static int farlands$dataTick = -1;
     private static boolean farlands$rotateTp;
     private static boolean farlands$moveTp;
+    private static boolean farlands$saveTp;
+    private static boolean farlands$saveSent;
     private static boolean farlands$shot;
 
     @Inject(method = "runTick", at = @At("HEAD"))
@@ -126,6 +128,37 @@ public class ClientAutoTestMixin {
                 System.out.println("[MOVE] tick=" + farlands$ticks + " pos=" + mc.player.position()
                     + " keySets=" + com.farlands.g2.client.RenderResetStats.keySets());
                 System.out.flush();
+            }
+            return;
+        }
+        if (Boolean.getBoolean("farlands.autotest.save") && mc.player != null) {
+            if (!farlands$saveTp && farlands$ticks > 100) {
+                farlands$saveTp = true;
+                double tx = Double.parseDouble(System.getProperty("farlands.autotest.x", "2147483648.0"));
+                double ty = Double.parseDouble(System.getProperty("farlands.autotest.y", "70"));
+                double tz = Double.parseDouble(System.getProperty("farlands.autotest.z", "0.5"));
+                mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
+                    "tp @s %.1f %.1f %.1f 0 35", tx, ty, tz));
+                System.out.println("[SAVE] teleported");
+                System.out.flush();
+            }
+            int saveChunks = Integer.getInteger("farlands.autotest.saveChunks", 81);
+            if (com.farlands.g2.client.WideClientChunkStore.all().size() >= saveChunks
+                && farlands$dataTick < 0) {
+                farlands$dataTick = farlands$ticks;
+                System.out.println("[SAVE] data ready at " + farlands$ticks);
+                System.out.flush();
+            }
+            if (farlands$dataTick >= 0 && farlands$ticks - farlands$dataTick >= 200
+                && !farlands$saveSent) {
+                farlands$saveSent = true;
+                var integrated = mc.getSingleplayerServer();
+                if (integrated != null) {
+                    integrated.halt(false);
+                }
+                System.out.println("[SAVE] halt sent");
+                System.out.flush();
+                mc.stop();
             }
             return;
         }
