@@ -1370,8 +1370,9 @@ public abstract class MinecraftServerTestGenMixin {
                 new net.minecraft.world.level.ChunkPos(wide);
             int pushRadius = Math.max(0,
                 Integer.getInteger("farlands.testgen.pushRadius", 1));
+            int initialRadius = 1;
             sc.farlands$addTicketWithRadiusW(
-                net.minecraft.server.level.TicketType.FORCED, widePos, pushRadius);
+                net.minecraft.server.level.TicketType.FORCED, widePos, initialRadius);
             net.minecraft.server.level.ChunkMap cm = sc.chunkMap;
             net.minecraft.server.level.ChunkHolder holder = null;
             for (int spin = 0; spin < 600; spin++) {
@@ -1398,10 +1399,10 @@ public abstract class MinecraftServerTestGenMixin {
             String placed = level.getBlockState(bp).getBlock().toString();
             String chunkState = chunk == null ? "null" : chunk.getBlockState(bp).toString();
             if (Boolean.getBoolean("farlands.diag.clientWideChunk") && chunk != null) {
-                // The initial wide ticket only existed to obtain the target chunk;
-                // the feeder adds one radius-0 ticket per chunk for one tick.
+                // The initial 3x3 ticket only bootstraps the target; batches own
+                // their own radius-2 ticket from here.
                 sc.farlands$removeTicketWithRadiusW(
-                    net.minecraft.server.level.TicketType.FORCED, widePos, pushRadius);
+                    net.minecraft.server.level.TicketType.FORCED, widePos, initialRadius);
                 com.farlands.g2.runtime.FarChunkFeeder.start(level, chunk.getPos().widePos(),
                     pushRadius);
             }

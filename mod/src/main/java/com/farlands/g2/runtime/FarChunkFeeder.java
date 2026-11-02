@@ -12,18 +12,22 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.LevelChunk;
 
 /**
- * Vanilla-style incremental far chunk feeder: one chunk per server tick.
- * Generation stays on the vanilla worker pool; this class never joins futures
- * or spins. Tickets cover only the chunk currently being processed.
+ * Far chunks are processed in 5x5 batches. Each batch holds one radius-2 ticket
+ * (needed by worldgen neighbours); the 25 chunks are serialised one per tick.
+ * Tickets are kept so DistanceManager never loses the holder under a player
+ * loading ticket.
  */
 public final class FarChunkFeeder {
 
     private static ServerLevel level;
     private static ServerChunkCache cache;
-    private static Queue<WideChunkPos> queue = new ArrayDeque<>();
+    private static Queue<WideChunkPos> batches = new ArrayDeque<>();
+    private static Queue<WideChunkPos> batchChunks = new ArrayDeque<>();
     private static WideChunkPos current;
     private static int currentTicks;
     private static int pushed;
+    private static int batchIndex;
+    private static int batchCount;
     private static int radius;
 
     private FarChunkFeeder() {
@@ -36,35 +40,35 @@ public final class FarChunkFeeder {
         pushed = 0;
         current = null;
         currentTicks = 0;
-        queue = new ArrayDeque<>();
-        // centre first, then rings; keeps the first visible data closest.
-        for (int ring = 0; ring <= r; ring++) {
-            for (int dx = -ring; dx <= ring; dx++) {
-                for (int dz = -ring; dz <= ring; dz++) {
-                    if (Math.max(Math.abs(dx), Math.abs(dz)) != ring) {
-                        continue;
-                    }
-                    queue.add(WideChunkPos.of(
+        batchIndex = 0;
+        batches = new ArrayDeque<>();
+        batchChunks = new ArrayDeque<>();
+
+        if (r <= 2) {
+            batches.add(center);
+        } else {
+            int first = -r + 2;
+            int last = r - 2;
+            for (int dx = first; dx <= last; dx += 4) {
+                for (int dz = first; dz <= last; dz += 4) {
+                    batches.add(WideChunkPos.of(
                         center.x().toBigInteger().add(BigInteger.valueOf(dx)),
                         center.z().toBigInteger().add(BigInteger.valueOf(dz))));
                 }
             }
         }
-        System.out.println("[FARPUSH] queue=" + queue.size() + " radius=" + r);
+        batchCount = batches.size();
+        System.out.println("[FARPUSH] radius=" + r + " batches=" + batchCount);
         System.out.flush();
     }
 
     public static boolean idle() {
-        return queue.isEmpty() && current == null;
+        return batches.isEmpty() && batchChunks.isEmpty() && current == null;
     }
 
-    /** Called before stopServer: the current ticket must not keep save futures alive. */
     public static void stop() {
-        if (current != null && cache != null) {
-            cache.farlands$removeTicketWithRadiusW(TicketType.FORCED,
-                new ChunkPos(current), 0);
-        }
-        queue.clear();
+        batches.clear();
+        batchChunks.clear();
         current = null;
         level = null;
         cache = null;
@@ -77,16 +81,35 @@ public final class FarChunkFeeder {
             return;
         }
         if (current == null) {
-            current = queue.poll();
-            if (current == null) {
-                System.out.println("[FARPUSH] done pushed=" + pushed + " radius=" + radius);
+            if (batchChunks.isEmpty()) {
+                if (batches.isEmpty()) {
+                    System.out.println("[FARPUSH] done pushed=" + pushed
+                        + " radius=" + radius + " batches=" + batchCount);
+                    System.out.flush();
+                    level = null;
+                    cache = null;
+                    return;
+                }
+                WideChunkPos batchCenter = batches.poll();
+                batchIndex++;
+                batchChunks = new ArrayDeque<>();
+                for (int dx = -2; dx <= 2; dx++) {
+                    for (int dz = -2; dz <= 2; dz++) {
+                        batchChunks.add(WideChunkPos.of(
+                            batchCenter.x().toBigInteger().add(BigInteger.valueOf(dx)),
+                            batchCenter.z().toBigInteger().add(BigInteger.valueOf(dz))));
+                    }
+                }
+                cache.farlands$addTicketWithRadiusW(TicketType.FORCED,
+                    new ChunkPos(batchCenter), 2);
+                System.out.println("[FARPUSH] batch=" + batchIndex + "/" + batchCount
+                    + " center=" + batchCenter + " chunks=" + batchChunks.size());
                 System.out.flush();
-                level = null;
-                cache = null;
+            }
+            current = batchChunks.poll();
+            if (current == null) {
                 return;
             }
-            ChunkPos pos = new ChunkPos(current);
-            cache.farlands$addTicketWithRadiusW(TicketType.FORCED, pos, 0);
             currentTicks = 0;
         }
 
@@ -97,7 +120,6 @@ public final class FarChunkFeeder {
             if (currentTicks > 1200) {
                 System.out.println("[FARPUSH] timeout " + current);
                 System.out.flush();
-                cache.farlands$removeTicketWithRadiusW(TicketType.FORCED, pos, 0);
                 current = null;
             }
             return;
@@ -108,14 +130,12 @@ public final class FarChunkFeeder {
             if (currentTicks > 1200) {
                 System.out.println("[FARPUSH] chunk-null timeout " + current);
                 System.out.flush();
-                cache.farlands$removeTicketWithRadiusW(TicketType.FORCED, pos, 0);
                 current = null;
             }
             return;
         }
         push(chunk);
         pushed++;
-        cache.farlands$removeTicketWithRadiusW(TicketType.FORCED, pos, 0);
         current = null;
     }
 
