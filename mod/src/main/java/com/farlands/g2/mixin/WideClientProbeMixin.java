@@ -30,6 +30,7 @@ public class WideClientProbeMixin {
         if (farlands$ticks++ % 40 != 0) {
             return;
         }
+        boolean changed = false;
         for (var packet : WideChunkPacketStore.all()) {
             var buffer = new net.minecraft.network.FriendlyByteBuf(
                 io.netty.buffer.Unpooled.wrappedBuffer(packet.data()));
@@ -46,9 +47,13 @@ public class WideClientProbeMixin {
                     nonAir++;
                 }
             }
+            long beforeVersion = com.farlands.g2.client.WideClientChunkStore.version();
             com.farlands.g2.client.WideClientChunkStore.set(
                 new com.farlands.g2.client.WideClientChunkStore.Data(
                     packet.pos(), minSy, sections));
+            if (com.farlands.g2.client.WideClientChunkStore.version() != beforeVersion) {
+                changed = true;
+            }
             System.out.println("[WIDECLIENT] pos=" + packet.pos()
                 + " minSy=" + packet.minSectionY()
                 + " sections=" + packet.sections()
@@ -61,6 +66,12 @@ public class WideClientProbeMixin {
                         + " center=" + sections[i].getBlockState(8, 8, 8));
                 }
             }
+        }
+        if (changed) {
+            mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options,
+                mc.gameRenderer.mainCamera(), mc.getBlockColors());
+            System.out.println("[WIDECLIENT] invalidateCompiledGeometry after store update");
+            System.out.flush();
         }
         System.out.flush();
     }

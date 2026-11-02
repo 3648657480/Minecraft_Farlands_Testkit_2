@@ -16,13 +16,21 @@ public final class WideClientChunkStore {
 
     private static final Map<WideChunkPos, Data> BY_CHUNK = new ConcurrentHashMap<>();
     private static volatile Data current;
+    private static volatile long version;
 
     private WideClientChunkStore() {
     }
 
     public static void set(Data data) {
-        BY_CHUNK.put(data.pos(), data);
+        Data old = BY_CHUNK.put(data.pos(), data);
         current = data;
+        if (old == null) {
+            version++;
+        }
+    }
+
+    public static long version() {
+        return version;
     }
 
     public static Data current() {
