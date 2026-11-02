@@ -117,9 +117,11 @@ public class ClientAutoTestMixin {
                 System.out.println("[MOVE] data ready at " + farlands$ticks);
                 System.out.flush();
             }
-            if (farlands$dataTick >= 0 && farlands$ticks - farlands$dataTick >= 100) {
-                mc.options.keyUp.setDown(true);
-            }
+            int moveTicks = Integer.getInteger("farlands.autotest.moveTicks", 100);
+            boolean moving = farlands$dataTick >= 0
+                && farlands$ticks - farlands$dataTick >= 100
+                && farlands$ticks - farlands$dataTick < 100 + moveTicks;
+            mc.options.keyUp.setDown(moving);
             if (farlands$ticks % 40 == 0) {
                 System.out.println("[MOVE] tick=" + farlands$ticks + " pos=" + mc.player.position()
                     + " keySets=" + com.farlands.g2.client.RenderResetStats.keySets());

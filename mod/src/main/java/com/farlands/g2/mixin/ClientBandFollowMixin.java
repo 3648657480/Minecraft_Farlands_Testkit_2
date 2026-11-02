@@ -21,6 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class ClientBandFollowMixin {
 
     @org.spongepowered.asm.mixin.Unique private static int farlands$lastBand = Integer.MIN_VALUE;
+    @org.spongepowered.asm.mixin.Unique private static boolean farlands$anchorFrozen;
     /** Last far page the renderer was rebuilt for (page start section). */
     @org.spongepowered.asm.mixin.Unique private static int farlands$lastPage = Integer.MIN_VALUE;
 
@@ -100,11 +101,14 @@ public class ClientBandFollowMixin {
                 Math.floorDiv((long) Math.floor(camPos.x), 16L));
             java.math.BigInteger az = java.math.BigInteger.valueOf(
                 Math.floorDiv((long) Math.floor(camPos.z), 16L));
+            if (!Boolean.getBoolean("farlands.anchor.freeze") || !farlands$anchorFrozen) {
             if (wideView.farlands$setWideAnchor(ax, az)) {
+                farlands$anchorFrozen = true;
                 viewArea.repositionCamera(net.minecraft.core.SectionPos.of(
                     mc.player.blockPosition()));
                 System.out.println("[WIDESET] anchor=" + ax + "," + az);
                 System.out.flush();
+            }
             }
         }
         // On re-entry the chunks load with the window already moved and no band
