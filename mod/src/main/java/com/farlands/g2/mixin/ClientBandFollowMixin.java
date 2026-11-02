@@ -110,7 +110,7 @@ public class ClientBandFollowMixin {
                 farlands$lastViewArea = viewArea;
                 farlands$anchorFrozen = false;
             }
-            int leash = Integer.getInteger("farlands.anchor.leash", 4);
+            int leash = Integer.getInteger("farlands.anchor.leash", 16);
             boolean freeze = Boolean.getBoolean("farlands.anchor.freeze");
             boolean need;
             if (!farlands$anchorFrozen) {
