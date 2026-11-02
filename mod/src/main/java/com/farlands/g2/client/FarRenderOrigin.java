@@ -12,11 +12,14 @@ public final class FarRenderOrigin {
 
     public static BlockPos get(WideOriginHolder holder, BlockPos.MutableBlockPos fallback) {
         if (!holder.g2HasWideOrigin()) {
+            FarSectionMatrixXZ.mark(false, false);
             return fallback;
         }
         var camera = Minecraft.getInstance().gameRenderer.mainCamera().position();
         long y = holder.g2WideY();
-        int originY = y == (long) (int) y ? (int) y : (int) (y - camera.y);
+        boolean farY = y != (long) (int) y;
+        FarSectionMatrixXZ.mark(true, farY);
+        int originY = farY ? (int) (y - camera.y) : (int) y;
         fallback.set((int) (holder.g2WideX() - camera.x),
             originY,
             (int) (holder.g2WideZ() - camera.z));

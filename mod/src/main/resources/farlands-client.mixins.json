@@ -11,6 +11,7 @@
         "SkyFlickerProbeMixin",
         "WideClientProbeMixin",
         "LevelExtractorDirtyProbeMixin",
+        "ChunkSectionInfoXZMatrixMixin",
         "GameRendererProbeMixin",
         "WideChunkHudMixin",
         "FrustumMixin",
