@@ -28,6 +28,12 @@ public abstract class SectionUpdateTrackerFarMixin {
         if (BandState.far()) {
             return true;
         }
+        var key = com.farlands.g2.client.RenderKeys.keyOf(sectionNode);
+        if (key != null
+            && (key.lx != (long) (int) key.lx || key.ly != (long) (int) key.ly
+                || key.lz != (long) (int) key.lz)) {
+            return true;
+        }
         return this.doesChunkExistAt(level, SectionPos.offset(sectionNode, Direction.WEST))
             && this.doesChunkExistAt(level, SectionPos.offset(sectionNode, Direction.NORTH))
             && this.doesChunkExistAt(level, SectionPos.offset(sectionNode, Direction.EAST))
