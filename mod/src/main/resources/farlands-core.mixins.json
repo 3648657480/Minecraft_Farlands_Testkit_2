@@ -10,7 +10,8 @@
         "ChunkPosMixin",
         "Vec3RealCoordsMixin",
         "DimensionTypeMixin",
-        "WorldBorderMixin"
+        "WorldBorderMixin",
+        "MinecraftServerStopBoundMixin"
     ],
     "injectors": { "defaultRequire": 1 }
 }

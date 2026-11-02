@@ -1367,7 +1367,7 @@ public abstract class MinecraftServerTestGenMixin {
                 (net.minecraft.server.level.ServerChunkCache) level.getChunkSource();
             net.minecraft.world.level.ChunkPos widePos =
                 new net.minecraft.world.level.ChunkPos(wide);
-            int pushRadius = Math.max(1,
+            int pushRadius = Math.max(0,
                 Integer.getInteger("farlands.testgen.pushRadius", 1));
             sc.farlands$addTicketWithRadiusW(
                 net.minecraft.server.level.TicketType.FORCED, widePos, pushRadius);
