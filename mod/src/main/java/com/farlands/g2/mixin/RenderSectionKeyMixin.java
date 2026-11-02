@@ -32,6 +32,7 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
     @Unique private long farlands$wideOriginX;
     @Unique private long farlands$wideOriginY;
     @Unique private long farlands$wideOriginZ;
+    @Unique private static int farlands$originLogs;
 
     @Override
     public SectionKey farlands$getKey() {
@@ -82,6 +83,12 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
             || lz != (long) (int) lz;
         if (far && this instanceof WideOriginHolder holder) {
             holder.g2SetWideOrigin(lx, ly, lz);
+            if (Boolean.getBoolean("farlands.diag.origin") && farlands$originLogs++ < 20) {
+                System.out.println("[WIDEORIGIN] setKey key=" + key
+                    + " has=" + holder.g2HasWideOrigin()
+                    + " wide=" + lx + "," + ly + "," + lz);
+                System.out.flush();
+            }
         }
         this.renderOrigin.set((int) lx, (int) ly, (int) lz);
         this.bb = new AABB((double) lx, (double) ly, (double) lz,

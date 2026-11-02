@@ -7,13 +7,24 @@ import net.minecraft.core.BlockPos;
 /** Patched getRenderOrigin target: per-section camera-relative int origin for far sections. */
 public final class FarRenderOrigin {
 
+    private static int logged;
+
     private FarRenderOrigin() {
     }
 
     public static BlockPos get(WideOriginHolder holder, BlockPos.MutableBlockPos fallback) {
         if (!holder.g2HasWideOrigin()) {
+            if (Boolean.getBoolean("farlands.diag.origin") && logged++ < 20) {
+                System.out.println("[WIDEORIGIN] no-wide class=" + holder.getClass().getName());
+                System.out.flush();
+            }
             FarSectionMatrixXZ.mark(false, false);
             return fallback;
+        }
+        if (Boolean.getBoolean("farlands.diag.origin") && logged++ < 20) {
+            System.out.println("[WIDEORIGIN] get x=" + holder.g2WideX()
+                + " y=" + holder.g2WideY() + " z=" + holder.g2WideZ());
+            System.out.flush();
         }
         var camera = Minecraft.getInstance().gameRenderer.mainCamera().position();
         long y = holder.g2WideY();
