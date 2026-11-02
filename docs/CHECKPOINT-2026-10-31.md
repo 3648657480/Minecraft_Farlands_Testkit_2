@@ -105,6 +105,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 无新 crash；
 - 360° 旋转数据仍需在数据就绪阶段采集；保存/soak 未做。
 
+## 2026-11-02 rotate-only 验收
+
+- rotate-only 固定 2^53，数据 81 到齐后等 200 tick；
+- 每个 yaw 的可见子集约 `farChunks=36/81`，不再出现 0；
+- 之前 0 是编译滞后/远点 teleport 污染；
+- 边界重载、保存、soak 仍待。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
