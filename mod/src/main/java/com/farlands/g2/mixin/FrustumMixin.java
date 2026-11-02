@@ -2,6 +2,7 @@ package com.farlands.g2.mixin;
 
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.phys.AABB;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,6 +19,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Frustum.class)
 public class FrustumMixin {
     @Unique private static int bbHits;
+
+    @Inject(method = "isVisible(Lnet/minecraft/world/phys/AABB;)Z",
+            at = @At("HEAD"), cancellable = true)
+    private void farAabbProbe(AABB bb, CallbackInfoReturnable<Boolean> cir) {
+        if (!Boolean.getBoolean("farlands.diag.nofrustum")) {
+            return;
+        }
+        if (Math.abs(bb.minX) > 2.0E9 || Math.abs(bb.minZ) > 2.0E9
+            || Math.abs(bb.maxX) > 2.0E9 || Math.abs(bb.maxZ) > 2.0E9) {
+            cir.setReturnValue(true);
+        }
+    }
 
     @Inject(method = "cubeInFrustum(Lnet/minecraft/world/level/levelgen/structure/BoundingBox;)I",
             at = @At("HEAD"), cancellable = true)

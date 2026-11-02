@@ -111,7 +111,7 @@ public class ClientAutoTestMixin {
                     int yaw = (farlands$ticks / 80 * 90) % 360;
                     mc.player.setYRot(yaw);
                     mc.player.setYHeadRot(yaw);
-                    mc.player.setXRot(0.0F);
+                    mc.player.setXRot(35.0F);
                     System.out.println("[ROTATE] yaw=" + yaw);
                     System.out.flush();
                 }
