@@ -34,6 +34,7 @@ public abstract class MinecraftServerTestGenMixin {
             farlands$testgenDone = true;
             runTestGen(self);
         }
+        com.farlands.g2.runtime.FarChunkFeeder.tick(self);
         if (!farlands$spawnDone) {
             farlands$spawnDone = true;
             runSpawnSet(self);
@@ -1397,29 +1398,12 @@ public abstract class MinecraftServerTestGenMixin {
             String placed = level.getBlockState(bp).getBlock().toString();
             String chunkState = chunk == null ? "null" : chunk.getBlockState(bp).toString();
             if (Boolean.getBoolean("farlands.diag.clientWideChunk") && chunk != null) {
-                farlands$pushWideChunk(chunk);
-                int pushed = 1;
-                var base = chunk.getPos().widePos();
-                for (int dx = -pushRadius; dx <= pushRadius; dx++) {
-                    for (int dz = -pushRadius; dz <= pushRadius; dz++) {
-                        if (dx == 0 && dz == 0) {
-                            continue;
-                        }
-                        var neighbor = com.scalarwide.mc.WideChunkPos.of(
-                            base.x().toBigInteger().add(java.math.BigInteger.valueOf(dx)),
-                            base.z().toBigInteger().add(java.math.BigInteger.valueOf(dz)));
-                        var neighborChunk = sc.farlands$getChunkWide(
-                            new net.minecraft.world.level.ChunkPos(neighbor));
-                        if (neighborChunk != null) {
-                            farlands$pushWideChunk(neighborChunk);
-                            pushed++;
-                        }
-                    }
-                }
-                System.out.println("[WIDEPUSH] radius=" + pushRadius + " pushed=" + pushed);
-                System.out.flush();
+                // The initial wide ticket only existed to obtain the target chunk;
+                // the feeder adds one radius-0 ticket per chunk for one tick.
                 sc.farlands$removeTicketWithRadiusW(
                     net.minecraft.server.level.TicketType.FORCED, widePos, pushRadius);
+                com.farlands.g2.runtime.FarChunkFeeder.start(level, chunk.getPos().widePos(),
+                    pushRadius);
             }
             StringBuilder heights = new StringBuilder();
             if (chunk != null) {

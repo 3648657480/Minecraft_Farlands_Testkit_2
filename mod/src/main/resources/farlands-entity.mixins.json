@@ -15,6 +15,9 @@
         "BlockCollisionsProbeMixin",
         "EntityFluidInteractionFarGuardMixin",
         "LivingEntityClimbFarGuardMixin",
+        "ServerLevelFarEntityTickMixin",
+        "AbstractMinecartFarTickMixin",
+        "LevelFarEntityTickGuardMixin",
         "ChunkMapPlayerCloseMixin"
     ],
     "injectors": { "defaultRequire": 1 }
