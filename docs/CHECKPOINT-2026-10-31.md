@@ -119,6 +119,14 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - `farChunks=71`，边界不再整片重载；
 - anchor freeze 仅测试用；正式版需要滞后/rotating-grid 复用。
 
+## 2026-11-02 anchor leash
+
+- `farlands.anchor.leash` 默认 4 section；
+- 覆盖区内移动不 `setWideAnchor`，不整片 rekey；
+- 移动 100 tick `keySets=40583` 不变；
+- 超过 leash 才整体 re-anchor；
+- 完整 rotating-grid 复用仍未实现。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
