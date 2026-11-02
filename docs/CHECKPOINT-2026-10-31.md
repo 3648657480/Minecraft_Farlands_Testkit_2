@@ -127,6 +127,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 超过 leash 才整体 re-anchor；
 - 完整 rotating-grid 复用仍未实现。
 
+## 2026-11-02 leash 边缘
+
+- 9×9 覆盖区内只在约 64 格处发生一次 `WIDESET`；
+- 移动 371 格后每 4 section 搬一次 anchor；
+- 覆盖区内 100 tick `keySets` 不变；
+- 离开覆盖区后的周期性 re-anchor 仍未消除，需要 rotating-grid 复用。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
