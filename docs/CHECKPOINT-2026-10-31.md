@@ -164,6 +164,14 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - `save` PASS：far Y gold + normal-band chest 重载；
 - `dist53` PASS：chunk 2^49 / block 2^53 gen OK，surf=879024146b33 floor=9319dd6a448a。
 
+## 2026-11-02 保存后重进失败
+
+- 直接加载已保存 test7，`FARPUSH done=81`；
+- 客户端收到 16,623 个 `WIDECLIENT` 包；
+- 但 RDIAG 的 AABB/origin 仍为本地 0，`farChunks=0`；
+- 说明重进后 far origin/RenderKeys 没恢复，且存在重复发包；
+- 保存退出本身 PASS，重进渲染未通过。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
