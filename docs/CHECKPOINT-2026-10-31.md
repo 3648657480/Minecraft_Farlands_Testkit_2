@@ -180,6 +180,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 根因定位到 `g2HasWideOrigin`/`getRenderOrigin` 在重进 section 上未生效；
 - 保存退出 PASS，重进渲染仍未通过。
 
+## 2026-11-02 重进 origin 诊断
+
+- `getRenderOrigin` 在重进时全部打印 `no-wide`；
+- `setKey` 的 far 分支没有任何日志；
+- 说明 far key 没有经过 `setKey` 的 `g2SetWideOrigin` 路径；
+- 下一步查 `RotatingSectionStorageKeyMixin` 的 key 赋值与 holder 设置顺序。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
