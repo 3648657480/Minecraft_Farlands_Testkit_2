@@ -194,6 +194,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 无新 crash；
 - 保存退出 + 重进渲染链路恢复。
 
+## 2026-11-02 默认 leash=16
+
+- 默认 anchor leash 从 4 提到 16 section（256 格）；
+- 已保存 9×9 世界移动 100 tick：z=18.98，`keySets=150548` 不变；
+- `farChunks=35`（可见子集），移动期间无新 WIDESET；
+- 9×9 覆盖区内不再因 chunk 边界全量 re-anchor。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
