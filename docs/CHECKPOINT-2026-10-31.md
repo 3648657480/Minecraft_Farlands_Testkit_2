@@ -141,6 +141,14 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 进程 exit code 0，无新 crash；
 - `[STOP] hasWork` 3s 兜底触发后保存完成。
 
+## 2026-11-02 2^53 soak 10 分钟
+
+- soak 模式：前进 + 每 200 tick 旋转；
+- 10 分钟无 crash；
+- heap 峰值约 2.1GB / 8GB；
+- 前进离开 9×9 数据区后 `farChunks=0`，属覆盖外；
+- 渲染覆盖 soak 需要限制移动范围后重测。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
