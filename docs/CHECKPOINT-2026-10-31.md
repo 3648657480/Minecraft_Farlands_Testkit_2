@@ -156,6 +156,14 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 无 crash，heap 峰值约 1.2GB / 8GB；
 - 之前 10 分钟前进出 9×9，只是覆盖外稳定性 soak。
 
+## 2026-11-02 五门回归
+
+- `norm` PASS：surf=b9216bad2029 floor=8936c275d063 biome=4bf4e2ea5526；
+- `seam` PASS：maxDelta=1 maxFloorDelta=1 biomeMismatch=0/256；
+- `coll` PASS：CLIP=hit COLLBLK=n=1；
+- `save` PASS：far Y gold + normal-band chest 重载；
+- `dist53` PASS：chunk 2^49 / block 2^53 gen OK，surf=879024146b33 floor=9319dd6a448a。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
