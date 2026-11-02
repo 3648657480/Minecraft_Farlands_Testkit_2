@@ -76,6 +76,11 @@ public final class FarRegionBuilder {
         return new FarRenderSectionRegion(level, key, copies);
     }
 
+    /** Air section used for a 3x3x3 neighbour that the far store does not cover. */
+    public static SectionCopy emptyCopy(LevelHeightAccessor level) {
+        return copy(null, level);
+    }
+
     @SuppressWarnings("unchecked")
     private static SectionCopy copy(PalettedContainer<BlockState> states, LevelHeightAccessor level) {
         try {

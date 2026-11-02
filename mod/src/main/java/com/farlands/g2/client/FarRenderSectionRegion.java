@@ -18,11 +18,14 @@ public final class FarRenderSectionRegion extends RenderSectionRegion {
 
     private final SectionKey base;
     private final SectionCopy[] copies;
+    private final ClientLevel level;
+    private SectionCopy empty;
 
     public FarRenderSectionRegion(ClientLevel level, SectionKey base, SectionCopy[] copies) {
         super(level, base.x - 1, base.y - 1, base.z - 1, copies);
         this.base = base;
         this.copies = copies;
+        this.level = level;
     }
 
     @Override
@@ -49,9 +52,11 @@ public final class FarRenderSectionRegion extends RenderSectionRegion {
         int dz = (int) (sz - base.lz);
         int index = (dx + 1) + (dy + 1) * 3 + (dz + 1) * 9;
         if (index < 0 || index >= copies.length || copies[index] == null) {
-            index = 13;
+            if (empty == null) {
+                empty = FarRegionBuilder.emptyCopy(level);
+            }
+            return empty;
         }
-        SectionCopy copy = copies[index];
-        return copy == null ? copies[13] : copy;
+        return copies[index];
     }
 }

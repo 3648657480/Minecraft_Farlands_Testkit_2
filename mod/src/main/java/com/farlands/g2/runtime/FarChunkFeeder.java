@@ -32,6 +32,9 @@ public final class FarChunkFeeder {
     private static int batchCount;
     private static int radius;
     private static Set<WideChunkPos> seen;
+    private static boolean follow;
+    private static WideChunkPos followCenter;
+    private static int followRadius;
 
     private FarChunkFeeder() {
     }
@@ -44,7 +47,9 @@ public final class FarChunkFeeder {
         current = null;
         currentTicks = 0;
         batchIndex = 0;
-        seen = new HashSet<>();
+        if (!follow || seen == null) {
+            seen = new HashSet<>();
+        }
         batches = new ArrayDeque<>();
         batchChunks = new ArrayDeque<>();
 
@@ -66,6 +71,35 @@ public final class FarChunkFeeder {
         System.out.flush();
     }
 
+    /** Enable sliding-window mode: after each window is pushed, re-centre on the player. */
+    public static void startFollow(ServerLevel serverLevel, WideChunkPos center, int r) {
+        follow = true;
+        followCenter = center;
+        followRadius = r;
+        start(serverLevel, center, r);
+    }
+
+    private static void followTick(MinecraftServer server) {
+        if (!follow || !idle()) {
+            return;
+        }
+        var players = server.getPlayerList().getPlayers();
+        if (players == null || players.isEmpty()) {
+            return;
+        }
+        var player = players.get(0);
+        BigInteger cx = BigInteger.valueOf(
+            Math.floorDiv((long) Math.floor(player.getX()), 16L));
+        BigInteger cz = BigInteger.valueOf(
+            Math.floorDiv((long) Math.floor(player.getZ()), 16L));
+        WideChunkPos center = WideChunkPos.of(cx, cz);
+        if (center.equals(followCenter)) {
+            return;
+        }
+        followCenter = center;
+        start(level, center, followRadius);
+    }
+
     public static boolean idle() {
         return batches.isEmpty() && batchChunks.isEmpty() && current == null;
     }
@@ -82,6 +116,10 @@ public final class FarChunkFeeder {
 
     public static void tick(MinecraftServer server) {
         if (level == null || cache == null) {
+            return;
+        }
+        followTick(server);
+        if (follow && idle()) {
             return;
         }
         if (current == null) {

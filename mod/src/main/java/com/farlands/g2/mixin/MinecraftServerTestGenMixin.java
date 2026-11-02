@@ -1250,7 +1250,8 @@ public abstract class MinecraftServerTestGenMixin {
                 if (Boolean.getBoolean("farlands.diag.collision")) {
                     farlands$collisionProbe(level);
                 }
-                if (Boolean.getBoolean("farlands.diag.collisionWide")) {
+                if (Boolean.getBoolean("farlands.diag.collisionWide")
+                    || Boolean.getBoolean("farlands.diag.clientWideChunk")) {
                     farlands$collisionWideProbe(level);
                 }
                 // Collision + picking at y = 2^31 (block 2147483648).
@@ -1403,8 +1404,13 @@ public abstract class MinecraftServerTestGenMixin {
                 // their own radius-2 ticket from here.
                 sc.farlands$removeTicketWithRadiusW(
                     net.minecraft.server.level.TicketType.FORCED, widePos, initialRadius);
-                com.farlands.g2.runtime.FarChunkFeeder.start(level, chunk.getPos().widePos(),
-                    pushRadius);
+                if (Boolean.getBoolean("farlands.follow")) {
+                    com.farlands.g2.runtime.FarChunkFeeder.startFollow(level,
+                        chunk.getPos().widePos(), pushRadius);
+                } else {
+                    com.farlands.g2.runtime.FarChunkFeeder.start(level,
+                        chunk.getPos().widePos(), pushRadius);
+                }
             }
             StringBuilder heights = new StringBuilder();
             if (chunk != null) {

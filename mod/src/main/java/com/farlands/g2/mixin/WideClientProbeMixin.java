@@ -30,6 +30,7 @@ public class WideClientProbeMixin {
         if (farlands$ticks++ % 40 != 0) {
             return;
         }
+        boolean firstFill = com.farlands.g2.client.WideClientChunkStore.all().isEmpty();
         boolean changed = false;
         for (var packet : WideChunkPacketStore.all()) {
             var buffer = new net.minecraft.network.FriendlyByteBuf(
@@ -67,10 +68,10 @@ public class WideClientProbeMixin {
                 }
             }
         }
-        if (changed) {
+        if (changed && firstFill) {
             mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options,
                 mc.gameRenderer.mainCamera(), mc.getBlockColors());
-            System.out.println("[WIDECLIENT] invalidateCompiledGeometry after store update");
+            System.out.println("[WIDECLIENT] initial invalidateCompiledGeometry after store update");
             System.out.flush();
         }
         System.out.flush();

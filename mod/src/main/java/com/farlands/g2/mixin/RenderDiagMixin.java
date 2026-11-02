@@ -174,6 +174,8 @@ public class RenderDiagMixin {
         int meshNonEmpty = 0;
         int farMeshSections = 0;
         int farKeySections = 0;
+        int farNodeDup = 0;
+        var farNodeSet = new java.util.HashSet<Long>();
         var farChunks = new java.util.HashSet<String>();
         var farKeyChunks = new java.util.HashSet<String>();
         if (mc.level != null && mc.player != null) {
@@ -213,6 +215,9 @@ public class RenderDiagMixin {
                         || k.lz != (long) (int) k.lz)) {
                     farKeySections++;
                     farKeyChunks.add(k.lx + "," + k.lz);
+                    if (!farNodeSet.add(s.getSectionNode())) {
+                        farNodeDup++;
+                    }
                 }
             }
         }
@@ -311,6 +316,7 @@ public class RenderDiagMixin {
             + " lightCam=" + lightCam + " light3x3=" + light3x3 + " dataSec=" + dataSections + " meshSec=" + meshSections + " meshNonEmpty=" + meshNonEmpty
             + " farChunks=" + farChunks.size() + " farMeshSec=" + farMeshSections
             + " farKeySec=" + farKeySections + " farKeyChunks=" + farKeyChunks.size()
+            + " farNodeDup=" + farNodeDup
             + " keySets=" + com.farlands.g2.client.RenderResetStats.keySets()
             + " east=" + east + " eastCompiled=" + eastCompiled
             + " queue=" + disp.getCompileQueueSize()
