@@ -15,8 +15,10 @@ public final class FarRenderOrigin {
             return fallback;
         }
         var camera = Minecraft.getInstance().gameRenderer.mainCamera().position();
+        long y = holder.g2WideY();
+        int originY = y == (long) (int) y ? (int) y : (int) (y - camera.y);
         fallback.set((int) (holder.g2WideX() - camera.x),
-            (int) (holder.g2WideY() - camera.y),
+            originY,
             (int) (holder.g2WideZ() - camera.z));
         return fallback;
     }
