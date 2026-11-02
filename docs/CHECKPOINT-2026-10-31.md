@@ -172,6 +172,14 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 说明重进后 far origin/RenderKeys 没恢复，且存在重复发包；
 - 保存退出本身 PASS，重进渲染未通过。
 
+## 2026-11-02 重进修复尝试
+
+- store 增加 version；首次插入 81 包后 `invalidateCompiledGeometry`；
+- 不再因 `resetLevelRenderData` 触发 viewArea NPE；
+- 但重进仍 `farChunks=0`，AABB/origin 仍为本地 0；
+- 根因定位到 `g2HasWideOrigin`/`getRenderOrigin` 在重进 section 上未生效；
+- 保存退出 PASS，重进渲染仍未通过。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
