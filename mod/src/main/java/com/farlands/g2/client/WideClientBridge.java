@@ -21,6 +21,7 @@ public final class WideClientBridge {
             || mc.level == null || WideChunkPacketStore.size() == 0) {
             return;
         }
+        repairVisibleFar(mc);
         long packetVersion = WideChunkPacketStore.version();
         if (packetVersion == lastVersion) {
             return;
@@ -87,6 +88,30 @@ public final class WideClientBridge {
             }
             mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options,
                 mc.gameRenderer.mainCamera(), mc.getBlockColors());
+        }
+    }
+
+    /** Re-queue far sections that are visible but were missed by the dirty tracker. */
+    private static void repairVisibleFar(Minecraft mc) {
+        int budget = 8;
+        for (var section : mc.levelRenderer.visibleSections()) {
+            if (section.getSectionMesh()
+                != net.minecraft.client.renderer.chunk.CompiledSectionMesh.UNCOMPILED) {
+                continue;
+            }
+            var key = section instanceof com.farlands.g2.runtime.section.RenderSectionKeyAccessor a
+                ? a.farlands$getKey() : null;
+            if (key == null || key.lx == (long) (int) key.lx
+                && key.ly == (long) (int) key.ly && key.lz == (long) (int) key.lz) {
+                continue;
+            }
+            if (WideClientChunkStore.section(key.wide) == null) {
+                continue;
+            }
+            mc.level.setSectionDirtyWithNeighbors(key.x, key.y, key.z);
+            if (--budget <= 0) {
+                return;
+            }
         }
     }
 }
