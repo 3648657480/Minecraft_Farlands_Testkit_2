@@ -100,6 +100,12 @@ public class ClientBandFollowMixin {
         var camPos = mc.gameRenderer.mainCamera().position();
         if (Math.abs(camPos.x) > 1.0E12
             && viewArea instanceof com.farlands.g2.runtime.section.WideViewArea wideView) {
+            int farRenderDistance = Integer.getInteger("farlands.far.renderDistance", 4);
+            if (mc.options.renderDistance().get() != farRenderDistance) {
+                // The 9x9 data window is the view; a 25x25 section grid would
+                // compile 15000 mostly-empty sections for no visual benefit.
+                mc.options.renderDistance().set(farRenderDistance);
+            }
             java.math.BigInteger ax = java.math.BigInteger.valueOf(
                 Math.floorDiv((long) Math.floor(camPos.x), 16L));
             java.math.BigInteger az = java.math.BigInteger.valueOf(

@@ -1,0 +1,83 @@
+package com.farlands.g2.client;
+
+import com.farlands.g2.runtime.WideChunkPacketStore;
+import java.math.BigInteger;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+
+/**
+ * Runtime bridge from the integrated-server wide packet store to the client
+ * render data store. This is production code, not a diagnostic probe.
+ */
+public final class WideClientBridge {
+
+    private static long lastVersion = -1;
+
+    private WideClientBridge() {
+    }
+
+    public static void apply(Minecraft mc) {
+        if (!Boolean.getBoolean("farlands.diag.clientWideChunk")
+            || mc.level == null || WideChunkPacketStore.size() == 0) {
+            return;
+        }
+        long packetVersion = WideChunkPacketStore.version();
+        if (packetVersion == lastVersion) {
+            return;
+        }
+        lastVersion = packetVersion;
+
+        boolean firstFill = WideClientChunkStore.all().isEmpty();
+        boolean changed = false;
+        for (var packet : WideChunkPacketStore.all()) {
+            var buffer = new net.minecraft.network.FriendlyByteBuf(
+                io.netty.buffer.Unpooled.wrappedBuffer(packet.data()));
+            int count = buffer.readVarInt();
+            int minSy = buffer.readVarInt();
+            var sections = new LevelChunkSection[count];
+            for (int i = 0; i < count; i++) {
+                var section = new LevelChunkSection(mc.level.palettedContainerFactory());
+                section.read(buffer);
+                sections[i] = section;
+            }
+            long before = WideClientChunkStore.version();
+            WideClientChunkStore.set(new WideClientChunkStore.Data(
+                packet.pos(), minSy, sections));
+            boolean newlyStored = WideClientChunkStore.version() != before;
+            if (newlyStored) {
+                changed = true;
+                if (!firstFill) {
+                    int sx = packet.pos().x().toBigInteger().intValue();
+                    int sz = packet.pos().z().toBigInteger().intValue();
+                    for (int i = 0; i < count; i++) {
+                        mc.level.setSectionDirtyWithNeighbors(sx, minSy + i, sz);
+                    }
+                }
+            }
+        }
+
+        if (mc.player != null) {
+            BigInteger cx = BigInteger.valueOf(
+                Math.floorDiv((long) Math.floor(mc.player.getX()), 16L));
+            BigInteger cz = BigInteger.valueOf(
+                Math.floorDiv((long) Math.floor(mc.player.getZ()), 16L));
+            var removed = WideClientChunkStore.retainAround(
+                com.scalarwide.mc.WideChunkPos.of(cx, cz), 4);
+            if (!removed.isEmpty()) {
+                for (var data : removed) {
+                    int sx = data.pos().x().toBigInteger().intValue();
+                    int sz = data.pos().z().toBigInteger().intValue();
+                    for (int i = 0; i < data.sections().length; i++) {
+                        mc.level.setSectionDirtyWithNeighbors(sx, data.minSectionY() + i, sz);
+                    }
+                }
+                FarRegionBuilder.clearCache();
+            }
+        }
+
+        if (changed && firstFill) {
+            mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options,
+                mc.gameRenderer.mainCamera(), mc.getBlockColors());
+        }
+    }
+}
