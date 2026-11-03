@@ -302,6 +302,14 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 固定 far 无移动：画面连续，洞消失；
 - uncompiled=0，dirtyNull=0，farChunks=43。
 
+## 2026-11-02 数据窗口 11×11 / 视图 9×9
+
+- follow 数据半径 = pushRadius + 1（5），视图仍 4；
+- feeder batch 中心补 last，覆盖 11×11；
+- 客户端 retain/count 使用 `farlands.far.dataRadius=5`；
+- 实测 farChunks=81，uncompiled=0；
+- 边缘有真实邻居数据，修复边缘数据洞。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
