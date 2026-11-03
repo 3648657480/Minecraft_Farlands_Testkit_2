@@ -96,6 +96,14 @@ public final class FarChunkFeeder {
         if (center.equals(followCenter)) {
             return;
         }
+        long dx = center.x().toBigInteger()
+            .subtract(followCenter.x().toBigInteger()).abs().longValue();
+        long dz = center.z().toBigInteger()
+            .subtract(followCenter.z().toBigInteger()).abs().longValue();
+        int threshold = Integer.getInteger("farlands.follow.threshold", 3);
+        if (Math.max(dx, dz) < threshold) {
+            return;
+        }
         followCenter = center;
         start(level, center, followRadius);
     }

@@ -37,6 +37,8 @@ public abstract class RotatingSectionStorageKeyMixin {
     @Unique private SectionPos farlands$lastCenter;
     @Unique private BigInteger farlands$lastAnchorX;
     @Unique private BigInteger farlands$lastAnchorZ;
+    @Unique private int farlands$anchorCenterX;
+    @Unique private int farlands$anchorCenterZ;
     @Unique private boolean farlands$loggedWideKey;
     @Unique private static int farlands$keyLogs;
 
@@ -49,6 +51,11 @@ public abstract class RotatingSectionStorageKeyMixin {
             && Objects.equals(anchorX, this.farlands$lastAnchorX)
             && Objects.equals(anchorZ, this.farlands$lastAnchorZ)) {
             return; // same grid origin + anchor: keys cannot have changed
+        }
+        if (!Objects.equals(anchorX, this.farlands$lastAnchorX)
+            || !Objects.equals(anchorZ, this.farlands$lastAnchorZ)) {
+            this.farlands$anchorCenterX = newCenter.x();
+            this.farlands$anchorCenterZ = newCenter.z();
         }
         this.farlands$lastCenter = newCenter;
         this.farlands$lastAnchorX = anchorX;
@@ -69,9 +76,9 @@ public abstract class RotatingSectionStorageKeyMixin {
                 int worldX = lowestX + Math.floorMod(x - lowestX, gridXZ);
                 int worldZ = lowestZ + Math.floorMod(z - lowestZ, gridXZ);
                 BigInteger keyX = anchorX == null ? BigInteger.valueOf(worldX)
-                    : anchorX.add(BigInteger.valueOf((long) worldX - newCenter.x()));
+                    : anchorX.add(BigInteger.valueOf((long) worldX - this.farlands$anchorCenterX));
                 BigInteger keyZ = anchorZ == null ? BigInteger.valueOf(worldZ)
-                    : anchorZ.add(BigInteger.valueOf((long) worldZ - newCenter.z()));
+                    : anchorZ.add(BigInteger.valueOf((long) worldZ - this.farlands$anchorCenterZ));
                 SectionKey key = SectionKey.of(keyX, BigInteger.valueOf(this.minY + y), keyZ);
                 if (Boolean.getBoolean("farlands.diag.origin") && i < 2
                     && farlands$keyLogs++ < 12) {

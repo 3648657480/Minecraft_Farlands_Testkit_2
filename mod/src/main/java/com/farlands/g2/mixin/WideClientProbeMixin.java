@@ -52,8 +52,19 @@ public class WideClientProbeMixin {
             com.farlands.g2.client.WideClientChunkStore.set(
                 new com.farlands.g2.client.WideClientChunkStore.Data(
                     packet.pos(), minSy, sections));
-            if (com.farlands.g2.client.WideClientChunkStore.version() != beforeVersion) {
+            boolean newlyStored =
+                com.farlands.g2.client.WideClientChunkStore.version() != beforeVersion;
+            if (newlyStored) {
                 changed = true;
+            }
+            if (newlyStored && !firstFill) {
+                int sx = packet.pos().x().toBigInteger().intValue();
+                int sz = packet.pos().z().toBigInteger().intValue();
+                for (int i = 0; i < count; i++) {
+                    mc.level.setSectionDirtyWithNeighbors(sx, minSy + i, sz);
+                }
+                System.out.println("[WIDECLIENT] dirty new window chunk " + packet.pos());
+                System.out.flush();
             }
             System.out.println("[WIDECLIENT] pos=" + packet.pos()
                 + " minSy=" + packet.minSectionY()
