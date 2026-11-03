@@ -113,7 +113,7 @@ public final class FarChunkFeeder {
             .subtract(followCenter.x().toBigInteger()).abs().longValue();
         long dz = center.z().toBigInteger()
             .subtract(followCenter.z().toBigInteger()).abs().longValue();
-        int threshold = Integer.getInteger("farlands.follow.threshold", 3);
+        int threshold = Integer.getInteger("farlands.follow.threshold", 1);
         if (Math.max(dx, dz) < threshold) {
             return;
         }
