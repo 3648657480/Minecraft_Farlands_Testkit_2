@@ -76,6 +76,15 @@ public final class WideClientBridge {
         }
 
         if (changed && firstFill) {
+            for (var section : RenderKeys.all()) {
+                if (section instanceof com.farlands.g2.runtime.section.RenderSectionKeyAccessor accessor) {
+                    var key = accessor.farlands$getKey();
+                    if (key != null && (key.lx != (long) (int) key.lx
+                        || key.ly != (long) (int) key.ly || key.lz != (long) (int) key.lz)) {
+                        mc.level.setSectionDirtyWithNeighbors(key.x, key.y, key.z);
+                    }
+                }
+            }
             mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options,
                 mc.gameRenderer.mainCamera(), mc.getBlockColors());
         }
