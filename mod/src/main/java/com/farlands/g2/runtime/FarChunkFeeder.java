@@ -64,8 +64,15 @@ public final class FarChunkFeeder {
         } else {
             int first = -r + 2;
             int last = r - 2;
-            for (int dx = first; dx <= last; dx += 4) {
-                for (int dz = first; dz <= last; dz += 4) {
+            java.util.List<Integer> centers = new java.util.ArrayList<>();
+            for (int c = first; c <= last; c += 4) {
+                centers.add(c);
+            }
+            if (!centers.contains(last)) {
+                centers.add(last);
+            }
+            for (int dx : centers) {
+                for (int dz : centers) {
                     batches.add(WideChunkPos.of(
                         center.x().toBigInteger().add(BigInteger.valueOf(dx)),
                         center.z().toBigInteger().add(BigInteger.valueOf(dz))));

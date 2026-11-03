@@ -1406,7 +1406,7 @@ public abstract class MinecraftServerTestGenMixin {
                     net.minecraft.server.level.TicketType.FORCED, widePos, initialRadius);
                 if (Boolean.getBoolean("farlands.follow")) {
                     com.farlands.g2.runtime.FarChunkFeeder.startFollow(level,
-                        chunk.getPos().widePos(), pushRadius);
+                        chunk.getPos().widePos(), pushRadius + 1);
                 } else {
                     com.farlands.g2.runtime.FarChunkFeeder.start(level,
                         chunk.getPos().widePos(), pushRadius);
