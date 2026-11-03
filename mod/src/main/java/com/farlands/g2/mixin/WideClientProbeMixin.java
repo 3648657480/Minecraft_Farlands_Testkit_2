@@ -17,6 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class WideClientProbeMixin {
 
     @Unique private static int farlands$ticks;
+    @Unique private static long farlands$lastPacketVersion = -1;
 
     @Inject(method = "runTick", at = @At("TAIL"))
     private void farlands$logWideChunks(boolean advanceGameTime, CallbackInfo ci) {
@@ -27,6 +28,11 @@ public class WideClientProbeMixin {
         if (mc.level == null || WideChunkPacketStore.size() == 0) {
             return;
         }
+        long packetVersion = WideChunkPacketStore.version();
+        if (packetVersion == farlands$lastPacketVersion) {
+            return;
+        }
+        farlands$lastPacketVersion = packetVersion;
         if (farlands$ticks++ % 40 != 0) {
             return;
         }

@@ -18,12 +18,18 @@ public final class WideChunkPacketStore {
     }
 
     private static final Map<WideChunkPos, Packet> PACKETS = new ConcurrentHashMap<>();
+    private static volatile long version;
 
     private WideChunkPacketStore() {
     }
 
     public static void put(Packet packet) {
         PACKETS.put(packet.pos(), packet);
+        version++;
+    }
+
+    public static long version() {
+        return version;
     }
 
     public static Packet get(WideChunkPos pos) {
@@ -40,5 +46,6 @@ public final class WideChunkPacketStore {
 
     public static void clear() {
         PACKETS.clear();
+        version++;
     }
 }
