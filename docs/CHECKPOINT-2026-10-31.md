@@ -288,6 +288,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - `uncompiled=0`，`dirtyNull=0`；
 - `farChunks=35`，画面边缘连续，无 crash。
 
+## 2026-11-02 visible far 补 dirty
+
+- 每 tick 对 visible + uncompiled + 有数据的 far section 补 dirty，预算 8；
+- 不关闭 frustum，不整片 invalidate；
+- `dirtyNull=0`，`uncompiled=0`，`farChunks=45`；
+- 画面右侧整块缺 mesh 消失。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
