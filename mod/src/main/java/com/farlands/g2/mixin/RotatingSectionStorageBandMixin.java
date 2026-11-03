@@ -82,51 +82,27 @@ public abstract class RotatingSectionStorageBandMixin {
             farlands$nodes()[getSectionIndex(x, y, z)]);
     }
 
-    @Overwrite
-    public boolean repositionCenter(SectionPos newCenterSectionPos) {
-        if (newCenterSectionPos.equals(this.centerSectionPos)) {
-            return false;
-        }
-        WideSectionAnchor anchor = (WideSectionAnchor) (Object) this;
-        BigInteger anchorX = anchor.farlands$wideAnchorX();
-        BigInteger anchorZ = anchor.farlands$wideAnchorZ();
-        if (!Objects.equals(anchorX, this.farlands$lastAnchorX)
-            || !Objects.equals(anchorZ, this.farlands$lastAnchorZ)) {
-            this.farlands$anchorCenterX = newCenterSectionPos.x();
-            this.farlands$anchorCenterZ = newCenterSectionPos.z();
-        }
-        this.farlands$lastAnchorX = anchorX;
-        this.farlands$lastAnchorZ = anchorZ;
+    @org.spongepowered.asm.mixin.injection.Inject(
+        method = "repositionCenter", at = @org.spongepowered.asm.mixin.injection.At("HEAD"))
+    private void farlands$setBandBase(SectionPos newCenterSectionPos,
+        org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Boolean> cir) {
         int base = Integer.MIN_VALUE;
         if (Math.abs(newCenterSectionPos.y()) > 1_000_000
             && (newCenterSectionPos.y() < this.minY || newCenterSectionPos.y() > this.maxY)) {
-            // Page-aligned base: the ViewArea grid and the chunk window are both
-            // 384-block pages, so the dirty tracker must use the same keys. A
-            // camera-centred base made the tracker keys drift with the camera and
-            // left visible sections marked dirty/compiled inconsistently (§105).
             int gridY = this.sectionGridSizeY;
             base = VerticalBounds.pageMin(Math.floorDiv(newCenterSectionPos.y(), gridY), gridY);
         }
         this.farlands$base = base;
+    }
 
-        int lowestX = newCenterSectionPos.x() - this.radius;
-        int lowestZ = newCenterSectionPos.z() - this.radius;
-        for (int gridX = 0; gridX < this.sectionGridSizeXZ; gridX++) {
-            int newSectionX = lowestX + Math.floorMod(gridX - lowestX, this.sectionGridSizeXZ);
-            for (int gridZ = 0; gridZ < this.sectionGridSizeXZ; gridZ++) {
-                int newSectionZ = lowestZ + Math.floorMod(gridZ - lowestZ, this.sectionGridSizeXZ);
-                for (int gridY = 0; gridY < this.sectionGridSizeY; gridY++) {
-                    int newSectionY = (base == Integer.MIN_VALUE ? this.minY : base) + gridY;
-                    RotatingSectionStorage.Value value = farlands$valueAt(gridX, gridY, gridZ);
-                    long target = SectionPos.asLong(newSectionX, newSectionY, newSectionZ);
-                    if (value.getSectionNode() != target) {
-                        value.setSectionNode(target);
-                    }
-                }
-            }
-        }
-        this.centerSectionPos = newCenterSectionPos;
-        return true;
+    @org.spongepowered.asm.mixin.injection.Redirect(
+        method = "repositionCenter",
+        at = @org.spongepowered.asm.mixin.injection.At(
+            value = "FIELD",
+            target = "Lnet/minecraft/client/RotatingSectionStorage;minY:I",
+            opcode = org.objectweb.asm.Opcodes.GETFIELD))
+    private int farlands$bandMinY(RotatingSectionStorage storage) {
+        return this.farlands$base == Integer.MIN_VALUE ? this.minY : this.farlands$base;
     }
 
     @Overwrite
