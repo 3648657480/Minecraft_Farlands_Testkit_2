@@ -32,10 +32,10 @@ public class WideClientProbeMixin {
         if (packetVersion == farlands$lastPacketVersion) {
             return;
         }
-        farlands$lastPacketVersion = packetVersion;
         if (farlands$ticks++ % 40 != 0) {
             return;
         }
+        farlands$lastPacketVersion = packetVersion;
         boolean firstFill = com.farlands.g2.client.WideClientChunkStore.all().isEmpty();
         boolean changed = false;
         for (var packet : WideChunkPacketStore.all()) {

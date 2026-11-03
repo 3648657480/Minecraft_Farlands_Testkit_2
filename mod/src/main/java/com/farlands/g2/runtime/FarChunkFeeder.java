@@ -136,6 +136,18 @@ public final class FarChunkFeeder {
         if (follow && idle()) {
             return;
         }
+        int perTick = Math.max(1, Integer.getInteger("farlands.follow.chunksPerTick", 4));
+        for (int n = 0; n < perTick; n++) {
+            if (!tickOnce()) {
+                return;
+            }
+        }
+    }
+
+    private static boolean tickOnce() {
+        if (level == null || cache == null) {
+            return false;
+        }
         if (current == null) {
             if (batchChunks.isEmpty()) {
                 if (batches.isEmpty()) {
@@ -144,7 +156,7 @@ public final class FarChunkFeeder {
                     System.out.flush();
                     level = null;
                     cache = null;
-                    return;
+                    return false;
                 }
                 WideChunkPos batchCenter = batches.poll();
                 batchIndex++;
@@ -167,7 +179,7 @@ public final class FarChunkFeeder {
             }
             current = batchChunks.poll();
             if (current == null) {
-                return;
+                return false;
             }
             currentTicks = 0;
         }
@@ -181,7 +193,7 @@ public final class FarChunkFeeder {
                 System.out.flush();
                 current = null;
             }
-            return;
+            return false;
         }
 
         LevelChunk chunk = cache.farlands$getChunkWide(pos);
@@ -191,11 +203,12 @@ public final class FarChunkFeeder {
                 System.out.flush();
                 current = null;
             }
-            return;
+            return false;
         }
         push(chunk);
         pushed++;
         current = null;
+        return true;
     }
 
     private static void push(LevelChunk chunk) {
