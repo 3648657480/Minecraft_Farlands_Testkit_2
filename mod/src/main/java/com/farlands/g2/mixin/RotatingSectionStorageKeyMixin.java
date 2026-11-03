@@ -60,26 +60,22 @@ public abstract class RotatingSectionStorageKeyMixin {
         this.farlands$lastCenter = newCenter;
         this.farlands$lastAnchorX = anchorX;
         this.farlands$lastAnchorZ = anchorZ;
-        int gridXZ = this.sectionGridSizeXZ;
-        int gridY = this.sectionGridSizeY;
-        int lowestX = newCenter.x() - this.radius;
-        int lowestZ = newCenter.z() - this.radius;
+        long keyBefore = com.farlands.g2.client.RenderResetStats.keySets();
         int i = 0;
         Iterator<?> it = ((Iterable<?>) (Object) this).iterator();
         while (it.hasNext()) {
             Object value = it.next();
-            if (value instanceof RenderSectionKeyAccessor accessor) {
-                int x = i % gridXZ;
-                int rest = i / gridXZ;
-                int y = rest % gridY;
-                int z = rest / gridY;
-                int worldX = lowestX + Math.floorMod(x - lowestX, gridXZ);
-                int worldZ = lowestZ + Math.floorMod(z - lowestZ, gridXZ);
+            if (value instanceof RenderSectionKeyAccessor accessor
+                && value instanceof net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection renderSection) {
+                long node = renderSection.getSectionNode();
+                int worldX = SectionPos.x(node);
+                int worldY = SectionPos.y(node);
+                int worldZ = SectionPos.z(node);
                 BigInteger keyX = anchorX == null ? BigInteger.valueOf(worldX)
                     : anchorX.add(BigInteger.valueOf((long) worldX - this.farlands$anchorCenterX));
                 BigInteger keyZ = anchorZ == null ? BigInteger.valueOf(worldZ)
                     : anchorZ.add(BigInteger.valueOf((long) worldZ - this.farlands$anchorCenterZ));
-                SectionKey key = SectionKey.of(keyX, BigInteger.valueOf(this.minY + y), keyZ);
+                SectionKey key = SectionKey.of(keyX, BigInteger.valueOf(worldY), keyZ);
                 if (Boolean.getBoolean("farlands.diag.origin") && i < 2
                     && farlands$keyLogs++ < 12) {
                     System.out.println("[KEYASSIGN] center=" + newCenter
@@ -95,12 +91,27 @@ public abstract class RotatingSectionStorageKeyMixin {
                     System.out.flush();
                 }
                 if (!key.equals(accessor.farlands$getKey())) {
+                    if (i < 3 && Boolean.getBoolean("farlands.diag.origin")) {
+                        System.out.println("[KEYDIFF] i=" + i
+                            + " node=" + node + " world=" + worldX + "," + worldY + "," + worldZ
+                            + " anchorCenter=" + this.farlands$anchorCenterX + ","
+                            + this.farlands$anchorCenterZ
+                            + " old=" + accessor.farlands$getKey() + " new=" + key);
+                        System.out.flush();
+                    }
                     accessor.farlands$setKey(key);
                 } else if (value instanceof net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection section) {
                     RenderKeys.put(key, section);
                 }
             }
             i++;
+        }
+        long keyChanged = com.farlands.g2.client.RenderResetStats.keySets() - keyBefore;
+        if (keyChanged > 0) {
+            System.out.println("[KEYREKEY] center=" + newCenter
+                + " anchor=" + anchorX + "," + anchorZ
+                + " changed=" + keyChanged);
+            System.out.flush();
         }
     }
 }

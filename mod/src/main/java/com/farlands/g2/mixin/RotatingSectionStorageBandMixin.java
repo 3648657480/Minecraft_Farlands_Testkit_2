@@ -1,7 +1,10 @@
 package com.farlands.g2.mixin;
 
 import com.farlands.g2.runtime.VerticalBounds;
+import com.farlands.g2.runtime.section.WideSectionAnchor;
 import java.lang.reflect.Field;
+import java.math.BigInteger;
+import java.util.Objects;
 import net.minecraft.client.RotatingSectionStorage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
@@ -36,6 +39,10 @@ public abstract class RotatingSectionStorageBandMixin {
     @Shadow private SectionPos centerSectionPos;
 
     @Unique private int farlands$base = Integer.MIN_VALUE;
+    @Unique private int farlands$anchorCenterX;
+    @Unique private int farlands$anchorCenterZ;
+    @Unique private BigInteger farlands$lastAnchorX;
+    @Unique private BigInteger farlands$lastAnchorZ;
     @Unique private static Field farlands$nodesField;
     @Unique private static Field farlands$valueField;
 
@@ -80,6 +87,16 @@ public abstract class RotatingSectionStorageBandMixin {
         if (newCenterSectionPos.equals(this.centerSectionPos)) {
             return false;
         }
+        WideSectionAnchor anchor = (WideSectionAnchor) (Object) this;
+        BigInteger anchorX = anchor.farlands$wideAnchorX();
+        BigInteger anchorZ = anchor.farlands$wideAnchorZ();
+        if (!Objects.equals(anchorX, this.farlands$lastAnchorX)
+            || !Objects.equals(anchorZ, this.farlands$lastAnchorZ)) {
+            this.farlands$anchorCenterX = newCenterSectionPos.x();
+            this.farlands$anchorCenterZ = newCenterSectionPos.z();
+        }
+        this.farlands$lastAnchorX = anchorX;
+        this.farlands$lastAnchorZ = anchorZ;
         int base = Integer.MIN_VALUE;
         if (Math.abs(newCenterSectionPos.y()) > 1_000_000
             && (newCenterSectionPos.y() < this.minY || newCenterSectionPos.y() > this.maxY)) {
@@ -104,19 +121,6 @@ public abstract class RotatingSectionStorageBandMixin {
                     long target = SectionPos.asLong(newSectionX, newSectionY, newSectionZ);
                     if (value.getSectionNode() != target) {
                         value.setSectionNode(target);
-                    }
-                    // This @Overwrite replaces the method the separate key-assignment
-                    // inject targets, so assign the wide key here as well.
-                    if (value instanceof com.farlands.g2.runtime.section.RenderSectionKeyAccessor accessor) {
-                        com.farlands.g2.runtime.section.SectionKey key =
-                            com.farlands.g2.runtime.section.SectionKey.of(
-                                newSectionX, newSectionY, newSectionZ);
-                        if (!key.equals(accessor.farlands$getKey())) {
-                            accessor.farlands$setKey(key);
-                        } else {
-                            com.farlands.g2.client.RenderKeys.put(key,
-                                (net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection) value);
-                        }
                     }
                 }
             }

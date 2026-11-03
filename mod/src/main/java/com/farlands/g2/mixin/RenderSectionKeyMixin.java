@@ -7,8 +7,10 @@ import com.farlands.g2.runtime.section.WideOriginHolder;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -24,6 +26,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor {
 
     @Shadow private BlockPos.MutableBlockPos renderOrigin;
+    @Shadow @Mutable private long sectionNode;
     @Shadow private AABB bb;
     @Shadow public abstract void reset();
     @Shadow public abstract long getSectionNode();
@@ -81,6 +84,12 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
         this.farlands$wideOriginZ = lz;
         boolean far = lx != (long) (int) lx || ly != (long) (int) ly
             || lz != (long) (int) lz;
+        if (far) {
+            // Vanilla RotatingSectionStorage stores local packed section nodes.
+            // At 2^53 the absolute packed value collides/reports a different
+            // node for every slot, so repositionCenter resets all sections.
+            this.sectionNode = SectionPos.asLong(key.x, key.y, key.z);
+        }
         if (far && this instanceof WideOriginHolder holder) {
             holder.g2SetWideOrigin(lx, ly, lz);
             if (Boolean.getBoolean("farlands.diag.origin") && farlands$originLogs++ < 20) {
