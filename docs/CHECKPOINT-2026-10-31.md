@@ -217,6 +217,14 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 移动实测 `keySets=391728` 恒定，`WIDESET` 仅初始 2 次；
 - `farChunks=135`，无 crash。
 
+## 2026-11-02 跨 chunk 只重置边缘
+
+- `RotatingSectionStorageBandMixin` 不再重复写本地 key，消除双写；
+- `KeyMixin` 用真实 `sectionNode` + 固定 `anchorCenter`；
+- far `sectionNode` 改成本地 packed，vanilla `repositionCenter` 不再全量 reset；
+- 实测跨 chunk `[KEYREKEY] changed` 从 `14999` 降到 `600`（仅边缘一圈）；
+- `keySets=61292`，`farChunks=81`，无 crash。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
