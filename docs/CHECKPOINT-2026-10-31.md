@@ -260,6 +260,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 固定 9×9 baseline：`farChunks=42`（可见子集），无 crash；
 - follow 尚未在此路径下复测。
 
+## 2026-11-02 far 视距对齐
+
+- far 时 renderDistance 自动设为 4，与 9×9 数据窗口一致；
+- ViewArea 从 14999 section 降到 1943；
+- follow 下 visible=320/1943，KEYREKEY=216（边缘）；
+- farChunks=36（当前视角），farKeyChunks=99。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
