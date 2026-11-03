@@ -239,6 +239,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 9×9 滑动窗口：`farChunks=81`，prune=15/45；
 - 跨 chunk `KEYREKEY changed=600`（边缘），不再是 14999。
 
+## 2026-11-02 跟随吞吐
+
+- feeder 默认每 tick 推 4 个 chunk（`farlands.follow.chunksPerTick`）；
+- 81 chunk 窗口约 8 秒推完；
+- packet version 门控修复：先解码再更新版本，避免只解码 4 包；
+- 实测 WIDECLIENT=142，farChunks=81，prune=11/50。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
