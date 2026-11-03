@@ -185,7 +185,8 @@ public class ClientAutoTestMixin {
                 int soakMoveTicks = Integer.getInteger("farlands.autotest.soakMoveTicks", 50);
                 long elapsed = farlands$ticks - farlands$dataTick - 200L;
                 mc.options.keyUp.setDown(elapsed < soakMoveTicks);
-                if (farlands$ticks % 200 == 0) {
+                if (farlands$ticks % 200 == 0
+                    && !Boolean.getBoolean("farlands.autotest.soakNoRotate")) {
                     int yaw = (farlands$ticks / 200 * 90) % 360;
                     mc.player.setYRot(yaw);
                     mc.player.setYHeadRot(yaw);
