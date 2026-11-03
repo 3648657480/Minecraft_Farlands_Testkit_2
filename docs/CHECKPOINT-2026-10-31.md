@@ -253,6 +253,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 窗口淘汰/世界清理时清空缓存；
 - farChunks=81，KEYREKEY=600，无 crash。
 
+## 2026-11-02 恢复原版路径
+
+- 移除 far AABB 全放行，恢复 frustum 剔除；
+- 移除额外的 `viewArea.repositionCamera`，交给 LevelRenderer；
+- 固定 9×9 baseline：`farChunks=42`（可见子集），无 crash；
+- follow 尚未在此路径下复测。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
