@@ -62,17 +62,21 @@ public final class WideClientBridge {
                 Math.floorDiv((long) Math.floor(mc.player.getX()), 16L));
             BigInteger cz = BigInteger.valueOf(
                 Math.floorDiv((long) Math.floor(mc.player.getZ()), 16L));
-            var removed = WideClientChunkStore.retainAround(
-                com.scalarwide.mc.WideChunkPos.of(cx, cz), 4);
-            if (!removed.isEmpty()) {
-                for (var data : removed) {
-                    int sx = data.pos().x().toBigInteger().intValue();
-                    int sz = data.pos().z().toBigInteger().intValue();
-                    for (int i = 0; i < data.sections().length; i++) {
-                        mc.level.setSectionDirtyWithNeighbors(sx, data.minSectionY() + i, sz);
+            var center = com.scalarwide.mc.WideChunkPos.of(cx, cz);
+            // Follow pushes 4 chunks/tick; pruning before the new 9x9 is full
+            // would delete the old trailing chunks and leave a one-chunk hole.
+            if (WideClientChunkStore.countAround(center, 4) >= 81) {
+                var removed = WideClientChunkStore.retainAround(center, 4);
+                if (!removed.isEmpty()) {
+                    for (var data : removed) {
+                        int sx = data.pos().x().toBigInteger().intValue();
+                        int sz = data.pos().z().toBigInteger().intValue();
+                        for (int i = 0; i < data.sections().length; i++) {
+                            mc.level.setSectionDirtyWithNeighbors(sx, data.minSectionY() + i, sz);
+                        }
                     }
+                    FarRegionBuilder.clearCache();
                 }
-                FarRegionBuilder.clearCache();
             }
         }
 

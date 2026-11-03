@@ -43,6 +43,20 @@ public final class WideClientChunkStore {
         return BY_CHUNK.values();
     }
 
+    public static int countAround(WideChunkPos center, int radius) {
+        BigInteger cx = center.x().toBigInteger();
+        BigInteger cz = center.z().toBigInteger();
+        int count = 0;
+        for (WideChunkPos pos : BY_CHUNK.keySet()) {
+            long dx = pos.x().toBigInteger().subtract(cx).abs().longValue();
+            long dz = pos.z().toBigInteger().subtract(cz).abs().longValue();
+            if (Math.max(dx, dz) <= radius) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     /** Keep only the sliding 9x9 window around {@code center}. */
     public static List<Data> retainAround(WideChunkPos center, int radius) {
         BigInteger cx = center.x().toBigInteger();
