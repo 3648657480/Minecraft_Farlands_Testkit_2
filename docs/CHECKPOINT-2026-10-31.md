@@ -225,6 +225,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 实测跨 chunk `[KEYREKEY] changed` 从 `14999` 降到 `600`（仅边缘一圈）；
 - `keySets=61292`，`farChunks=81`，无 crash。
 
+## 2026-11-02 9×9 滑动窗口
+
+- 客户端 `retainAround` 只保留中心 9×9，旧窗口淘汰并标脏；
+- feeder `seen` 同步裁剪，返回旧区域可重推；
+- 实测 `pruned=27`，`farChunks=81`，`keySets=64147` 恒定，无 crash；
+- 跟随不再累积旧窗口。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
