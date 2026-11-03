@@ -50,6 +50,14 @@ public final class RenderKeys {
         }
     }
 
+    /** Remove one section key without disturbing a newer key for the same slot. */
+    public static void remove(SectionKey key) {
+        SectionRenderDispatcher.RenderSection section = BY_KEY.remove(key);
+        if (section != null && BY_NODE.get(section.getSectionNode()) == section) {
+            BY_NODE.remove(section.getSectionNode());
+        }
+    }
+
     /** All registered render sections (for the limited far-band refill). */
     public static java.util.Collection<SectionRenderDispatcher.RenderSection> all() {
         return BY_KEY.values();

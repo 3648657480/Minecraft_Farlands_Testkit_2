@@ -105,6 +105,8 @@ public class ClientBandFollowMixin {
                 // The 9x9 data window is the view; a 25x25 section grid would
                 // compile 15000 mostly-empty sections for no visual benefit.
                 mc.options.renderDistance().set(farRenderDistance);
+                com.farlands.g2.client.RenderKeys.clear();
+                com.farlands.g2.client.FarRegionBuilder.clearCache();
             }
             java.math.BigInteger ax = java.math.BigInteger.valueOf(
                 Math.floorDiv((long) Math.floor(camPos.x), 16L));

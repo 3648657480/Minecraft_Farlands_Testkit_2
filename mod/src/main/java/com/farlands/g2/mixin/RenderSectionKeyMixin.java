@@ -16,6 +16,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Adds the 2560-bit {@link SectionKey} identity to a render section. The origin
@@ -32,6 +33,7 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
     @Shadow public abstract long getSectionNode();
 
     @Unique private SectionKey farlands$key;
+    @Unique private AABB farlands$wideBb;
     @Unique private long farlands$wideOriginX;
     @Unique private long farlands$wideOriginY;
     @Unique private long farlands$wideOriginZ;
@@ -72,6 +74,9 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
             return;
         }
         com.farlands.g2.client.RenderResetStats.keySet();
+        if (this.farlands$key != null) {
+            RenderKeys.remove(this.farlands$key);
+        }
         this.farlands$key = key;
         this.reset();
         // X/Z long->double, following the X/Z render solution: the AABB carries the
@@ -102,6 +107,7 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
         this.renderOrigin.set((int) lx, (int) ly, (int) lz);
         this.bb = new AABB((double) lx, (double) ly, (double) lz,
             (double) (lx + 16L), (double) (ly + 16L), (double) (lz + 16L));
+        this.farlands$wideBb = far ? this.bb : null;
         RenderKeys.put(key, (SectionRenderDispatcher.RenderSection) (Object) this);
         // reset() dropped the mesh; mark only this section dirty. Marking the whole
         // 3x3x3 neighbourhood here floods the queue whenever the camera moves and
@@ -109,6 +115,13 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
         var mc = net.minecraft.client.Minecraft.getInstance();
         if (mc != null && mc.level != null) {
             mc.level.setSectionRangeDirty(key.x, key.y, key.z, key.x, key.y, key.z);
+        }
+    }
+
+    @Inject(method = "getBoundingBox", at = @At("RETURN"), cancellable = true)
+    private void farlands$wideCullingBox(CallbackInfoReturnable<AABB> cir) {
+        if (this.farlands$wideBb != null) {
+            cir.setReturnValue(this.farlands$wideBb);
         }
     }
 }
