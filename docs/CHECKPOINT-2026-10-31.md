@@ -310,6 +310,12 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 实测 farChunks=81，uncompiled=0；
 - 边缘有真实邻居数据，修复边缘数据洞。
 
+## 2026-11-02 follow 阈值 1
+
+- 数据半径 5 / 视图 4 时，阈值 3 会让视图边缘超出数据环；
+- 阈值改为 1，数据窗口始终贴住玩家；
+- 实测画面连续，`uncompiled=0`，`farChunks=62`。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
