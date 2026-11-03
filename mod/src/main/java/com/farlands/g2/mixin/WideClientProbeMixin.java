@@ -102,6 +102,7 @@ public class WideClientProbeMixin {
                 }
                 System.out.println("[WIDECLIENT] pruned old window chunks=" + removed.size());
                 System.out.flush();
+                com.farlands.g2.client.FarRegionBuilder.clearCache();
             }
         }
         if (changed && firstFill) {

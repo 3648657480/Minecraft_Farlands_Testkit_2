@@ -92,5 +92,6 @@ public final class WideClientChunkStore {
     public static void clear() {
         BY_CHUNK.clear();
         current = null;
+        FarRegionBuilder.clearCache();
     }
 }

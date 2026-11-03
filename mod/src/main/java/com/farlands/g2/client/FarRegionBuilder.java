@@ -3,6 +3,8 @@ package com.farlands.g2.client;
 import com.farlands.g2.runtime.section.SectionKey;
 import com.scalarwide.mc.WideSectionKey2560;
 import java.lang.reflect.Constructor;
+import java.util.HashMap;
+import java.util.Map;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import net.minecraft.client.renderer.chunk.SectionCopy;
@@ -18,6 +20,8 @@ import net.minecraft.world.level.LevelHeightAccessor;
 public final class FarRegionBuilder {
 
     private static Constructor<SectionCopy> ctor;
+    private static final Map<SectionKey, SectionCopy> CACHE = new HashMap<>();
+    private static SectionCopy empty;
     private static boolean logged;
     private static int entered;
     private static int nonAirLogged;
@@ -48,9 +52,7 @@ public final class FarRegionBuilder {
                     int index = (dx + 1) + (dy + 1) * 3 + (dz + 1) * 9;
                     SectionKey cell = key.offset(dx, dy, dz);
                     LevelChunkSection section = WideClientChunkStore.section(cell.wide);
-                    PalettedContainer<BlockState> states = section == null
-                        || section.hasOnlyAir() ? null : section.getStates().copy();
-                    copies[index] = copy(states, level);
+                    copies[index] = copyCached(cell, section, level);
                 }
             }
         }
@@ -78,7 +80,24 @@ public final class FarRegionBuilder {
 
     /** Air section used for a 3x3x3 neighbour that the far store does not cover. */
     public static SectionCopy emptyCopy(LevelHeightAccessor level) {
-        return copy(null, level);
+        if (empty == null) {
+            empty = copy(null, level);
+        }
+        return empty;
+    }
+
+    private static SectionCopy copyCached(SectionKey key, LevelChunkSection section,
+        LevelHeightAccessor level) {
+        if (section == null || section.hasOnlyAir()) {
+            return emptyCopy(level);
+        }
+        return CACHE.computeIfAbsent(key, ignored -> copy(section.getStates(), level));
+    }
+
+    /** Drop cached copies when the sliding window evicts chunks. */
+    public static void clearCache() {
+        CACHE.clear();
+        empty = null;
     }
 
     @SuppressWarnings("unchecked")
