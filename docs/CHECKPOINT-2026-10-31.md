@@ -267,6 +267,14 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - follow 下 visible=320/1943，KEYREKEY=216（边缘）；
 - farChunks=36（当前视角），farKeyChunks=99。
 
+## 2026-11-02 结构改动后五门回归
+
+- `norm` PASS：surf=b9216bad2029 floor=8936c275d063 biome=4bf4e2ea5526；
+- `seam` PASS：maxDelta=1 maxFloorDelta=1 biomeMismatch=0/256；
+- `coll` PASS：CLIP=hit COLLBLK=n=1；
+- `save` PASS：far Y gold + normal-band chest 重载；
+- `dist53` PASS：chunk 2^49 / block 2^53 gen OK。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
