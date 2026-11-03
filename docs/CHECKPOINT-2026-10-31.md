@@ -232,6 +232,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 实测 `pruned=27`，`farChunks=81`，`keySets=64147` 恒定，无 crash；
 - 跟随不再累积旧窗口。
 
+## 2026-11-02 probe 性能
+
+- `WideChunkPacketStore` 增加 version；
+- probe 只在 version 变化时解码，WIDECLIENT 日志从 3000+ 降到 142；
+- 9×9 滑动窗口：`farChunks=81`，prune=15/45；
+- 跨 chunk `KEYREKEY changed=600`（边缘），不再是 14999。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
