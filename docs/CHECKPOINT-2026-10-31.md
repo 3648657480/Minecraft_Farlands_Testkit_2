@@ -295,6 +295,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - `dirtyNull=0`，`uncompiled=0`，`farChunks=45`；
 - 画面右侧整块缺 mesh 消失。
 
+## 2026-11-02 未满 9×9 不 prune
+
+- follow 4/tick 增量到达时，旧窗口被过早 prune，留下尾随数据洞；
+- `retainAround` 改为当前中心 9×9 达到 81 个 chunk 后才执行；
+- 固定 far 无移动：画面连续，洞消失；
+- uncompiled=0，dirtyNull=0，farChunks=43。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
