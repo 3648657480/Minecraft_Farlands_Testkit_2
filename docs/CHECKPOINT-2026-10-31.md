@@ -275,6 +275,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - `save` PASS：far Y gold + normal-band chest 重载；
 - `dist53` PASS：chunk 2^49 / block 2^53 gen OK。
 
+## 2026-11-02 far SectionKey 唯一性
+
+- 根因：`setKey` 只 put 新 key、不删除旧 SectionKey，BY_KEY 每 section 留两份；
+- 增加 `RenderKeys.remove(SectionKey)`，setKey 前清理旧 key；
+- farKeySec 3886 -> 1943，farNodeDup 1943 -> 0，uncompiled=0；
+- farChunks=45，frustum 保留，画面边缘无缺块。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
