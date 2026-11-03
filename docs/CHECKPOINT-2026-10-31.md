@@ -246,6 +246,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - packet version 门控修复：先解码再更新版本，避免只解码 4 包；
 - 实测 WIDECLIENT=142，farChunks=81，prune=11/50。
 
+## 2026-11-02 SectionCopy 缓存
+
+- `FarRegionBuilder` 按 SectionKey 缓存 SectionCopy；
+- 不再为每个 3×3×3 邻居复制 PalettedContainer；
+- 窗口淘汰/世界清理时清空缓存；
+- farChunks=81，KEYREKEY=600，无 crash。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
