@@ -209,6 +209,14 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 实测移动 116 格：8 个 FARPUSH 窗口、`farChunks=136`、仅 1 次 WIDESET、无 crash；
 - 旧窗口数据暂未卸载，`farChunks` 会随移动增长。
 
+## 2026-11-02 跨 chunk 稳定 key
+
+- 根因：`RotatingSectionStorageKeyMixin` 用 `newCenter` 计算 key，camera 每移动一个 section，全部 key 偏移；
+- 改为固定 `anchorCenter` 参考系，内部 slot key 稳定；
+- follow 阈值 3 chunk，避免每 chunk 开新窗口；
+- 移动实测 `keySets=391728` 恒定，`WIDESET` 仅初始 2 次；
+- `farChunks=135`，无 crash。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
