@@ -121,7 +121,7 @@ SectionCompiler + FarRegionBuilder 数据源
 
 | 文件 | 违反 | 处置 |
 |---|---|---|
-| `RotatingSectionStorageBandMixin` | `@Overwrite repositionCenter`，与 KeyMixin 双写 | 改为只处理 far Y band，XY 交还 vanilla |
+| `RotatingSectionStorageBandMixin` | 已移除 `@Overwrite`；只保留 far-Y base + minY 重定向 | 已完成（S2b13） |
 | `RotatingSectionStorageKeyMixin` | 在 recenter 后全表遍历写 key | 只处理 node 变化的 slot |
 | `ClientBandFollowMixin` | 手写 anchor/recenter/dirty 逻辑 | 收敛为只设置 wide anchor |
 | `FrustumMixin` | 仍有 far AABB 放行开关 | 保留诊断开关，生产默认关 |
@@ -132,7 +132,7 @@ SectionCompiler + FarRegionBuilder 数据源
 ## 7. 迁移顺序
 
 1. 冻结 `2e0a68b`，不再加 follow 功能。
-2. 删除 `BandMixin` 的 `@Overwrite`，只保留 far Y band 注入。
+2. 删除 `BandMixin` 的 `@Overwrite`，只保留 far Y band 注入。（已完成 S2b13）
 3. 合并 key 写入：只有一个 writer，且只写 node 变化的 slot。
 4. 把 `WideClientProbeMixin` 拆成生产 bridge + 诊断。
 5. 固定 9×9：frustum 正常、farChunks 为视锥子集、FPS baseline。
