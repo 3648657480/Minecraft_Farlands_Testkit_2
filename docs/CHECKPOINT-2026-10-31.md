@@ -282,6 +282,12 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - farKeySec 3886 -> 1943，farNodeDup 1943 -> 0，uncompiled=0；
 - farChunks=45，frustum 保留，画面边缘无缺块。
 
+## 2026-11-02 far dirty 补标
+
+- 首次 store 填充后对 RenderKeys 中所有 far section 标 dirty；
+- `uncompiled=0`，`dirtyNull=0`；
+- `farChunks=35`，画面边缘连续，无 crash。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
