@@ -3,7 +3,9 @@ package com.farlands.g2.client;
 import com.scalarwide.mc.WideChunkPos;
 import com.scalarwide.mc.WideSectionKey2560;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.world.level.chunk.LevelChunkSection;
@@ -39,6 +41,28 @@ public final class WideClientChunkStore {
 
     public static Collection<Data> all() {
         return BY_CHUNK.values();
+    }
+
+    /** Keep only the sliding 9x9 window around {@code center}. */
+    public static List<Data> retainAround(WideChunkPos center, int radius) {
+        BigInteger cx = center.x().toBigInteger();
+        BigInteger cz = center.z().toBigInteger();
+        List<Data> removed = new ArrayList<>();
+        BY_CHUNK.entrySet().removeIf(entry -> {
+            WideChunkPos pos = entry.getKey();
+            long dx = pos.x().toBigInteger().subtract(cx).abs().longValue();
+            long dz = pos.z().toBigInteger().subtract(cz).abs().longValue();
+            if (Math.max(dx, dz) <= radius) {
+                return false;
+            }
+            removed.add(entry.getValue());
+            version++;
+            return true;
+        });
+        if (current != null && !BY_CHUNK.containsKey(current.pos())) {
+            current = BY_CHUNK.isEmpty() ? null : BY_CHUNK.values().iterator().next();
+        }
+        return removed;
     }
 
     /** Section for an exact 2560 key, or null. */

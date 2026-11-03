@@ -79,6 +79,25 @@ public class WideClientProbeMixin {
                 }
             }
         }
+        if (mc.player != null) {
+            java.math.BigInteger cx = java.math.BigInteger.valueOf(
+                Math.floorDiv((long) Math.floor(mc.player.getX()), 16L));
+            java.math.BigInteger cz = java.math.BigInteger.valueOf(
+                Math.floorDiv((long) Math.floor(mc.player.getZ()), 16L));
+            var removed = com.farlands.g2.client.WideClientChunkStore.retainAround(
+                com.scalarwide.mc.WideChunkPos.of(cx, cz), 4);
+            if (!removed.isEmpty()) {
+                for (var data : removed) {
+                    int sx = data.pos().x().toBigInteger().intValue();
+                    int sz = data.pos().z().toBigInteger().intValue();
+                    for (int i = 0; i < data.sections().length; i++) {
+                        mc.level.setSectionDirtyWithNeighbors(sx, data.minSectionY() + i, sz);
+                    }
+                }
+                System.out.println("[WIDECLIENT] pruned old window chunks=" + removed.size());
+                System.out.flush();
+            }
+        }
         if (changed && firstFill) {
             mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options,
                 mc.gameRenderer.mainCamera(), mc.getBlockColors());

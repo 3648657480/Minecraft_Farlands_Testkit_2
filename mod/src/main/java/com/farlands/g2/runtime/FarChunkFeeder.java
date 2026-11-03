@@ -49,6 +49,12 @@ public final class FarChunkFeeder {
         batchIndex = 0;
         if (!follow || seen == null) {
             seen = new HashSet<>();
+        } else {
+            BigInteger cx = center.x().toBigInteger();
+            BigInteger cz = center.z().toBigInteger();
+            seen.removeIf(pos -> Math.max(
+                Math.abs(pos.x().toBigInteger().subtract(cx).longValue()),
+                Math.abs(pos.z().toBigInteger().subtract(cz).longValue())) > r);
         }
         batches = new ArrayDeque<>();
         batchChunks = new ArrayDeque<>();
