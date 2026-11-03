@@ -125,8 +125,6 @@ public class ClientBandFollowMixin {
                 farlands$anchorFrozen = true;
                 farlands$anchorSecX = axL;
                 farlands$anchorSecZ = azL;
-                viewArea.repositionCamera(net.minecraft.core.SectionPos.of(
-                    mc.player.blockPosition()));
                 System.out.println("[WIDESET] anchor=" + ax + "," + az
                     + " leash=" + leash);
                 System.out.flush();

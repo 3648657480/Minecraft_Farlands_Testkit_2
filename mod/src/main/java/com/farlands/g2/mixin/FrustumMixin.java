@@ -23,7 +23,7 @@ public class FrustumMixin {
     @Inject(method = "isVisible(Lnet/minecraft/world/phys/AABB;)Z",
             at = @At("HEAD"), cancellable = true)
     private void farAabbProbe(AABB bb, CallbackInfoReturnable<Boolean> cir) {
-        if (Boolean.getBoolean("farlands.diag.frustum")) {
+        if (!Boolean.getBoolean("farlands.diag.nofrustum")) {
             return;
         }
         if (Math.abs(bb.minX) > 2.0E9 || Math.abs(bb.minZ) > 2.0E9
