@@ -165,7 +165,7 @@ public final class FarChunkFeeder {
                 System.out.flush();
             }
         }
-        int perTick = Math.max(1, Integer.getInteger("farlands.follow.chunksPerTick", 4));
+        int perTick = Math.max(1, Integer.getInteger("farlands.follow.chunksPerTick", 8));
         for (int n = 0; n < perTick && ringPushOnce(); n++) {
             // keep draining
         }
@@ -236,7 +236,7 @@ public final class FarChunkFeeder {
         if (follow && idle()) {
             return;
         }
-        int perTick = Math.max(1, Integer.getInteger("farlands.follow.chunksPerTick", 4));
+        int perTick = Math.max(1, Integer.getInteger("farlands.follow.chunksPerTick", 8));
         for (int n = 0; n < perTick; n++) {
             if (!tickOnce()) {
                 return;
