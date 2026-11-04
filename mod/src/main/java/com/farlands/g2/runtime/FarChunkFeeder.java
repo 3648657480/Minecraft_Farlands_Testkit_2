@@ -41,6 +41,7 @@ public final class FarChunkFeeder {
     private static Set<WideChunkPos> ringChunks;
     private static Queue<WideChunkPos> ringInnerQueue;
     private static Queue<WideChunkPos> ringOuterQueue;
+    private static final ArrayDeque<WideChunkPos> ringPending = new ArrayDeque<>();
     private static boolean ringWarmup;
 
     private FarChunkFeeder() {
@@ -108,6 +109,7 @@ public final class FarChunkFeeder {
         ringChunks = desiredRing(center, r);
         ringInnerQueue = new ArrayDeque<>();
         ringOuterQueue = new ArrayDeque<>();
+        ringPending.clear();
         int innerR = Math.max(0, r - 1);
         for (WideChunkPos pos : ringChunks) {
             if (ringDistance(pos, center) <= innerR) {
@@ -197,7 +199,7 @@ public final class FarChunkFeeder {
         for (int n = 0; n < perTick && ringPushOnce(); n++) {
             // keep draining
         }
-        if (ringWarmup && current == null && ringInnerQueue.isEmpty()
+        if (ringWarmup && ringPending.isEmpty() && ringInnerQueue.isEmpty()
             && ringOuterQueue.isEmpty()) {
             ringWarmup = false;
             System.out.println("[FARPUSH] ring warmup done pushed=" + pushed);
@@ -206,45 +208,55 @@ public final class FarChunkFeeder {
     }
 
     private static boolean ringPushOnce() {
-        if (current == null) {
-            current = ringInnerQueue.poll();
-            if (current == null) {
-                current = ringOuterQueue.poll();
+        for (var it = ringPending.iterator(); it.hasNext();) {
+            WideChunkPos candidate = it.next();
+            var holder = cache.chunkMap.farlands$getUpdatingChunkW(candidate);
+            if (holder == null || !holder.getFullChunkFuture().isDone()) {
+                continue;
             }
-            if (current == null) {
+            it.remove();
+            LevelChunk chunk = cache.farlands$getChunkWide(new ChunkPos(candidate));
+            if (chunk != null) {
+                push(chunk);
+                pushed++;
+                return true;
+            }
+        }
+        int maxConcurrent = Math.max(8,
+            Integer.getInteger("farlands.follow.concurrent", 16));
+        while (ringPending.size() < maxConcurrent) {
+            WideChunkPos candidate = ringInnerQueue.poll();
+            if (candidate == null) {
+                candidate = ringOuterQueue.poll();
+            }
+            if (candidate == null) {
                 return false;
             }
-            currentTicks = 0;
-        }
-        currentTicks++;
-        ChunkPos pos = new ChunkPos(current);
-        var holder = cache.chunkMap.farlands$getUpdatingChunkW(current);
-        if (holder == null || !holder.getFullChunkFuture().isDone()) {
-            if (currentTicks > 1200) {
-                System.out.println("[FARPUSH] ring timeout " + current);
-                System.out.flush();
-                current = null;
+            var holder = cache.chunkMap.farlands$getUpdatingChunkW(candidate);
+            if (holder == null) {
+                ringPending.add(candidate);
+                continue;
             }
-            return false;
-        }
-        LevelChunk chunk = cache.farlands$getChunkWide(pos);
-        if (chunk == null) {
-            if (currentTicks > 1200) {
-                System.out.println("[FARPUSH] ring chunk-null " + current);
-                System.out.flush();
-                current = null;
+            if (holder.getFullChunkFuture().isDone()) {
+                LevelChunk chunk = cache.farlands$getChunkWide(new ChunkPos(candidate));
+                if (chunk != null) {
+                    push(chunk);
+                    pushed++;
+                    return true;
+                }
             }
-            return false;
+            ringPending.add(candidate);
+            if (ringPending.size() >= maxConcurrent) {
+                break;
+            }
         }
-        push(chunk);
-        pushed++;
-        current = null;
-        return true;
+        return false;
     }
 
     public static boolean idle() {
         if (ringMode) {
-            return current == null && ringInnerQueue.isEmpty() && ringOuterQueue.isEmpty();
+            return current == null && ringPending.isEmpty()
+                && ringInnerQueue.isEmpty() && ringOuterQueue.isEmpty();
         }
         return batches.isEmpty() && batchChunks.isEmpty() && current == null;
     }
@@ -257,6 +269,7 @@ public final class FarChunkFeeder {
         ringChunks = null;
         ringInnerQueue = null;
         ringOuterQueue = null;
+        ringPending.clear();
         level = null;
         cache = null;
         System.out.println("[FARPUSH] stopped");
