@@ -323,6 +323,12 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 旧数据不丢，新边缘优先；
 - 实测 `+11`、`queued=11`、`farKeyChunks=117`、`uncompiled=0`、无 crash。
 
+## 2026-11-04 follow 视觉锚点与吞吐
+
+- `farlands.anchor.leash` 默认 16 -> 1，客户端视点每 chunk 同步 ring；
+- ring 默认 `chunksPerTick` 4 -> 8；
+- 稳定后 recenter 只 `+11/queued=11`，farChunks=81，uncompiled=0。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
