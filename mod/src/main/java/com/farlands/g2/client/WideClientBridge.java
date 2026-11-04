@@ -64,10 +64,10 @@ public final class WideClientBridge {
                 Math.floorDiv((long) Math.floor(mc.player.getZ()), 16L));
             var center = com.scalarwide.mc.WideChunkPos.of(cx, cz);
             int dataRadius = Integer.getInteger("farlands.far.dataRadius", 5);
-            int expected = (dataRadius * 2 + 1) * (dataRadius * 2 + 1);
-            // Follow pushes chunks/tick; pruning before the data ring is full
-            // would delete the old trailing chunks and leave a one-chunk hole.
-            if (WideClientChunkStore.countAround(center, dataRadius) >= expected) {
+            // Prune only when every chunk of the new ring is present; a count
+            // can be satisfied by stale trailing chunks while the leading edge
+            // is still missing.
+            if (WideClientChunkStore.hasAllAround(center, dataRadius)) {
                 var removed = WideClientChunkStore.retainAround(center, dataRadius);
                 if (!removed.isEmpty()) {
                     for (var data : removed) {

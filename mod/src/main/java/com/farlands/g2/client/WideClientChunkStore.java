@@ -43,6 +43,20 @@ public final class WideClientChunkStore {
         return BY_CHUNK.values();
     }
 
+    public static boolean hasAllAround(WideChunkPos center, int radius) {
+        BigInteger cx = center.x().toBigInteger();
+        BigInteger cz = center.z().toBigInteger();
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                if (!BY_CHUNK.containsKey(WideChunkPos.of(
+                    cx.add(BigInteger.valueOf(dx)), cz.add(BigInteger.valueOf(dz))))) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     public static int countAround(WideChunkPos center, int radius) {
         BigInteger cx = center.x().toBigInteger();
         BigInteger cz = center.z().toBigInteger();

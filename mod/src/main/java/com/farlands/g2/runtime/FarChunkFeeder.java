@@ -40,6 +40,7 @@ public final class FarChunkFeeder {
     private static int ringRadius;
     private static Set<WideChunkPos> ringChunks;
     private static Queue<WideChunkPos> ringQueue;
+    private static boolean ringWarmup;
 
     private FarChunkFeeder() {
     }
@@ -105,6 +106,7 @@ public final class FarChunkFeeder {
         currentTicks = 0;
         ringChunks = desiredRing(center, r);
         ringQueue = new ArrayDeque<>(ringChunks);
+        ringWarmup = true;
         addRingTickets(center, r);
         System.out.println("[FARPUSH] ring start center=" + center
             + " chunks=" + ringChunks.size());
@@ -165,9 +167,16 @@ public final class FarChunkFeeder {
                 System.out.flush();
             }
         }
-        int perTick = Math.max(1, Integer.getInteger("farlands.follow.chunksPerTick", 8));
+        int perTick = ringWarmup
+            ? Math.max(1, Integer.getInteger("farlands.follow.warmupChunksPerTick", 16))
+            : Math.max(1, Integer.getInteger("farlands.follow.chunksPerTick", 8));
         for (int n = 0; n < perTick && ringPushOnce(); n++) {
             // keep draining
+        }
+        if (ringWarmup && current == null && ringQueue.isEmpty()) {
+            ringWarmup = false;
+            System.out.println("[FARPUSH] ring warmup done pushed=" + pushed);
+            System.out.flush();
         }
     }
 
