@@ -335,6 +335,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 客户端 prune 改为逐坐标检查 11×11 全部存在，避免旧数据让计数达标；
 - 稳定后 `+11/queued=11`，`farChunks=44`，`uncompiled=0`。
 
+## 2026-11-04 ring 双队列
+
+- 内圈 9×9（81）优先，外圈 11×11 邻居（40）后推；
+- 启动 `inner=81 outer=40`，稳定 `inner=0 outer=11`；
+- `farChunks=53`，`uncompiled=0`；
+- 修复“外圈抢预算、内圈不充分”。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
