@@ -35,6 +35,11 @@ public final class FarChunkFeeder {
     private static boolean follow;
     private static WideChunkPos followCenter;
     private static int followRadius;
+    private static boolean ringMode;
+    private static WideChunkPos ringCenter;
+    private static int ringRadius;
+    private static Set<WideChunkPos> ringChunks;
+    private static Queue<WideChunkPos> ringQueue;
 
     private FarChunkFeeder() {
     }
@@ -84,44 +89,126 @@ public final class FarChunkFeeder {
         System.out.flush();
     }
 
-    /** Enable sliding-window mode: after each window is pushed, re-centre on the player. */
+    /** Sliding data ring: keep an 11x11 set and only push new edge chunks. */
     public static void startFollow(ServerLevel serverLevel, WideChunkPos center, int r) {
         follow = true;
         followCenter = center;
         followRadius = r;
-        start(serverLevel, center, r);
+        ringMode = true;
+        ringCenter = center;
+        ringRadius = r;
+        level = serverLevel;
+        cache = (ServerChunkCache) serverLevel.getChunkSource();
+        radius = r;
+        pushed = 0;
+        current = null;
+        currentTicks = 0;
+        ringChunks = desiredRing(center, r);
+        ringQueue = new ArrayDeque<>(ringChunks);
+        addRingTickets(center, r);
+        System.out.println("[FARPUSH] ring start center=" + center
+            + " chunks=" + ringChunks.size());
+        System.out.flush();
     }
 
-    private static void followTick(MinecraftServer server) {
-        if (!follow || !idle()) {
-            return;
+    private static Set<WideChunkPos> desiredRing(WideChunkPos center, int r) {
+        Set<WideChunkPos> set = new HashSet<>();
+        BigInteger cx = center.x().toBigInteger();
+        BigInteger cz = center.z().toBigInteger();
+        for (int dx = -r; dx <= r; dx++) {
+            for (int dz = -r; dz <= r; dz++) {
+                set.add(WideChunkPos.of(cx.add(BigInteger.valueOf(dx)),
+                    cz.add(BigInteger.valueOf(dz))));
+            }
         }
+        return set;
+    }
+
+    private static void addRingTickets(WideChunkPos center, int r) {
+        int off = Math.max(1, r - 2);
+        for (int dx = -off; dx <= off; dx += off * 2) {
+            for (int dz = -off; dz <= off; dz += off * 2) {
+                WideChunkPos t = WideChunkPos.of(
+                    center.x().toBigInteger().add(BigInteger.valueOf(dx)),
+                    center.z().toBigInteger().add(BigInteger.valueOf(dz)));
+                cache.farlands$addTicketWithRadiusW(TicketType.FORCED,
+                    new ChunkPos(t), 3);
+            }
+        }
+    }
+
+    private static void ringTick(MinecraftServer server) {
         var players = server.getPlayerList().getPlayers();
-        if (players == null || players.isEmpty()) {
-            return;
+        if (players != null && !players.isEmpty()) {
+            var player = players.get(0);
+            BigInteger cx = BigInteger.valueOf(
+                Math.floorDiv((long) Math.floor(player.getX()), 16L));
+            BigInteger cz = BigInteger.valueOf(
+                Math.floorDiv((long) Math.floor(player.getZ()), 16L));
+            WideChunkPos center = WideChunkPos.of(cx, cz);
+            if (!center.equals(ringCenter)) {
+                Set<WideChunkPos> next = desiredRing(center, ringRadius);
+                var additions = new java.util.ArrayList<WideChunkPos>();
+                for (WideChunkPos pos : next) {
+                    if (!ringChunks.contains(pos)) {
+                        additions.add(pos);
+                    }
+                }
+                ringChunks = next;
+                ringCenter = center;
+                for (WideChunkPos pos : additions) {
+                    ringQueue.add(pos);
+                }
+                addRingTickets(center, ringRadius);
+                System.out.println("[FARPUSH] ring recenter=" + center
+                    + " +" + additions.size() + " queued=" + ringQueue.size());
+                System.out.flush();
+            }
         }
-        var player = players.get(0);
-        BigInteger cx = BigInteger.valueOf(
-            Math.floorDiv((long) Math.floor(player.getX()), 16L));
-        BigInteger cz = BigInteger.valueOf(
-            Math.floorDiv((long) Math.floor(player.getZ()), 16L));
-        WideChunkPos center = WideChunkPos.of(cx, cz);
-        if (center.equals(followCenter)) {
-            return;
+        int perTick = Math.max(1, Integer.getInteger("farlands.follow.chunksPerTick", 4));
+        for (int n = 0; n < perTick && ringPushOnce(); n++) {
+            // keep draining
         }
-        long dx = center.x().toBigInteger()
-            .subtract(followCenter.x().toBigInteger()).abs().longValue();
-        long dz = center.z().toBigInteger()
-            .subtract(followCenter.z().toBigInteger()).abs().longValue();
-        int threshold = Integer.getInteger("farlands.follow.threshold", 1);
-        if (Math.max(dx, dz) < threshold) {
-            return;
+    }
+
+    private static boolean ringPushOnce() {
+        if (current == null) {
+            current = ringQueue.poll();
+            if (current == null) {
+                return false;
+            }
+            currentTicks = 0;
         }
-        followCenter = center;
-        start(level, center, followRadius);
+        currentTicks++;
+        ChunkPos pos = new ChunkPos(current);
+        var holder = cache.chunkMap.farlands$getUpdatingChunkW(current);
+        if (holder == null || !holder.getFullChunkFuture().isDone()) {
+            if (currentTicks > 1200) {
+                System.out.println("[FARPUSH] ring timeout " + current);
+                System.out.flush();
+                current = null;
+            }
+            return false;
+        }
+        LevelChunk chunk = cache.farlands$getChunkWide(pos);
+        if (chunk == null) {
+            if (currentTicks > 1200) {
+                System.out.println("[FARPUSH] ring chunk-null " + current);
+                System.out.flush();
+                current = null;
+            }
+            return false;
+        }
+        push(chunk);
+        pushed++;
+        current = null;
+        return true;
     }
 
     public static boolean idle() {
+        if (ringMode) {
+            return current == null && ringQueue.isEmpty();
+        }
         return batches.isEmpty() && batchChunks.isEmpty() && current == null;
     }
 
@@ -129,6 +216,9 @@ public final class FarChunkFeeder {
         batches.clear();
         batchChunks.clear();
         current = null;
+        ringMode = false;
+        ringChunks = null;
+        ringQueue = null;
         level = null;
         cache = null;
         System.out.println("[FARPUSH] stopped");
@@ -139,7 +229,10 @@ public final class FarChunkFeeder {
         if (level == null || cache == null) {
             return;
         }
-        followTick(server);
+        if (ringMode) {
+            ringTick(server);
+            return;
+        }
         if (follow && idle()) {
             return;
         }
