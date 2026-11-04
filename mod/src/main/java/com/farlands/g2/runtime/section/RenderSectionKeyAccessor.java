@@ -9,6 +9,9 @@ public interface RenderSectionKeyAccessor {
 
     void farlands$setKey(SectionKey key);
 
+    /** The sectionNode this key was last assigned for. */
+    long farlands$keyNode();
+
     /** Wide section origin in blocks; not an int view. */
     long farlands$wideOriginX();
 

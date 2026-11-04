@@ -38,11 +38,17 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
     @Unique private long farlands$wideOriginX;
     @Unique private long farlands$wideOriginY;
     @Unique private long farlands$wideOriginZ;
+    @Unique private long farlands$keyNode;
     @Unique private static int farlands$originLogs;
 
     @Override
     public SectionKey farlands$getKey() {
         return this.farlands$key;
+    }
+
+    @Override
+    public long farlands$keyNode() {
+        return this.farlands$keyNode;
     }
 
     @Override
@@ -79,6 +85,7 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
             RenderKeys.remove(this.farlands$key);
         }
         this.farlands$key = key;
+        this.farlands$keyNode = this.sectionNode;
         this.reset();
         // X/Z long->double, following the X/Z render solution: the AABB carries the
         // exact position; the int origin is only a legacy view.

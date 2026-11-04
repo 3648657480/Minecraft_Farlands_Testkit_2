@@ -75,7 +75,26 @@ public abstract class RotatingSectionStorageKeyMixin {
                     : anchorX.add(BigInteger.valueOf((long) worldX - this.farlands$anchorCenterX));
                 BigInteger keyZ = anchorZ == null ? BigInteger.valueOf(worldZ)
                     : anchorZ.add(BigInteger.valueOf((long) worldZ - this.farlands$anchorCenterZ));
-                SectionKey key = SectionKey.of(keyX, BigInteger.valueOf(worldY), keyZ);
+                SectionKey oldKey = accessor.farlands$getKey();
+                long oldNode = accessor.farlands$keyNode();
+                boolean oldFar = oldKey != null
+                    && (oldKey.lx != (long) (int) oldKey.lx
+                        || oldKey.ly != (long) (int) oldKey.ly
+                        || oldKey.lz != (long) (int) oldKey.lz);
+                SectionKey key;
+                if (oldFar && oldNode == node) {
+                    // Same slot: keep world identity even if the anchor moved.
+                    RenderKeys.put(oldKey, renderSection);
+                    continue;
+                } else if (oldFar) {
+                    // The slot rotated: follow the world cell by the node delta.
+                    key = oldKey.offset(
+                        worldX - SectionPos.x(oldNode),
+                        worldY - SectionPos.y(oldNode),
+                        worldZ - SectionPos.z(oldNode));
+                } else {
+                    key = SectionKey.of(keyX, BigInteger.valueOf(worldY), keyZ);
+                }
                 if (Boolean.getBoolean("farlands.diag.origin") && i < 2
                     && farlands$keyLogs++ < 12) {
                     System.out.println("[KEYASSIGN] center=" + newCenter
