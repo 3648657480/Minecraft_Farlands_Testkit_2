@@ -342,6 +342,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - `farChunks=53`，`uncompiled=0`；
 - 修复“外圈抢预算、内圈不充分”。
 
+## 2026-11-04 frustum 边缘 AABB
+
+- fork 的 `SectionOcclusionGraph` 已遍历全部 ViewArea section，只靠 `getBoundingBox` 做 frustum；
+- `getBoundingBox` 改为按当前 `SectionKey` 校验/重算 absolute AABB；
+- 不再返回可能属于旧 key 的 cached `wideBb`；
+- 实测边缘连续，`farChunks=37`，`uncompiled=0`。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
