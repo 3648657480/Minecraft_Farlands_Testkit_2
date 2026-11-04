@@ -329,6 +329,12 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - ring 默认 `chunksPerTick` 4 -> 8；
 - 稳定后 recenter 只 `+11/queued=11`，farChunks=81，uncompiled=0。
 
+## 2026-11-04 ring 热身与精确 prune
+
+- 初始 121 chunk 用 16/tick 热身；本次 `warmup done pushed=121` 1s；
+- 客户端 prune 改为逐坐标检查 11×11 全部存在，避免旧数据让计数达标；
+- 稳定后 `+11/queued=11`，`farChunks=44`，`uncompiled=0`。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
