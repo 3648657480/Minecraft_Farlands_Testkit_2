@@ -39,7 +39,8 @@ public final class FarChunkFeeder {
     private static WideChunkPos ringCenter;
     private static int ringRadius;
     private static Set<WideChunkPos> ringChunks;
-    private static Queue<WideChunkPos> ringQueue;
+    private static Queue<WideChunkPos> ringInnerQueue;
+    private static Queue<WideChunkPos> ringOuterQueue;
     private static boolean ringWarmup;
 
     private FarChunkFeeder() {
@@ -105,12 +106,29 @@ public final class FarChunkFeeder {
         current = null;
         currentTicks = 0;
         ringChunks = desiredRing(center, r);
-        ringQueue = new ArrayDeque<>(ringChunks);
+        ringInnerQueue = new ArrayDeque<>();
+        ringOuterQueue = new ArrayDeque<>();
+        int innerR = Math.max(0, r - 1);
+        for (WideChunkPos pos : ringChunks) {
+            if (ringDistance(pos, center) <= innerR) {
+                ringInnerQueue.add(pos);
+            } else {
+                ringOuterQueue.add(pos);
+            }
+        }
         ringWarmup = true;
         addRingTickets(center, r);
         System.out.println("[FARPUSH] ring start center=" + center
-            + " chunks=" + ringChunks.size());
+            + " inner=" + ringInnerQueue.size() + " outer=" + ringOuterQueue.size());
         System.out.flush();
+    }
+
+    private static long ringDistance(WideChunkPos pos, WideChunkPos center) {
+        long dx = pos.x().toBigInteger().subtract(center.x().toBigInteger())
+            .abs().longValue();
+        long dz = pos.z().toBigInteger().subtract(center.z().toBigInteger())
+            .abs().longValue();
+        return Math.max(dx, dz);
     }
 
     private static Set<WideChunkPos> desiredRing(WideChunkPos center, int r) {
@@ -158,12 +176,18 @@ public final class FarChunkFeeder {
                 }
                 ringChunks = next;
                 ringCenter = center;
+                int innerR = Math.max(0, ringRadius - 1);
                 for (WideChunkPos pos : additions) {
-                    ringQueue.add(pos);
+                    if (ringDistance(pos, center) <= innerR) {
+                        ringInnerQueue.add(pos);
+                    } else {
+                        ringOuterQueue.add(pos);
+                    }
                 }
                 addRingTickets(center, ringRadius);
                 System.out.println("[FARPUSH] ring recenter=" + center
-                    + " +" + additions.size() + " queued=" + ringQueue.size());
+                    + " +" + additions.size() + " inner=" + ringInnerQueue.size()
+                    + " outer=" + ringOuterQueue.size());
                 System.out.flush();
             }
         }
@@ -173,7 +197,8 @@ public final class FarChunkFeeder {
         for (int n = 0; n < perTick && ringPushOnce(); n++) {
             // keep draining
         }
-        if (ringWarmup && current == null && ringQueue.isEmpty()) {
+        if (ringWarmup && current == null && ringInnerQueue.isEmpty()
+            && ringOuterQueue.isEmpty()) {
             ringWarmup = false;
             System.out.println("[FARPUSH] ring warmup done pushed=" + pushed);
             System.out.flush();
@@ -182,7 +207,10 @@ public final class FarChunkFeeder {
 
     private static boolean ringPushOnce() {
         if (current == null) {
-            current = ringQueue.poll();
+            current = ringInnerQueue.poll();
+            if (current == null) {
+                current = ringOuterQueue.poll();
+            }
             if (current == null) {
                 return false;
             }
@@ -216,7 +244,7 @@ public final class FarChunkFeeder {
 
     public static boolean idle() {
         if (ringMode) {
-            return current == null && ringQueue.isEmpty();
+            return current == null && ringInnerQueue.isEmpty() && ringOuterQueue.isEmpty();
         }
         return batches.isEmpty() && batchChunks.isEmpty() && current == null;
     }
@@ -227,7 +255,8 @@ public final class FarChunkFeeder {
         current = null;
         ringMode = false;
         ringChunks = null;
-        ringQueue = null;
+        ringInnerQueue = null;
+        ringOuterQueue = null;
         level = null;
         cache = null;
         System.out.println("[FARPUSH] stopped");
