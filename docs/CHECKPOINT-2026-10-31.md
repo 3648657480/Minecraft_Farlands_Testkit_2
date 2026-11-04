@@ -355,6 +355,14 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 本次 `warmup done pushed=132` 1s；稳定 `inner=0 outer=11`；
 - `farChunks=53`，`uncompiled=0`。
 
+## 2026-11-04 SectionKey 跟随世界 cell
+
+- `RenderSection` 记录 key 对应的 sectionNode；
+- 已是 far key 且 node 未变：保持 key，不随 anchor 重算；
+- node 变化：旧 key + node delta，跟随世界 cell；
+- 本地 key 仍用 anchor 初始化；
+- `farKeySec=1943`，`farKeyChunks=81`，跨 chunk `KEYREKEY=216`。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
