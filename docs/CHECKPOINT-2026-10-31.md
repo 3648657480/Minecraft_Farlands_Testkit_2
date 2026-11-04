@@ -349,6 +349,12 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 不再返回可能属于旧 key 的 cached `wideBb`；
 - 实测边缘连续，`farChunks=37`，`uncompiled=0`。
 
+## 2026-11-04 ring 并发管线
+
+- 最多 16 个 pending future，完成即 push，不再串行等一个 chunk；
+- 本次 `warmup done pushed=132` 1s；稳定 `inner=0 outer=11`；
+- `farChunks=53`，`uncompiled=0`。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
