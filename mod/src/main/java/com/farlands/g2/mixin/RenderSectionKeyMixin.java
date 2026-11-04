@@ -34,6 +34,7 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
 
     @Unique private SectionKey farlands$key;
     @Unique private AABB farlands$wideBb;
+    @Unique private SectionKey farlands$bbKey;
     @Unique private long farlands$wideOriginX;
     @Unique private long farlands$wideOriginY;
     @Unique private long farlands$wideOriginZ;
@@ -120,8 +121,19 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
 
     @Inject(method = "getBoundingBox", at = @At("RETURN"), cancellable = true)
     private void farlands$wideCullingBox(CallbackInfoReturnable<AABB> cir) {
-        if (this.farlands$wideBb != null) {
-            cir.setReturnValue(this.farlands$wideBb);
+        SectionKey key = this.farlands$key;
+        if (key == null || key.lx == (long) (int) key.lx
+            && key.ly == (long) (int) key.ly && key.lz == (long) (int) key.lz) {
+            return;
         }
+        if (key != this.farlands$bbKey || this.farlands$wideBb == null) {
+            long x = key.lx << 4;
+            long y = key.ly << 4;
+            long z = key.lz << 4;
+            this.farlands$wideBb = new AABB((double) x, (double) y, (double) z,
+                (double) (x + 16L), (double) (y + 16L), (double) (z + 16L));
+            this.farlands$bbKey = key;
+        }
+        cir.setReturnValue(this.farlands$wideBb);
     }
 }
