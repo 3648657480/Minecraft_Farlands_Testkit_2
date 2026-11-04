@@ -316,6 +316,13 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 阈值改为 1，数据窗口始终贴住玩家；
 - 实测画面连续，`uncompiled=0`，`farChunks=62`。
 
+## 2026-11-04 滑动数据环 follow
+
+- `ringChunks` 保存当前 11×11，不再重开整窗；
+- 玩家跨 chunk 只把 `new - old` 的 11 个边缘 chunk 入队；
+- 旧数据不丢，新边缘优先；
+- 实测 `+11`、`queued=11`、`farKeyChunks=117`、`uncompiled=0`、无 crash。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
