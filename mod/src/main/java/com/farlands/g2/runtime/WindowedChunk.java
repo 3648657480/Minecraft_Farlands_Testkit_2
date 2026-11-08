@@ -44,4 +44,7 @@ public interface WindowedChunk {
 
     /** 512-bit Y data section: the runtime scalar is only a view. */
     LevelChunkSection farlands$sectionAt(WideSectionCoord512 absoluteSectionY);
+
+    /** Insert a section for an absolute section Y (updates the fast long-keyed cache too). */
+    void farlands$putSection(long absoluteSectionY, LevelChunkSection section);
 }

@@ -4,6 +4,7 @@ import com.farlands.g2.runtime.VerticalBounds;
 import com.farlands.g2.runtime.WindowedChunk;
 import com.scalarwide.mc.WideSectionCoord512;
 import com.scalarwide.mc.WideSectionKey2560;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import net.minecraft.world.level.ChunkPos;
@@ -55,13 +56,69 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
     @Unique private boolean farlands$evictLogged;
 
     /**
+     * Hoisted properties. {@code getSection}/{@code getMinY} run for every block
+     * access during generation; a per-call {@code Boolean.getBoolean} was 4-7% of
+     * execution samples in a JFR profile of far chunk generation.
+     */
+    @Unique private static final boolean WINDOW = Boolean.getBoolean("farlands.y.window");
+    @Unique private static final boolean ABS = Boolean.getBoolean("farlands.y.abs");
+    @Unique private static final boolean DIAG = Boolean.getBoolean("farlands.y.diag");
+
+    /**
+     * Primitive section-Y cache over the wide map. Within one {@code ChunkAccess}
+     * a section is identified by its absolute section Y (X/Z are the chunk's), but
+     * the keyed map needs a {@code WideSectionKey2560}: building it allocates a
+     * BigInteger + byte[] and hashing it does the same. In a JFR profile of the
+     * first screen, that hashing was ~28% of all samples, all from
+     * {@code getSection(int)} on the block-access path. Reads go through this
+     * cache; every write updates both.
+     */
+    @Unique private Long2ObjectOpenHashMap<LevelChunkSection> farlands$byY;
+
+    @Unique
+    private Long2ObjectOpenHashMap<LevelChunkSection> farlands$byY() {
+        if (this.farlands$byY == null) {
+            this.farlands$byY = new Long2ObjectOpenHashMap<>();
+        }
+        return this.farlands$byY;
+    }
+
+    @Unique
+    private LevelChunkSection farlands$getWide(long sectionY) {
+        if (this.farlands$byY == null) {
+            // Chunks whose sections were restored (sidecar load, existing data) never
+            // call putWide during the window rebuild, so the cache is still null here.
+            // Rebuild it once from the wide map instead of paying a BigInteger key
+            // construction on every block access.
+            Long2ObjectOpenHashMap<LevelChunkSection> built = new Long2ObjectOpenHashMap<>();
+            for (Map.Entry<WideSectionKey2560, LevelChunkSection> entry
+                : farlands$allSections().entrySet()) {
+                built.put(entry.getKey().y().toBigInteger().longValueExact(), entry.getValue());
+            }
+            this.farlands$byY = built;
+        }
+        return this.farlands$byY.get(sectionY);
+    }
+
+    @Unique
+    private void farlands$putWide(long sectionY, LevelChunkSection section) {
+        farlands$allSections().put(farlands$key(WideSectionCoord512.of(sectionY)), section);
+        farlands$byY().put(sectionY, section);
+    }
+
+    @Override
+    public void farlands$putSection(long sectionY, LevelChunkSection section) {
+        farlands$putWide(sectionY, section);
+    }
+
+    /**
      * Saved heightmaps are band-relative; when the window is not the dimension
      * band, the first height query must re-derive them from the loaded blocks.
      */
     @Inject(method = "getHeight", at = @At("HEAD"))
     private void farlands$primeHeightmapsOnBandChange(net.minecraft.world.level.levelgen.Heightmap.Types type,
         int x, int z, CallbackInfoReturnable<Integer> cir) {
-        if (!Boolean.getBoolean("farlands.y.window") || this.farlands$heightmapsPrimed) {
+        if (!WINDOW || this.farlands$heightmapsPrimed) {
             return;
         }
         this.farlands$heightmapsPrimed = true;
@@ -96,7 +153,7 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         Integer savedMinSection = com.farlands.g2.runtime.SavedBandContext.get();
         if (perChunk != null) {
             center = perChunk;
-            if (Boolean.getBoolean("farlands.y.diag")) {
+            if (DIAG) {
                 System.out.println("[YWIN] ctor pos=" + pos + " perChunk=" + perChunk);
                 System.out.flush();
             }
@@ -104,7 +161,7 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
             // Loaded from disk: keep the band the chunk was saved with, otherwise
             // every saved section falls outside the window and the chunk is empty.
             center = savedMinSection + (len - 1) / 2;
-            if (Boolean.getBoolean("farlands.y.diag")) {
+            if (DIAG) {
                 System.out.println("[SBCTX] ctor pos=" + pos + " use savedMin="
                     + savedMinSection + " center=" + center);
                 System.out.flush();
@@ -119,7 +176,9 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         // with it block entities at y=64).
         int start = dimensionMin;
         for (int i = 0; i < len; i++) {
-            this.farlands$allSections().put(farlands$key(start + i), this.sections[i]);
+            // Route through putWide so the primitive cache stays in sync even if a
+            // read ran before this seeding loop.
+            farlands$putWide(start + i, this.sections[i]);
         }
         farlands$applyWindow(center);
         // Sidecar restore on every server-side construction (ProtoChunk and the
@@ -129,7 +188,7 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
             com.farlands.g2.runtime.FarSectionStore.load(serverLevel, pos,
                 (ChunkAccess) (Object) this);
         }
-        if (Boolean.getBoolean("farlands.y.diag") && pos.x() == 0 && pos.z() == 0) {
+        if (DIAG && pos.x() == 0 && pos.z() == 0) {
             var probeKey = farlands$key(134217714);
             var fromMap = farlands$allSections().get(probeKey);
             int idx = 134217714 - farlands$minSy;
@@ -179,19 +238,20 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
         this.farlands$maxSy = maxSy;
         this.farlands$centerY = WideSectionCoord512.of((long) minSy + half);
         this.farlands$windowReady = true;
-        if (Boolean.getBoolean("farlands.y.diag")) {
+        if (DIAG) {
             System.out.println("[YWIN] page pos=" + chunkPos.x() + "," + chunkPos.z()
                 + " band=" + minSy + ".." + maxSy + " arrayLen=" + this.sections.length);
             System.out.flush();
         }
         for (int i = 0; i < len; i++) {
             int sy = minSy + i;
-            WideSectionKey2560 key = farlands$key(sy);
-            LevelChunkSection section = farlands$allSections().get(key);
+            LevelChunkSection section = farlands$getWide(sy);
             if (section == null) {
                 section = new LevelChunkSection(this.farlands$factory);
-                this.farlands$allSections().put(key, section);
             }
+            // Always mirror into the primitive cache, including sections that already
+            // existed in the wide map (restored chunks otherwise never populate it).
+            farlands$putWide(sy, section);
             this.sections[i] = section;
         }
         farlands$evictFarPages();
@@ -224,6 +284,9 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
                 continue; // normal band: block entities/builds
             }
             it.remove();
+            if (this.farlands$byY != null) {
+                this.farlands$byY.remove(sy);
+            }
         }
         int evicted = before - all.size();
         if (evicted > 0 && !this.farlands$evictLogged) {
@@ -237,15 +300,14 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
 
     @Inject(method = "getMinY", at = @At("HEAD"), cancellable = true)
     private void farlands$windowMinY(CallbackInfoReturnable<Integer> cir) {
-        if (farlands$windowReady && Boolean.getBoolean("farlands.y.window")) {
+        if (farlands$windowReady && WINDOW) {
             cir.setReturnValue(farlands$minSy * 16);
         }
     }
 
     @Inject(method = "getSection", at = @At("HEAD"), cancellable = true)
     private void farlands$getSection(int sectionIndex, CallbackInfoReturnable<LevelChunkSection> cir) {
-        if (!Boolean.getBoolean("farlands.y.window")
-            && !Boolean.getBoolean("farlands.y.abs")) {
+        if (!WINDOW && !ABS) {
             return;
         }
         // Called from ChunkAccess/ProtoChunk constructors before our mixin fields
@@ -258,14 +320,13 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
             // Any absolute section that exists in the wide map is readable, not
             // only the far ones: after a band move the normal-band sections (block
             // entities, player builds) are still in the map and must resolve.
-            LevelChunkSection existing = farlands$allSections().get(
-                farlands$key(WideSectionCoord512.of((long) absoluteSectionY)));
+            LevelChunkSection existing = farlands$getWide(absoluteSectionY);
             cir.setReturnValue(existing != null ? existing : farlands$emptyViewSection());
             return;
         }
         int sy = farlands$minSy + sectionIndex;
-        LevelChunkSection section = farlands$allSections().get(farlands$key(sy));
-        if (Boolean.getBoolean("farlands.y.diag") && sy == 134217714) {
+        LevelChunkSection section = farlands$getWide(sy);
+        if (DIAG && sy == 134217714) {
             System.out.println("[YSEC] index=" + sectionIndex + " sy=" + sy
                 + " map=" + (section == null ? "null" : section.getBlockState(8, 8, 8))
                 + " arr=" + (sectionIndex >= 0 && sectionIndex < this.sections.length
@@ -341,7 +402,12 @@ public abstract class ChunkAccessWindowMixin implements WindowedChunk {
 
     @Override
     public LevelChunkSection farlands$sectionAt(WideSectionCoord512 absoluteSectionY) {
-        return farlands$allSections().computeIfAbsent(farlands$key(absoluteSectionY),
+        WideSectionKey2560 key = farlands$key(absoluteSectionY);
+        LevelChunkSection section = farlands$allSections().computeIfAbsent(key,
             ignored -> new LevelChunkSection(this.farlands$factory));
+        if (this.farlands$byY != null) {
+            this.farlands$byY.put(absoluteSectionY.toBigInteger().longValueExact(), section);
+        }
+        return section;
     }
 }

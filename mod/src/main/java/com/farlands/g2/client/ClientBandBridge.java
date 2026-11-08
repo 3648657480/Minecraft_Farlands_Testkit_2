@@ -106,7 +106,7 @@ public final class ClientBandBridge {
             int sectionY = buffer.readVarInt();
             LevelChunkSection section = new LevelChunkSection(mc.level.palettedContainerFactory());
             section.read(buffer);
-            windowed.farlands$allSections().put(windowed.farlands$key(sectionY), section);
+            windowed.farlands$putSection(sectionY, section);
         }
         windowed.farlands$moveWindowToStart(pending.minSectionY());
         int minSy = windowed.farlands$windowMinSectionY();

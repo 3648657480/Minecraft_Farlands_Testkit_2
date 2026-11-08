@@ -182,7 +182,7 @@ public final class FarSectionStore {
             data.readFully(bytes);
             LevelChunkSection section = new LevelChunkSection(level.palettedContainerFactory());
             section.read(new FriendlyByteBuf(Unpooled.wrappedBuffer(bytes)));
-            windowed.farlands$allSections().put(WideSectionKey2560.of(x, y, z), section);
+            windowed.farlands$putSection(y.longValueExact(), section);
             restored++;
         }
         int currentMin = windowed.farlands$windowMinSectionY();
@@ -210,7 +210,7 @@ public final class FarSectionStore {
             data.readFully(bytes);
             LevelChunkSection section = new LevelChunkSection(level.palettedContainerFactory());
             section.read(new FriendlyByteBuf(Unpooled.wrappedBuffer(bytes)));
-            windowed.farlands$allSections().put(windowed.farlands$key(sy), section);
+            windowed.farlands$putSection(sy, section);
             restored++;
         }
         int currentMin = windowed.farlands$windowMinSectionY();
