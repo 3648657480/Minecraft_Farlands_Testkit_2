@@ -11,6 +11,9 @@ tools/chunk-translator/out/
 # Logs / evidence (moved out of the repo tree: C:\Project-G2-aux\logs)
 logs/
 
+# Video analysis output (frames/transcripts; evidence lives in C:\Project-G2-aux)
+docs/video-*/
+
 # Dev run data (worlds, logs, crash reports, tokens)
 mod/run/
 mod/saves/
