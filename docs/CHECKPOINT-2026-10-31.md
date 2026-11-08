@@ -575,6 +575,23 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
   首个 3×3 **9 s**、整环 warmup **18 s**（`farChunks=63`、`uncompiled=0`、`queue=0`）。
   墙钟受区域冷启动影响明显，不宜用单次数字下结论；JFR 的占比才是稳定信号。
 
+### 2026-11-08 首屏壳层 A/B + 进入远域时主线程冻结（新发现）
+
+- 实验：`follow.firstShell` 1（3×3 先行）vs 0（只有中心块先 ticket），各两次，从直传到
+  首个远区块可见：**10/10 s vs 8/11 s**，无可分辨差异。结论：首个像素由中心 chunk 的冷
+  依赖链决定，不由壳层竞争决定。改动已回退（工作树干净）。
+- `[GENSTEP]`（z=-400000，中心 chunk）：`empty`(70 ms, 等待) → `structure_starts`/
+  `structure_references` → `biomes`(latency 182 ms，但完成落后了约 4 s) → `noise`(76 ms，
+  又落后约 3 s) → `surface`(10 ms) → `light` → `full`。即首块时间主要是等 biomes/noise 的
+  父链，不是单步 CPU。
+- **重要现象**：传送后 `[FOL]`（每 10 tick 打印）出现 **4 s + 6 s 的空档**——服务端主线程在
+  进入全新远域时被同步 chunk 加载阻塞约 10 秒，游戏实际是**冻结**的，不只是"没画面"。
+- 同场景 JFR 热点没有单一元凶：`doFill` 3.7%、`NoiseInterpolator` 2.3%、
+  `Aquifer.computeSubstance` 2.2%、`Climate$RTree` 1.8%+1.3%。结合 `[GENSTEP]` 的
+  `sync=0/done=false`，冻结是**等待**而不是 CPU 打满。
+- 下一步方向（未做）：让远域到达不再阻塞 tick（到达前预置 ticket / 异步加载态），
+  或压缩中心 chunk 的冷锥（biomes 289 块 + noise 25 块）。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
