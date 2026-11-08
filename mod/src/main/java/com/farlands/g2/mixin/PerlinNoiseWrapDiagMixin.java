@@ -16,9 +16,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(PerlinNoise.class)
 public class PerlinNoiseWrapDiagMixin {
 
+    /**
+     * Hoisted out of the hot path: {@code PerlinNoise.wrap} runs for every noise
+     * sample, and a per-call {@code Boolean.getBoolean} (Properties lookup +
+     * parseBoolean + equalsIgnoreCase) showed up at 6.8% of execution samples in a
+     * JFR profile of far chunk generation.
+     */
+    private static final boolean ENABLED =
+        Boolean.getBoolean("farlands.diag.exactwrap");
+
     @Inject(method = "wrap", at = @At("HEAD"), cancellable = true)
     private static void farlands$exactWrap(double x, CallbackInfoReturnable<Double> cir) {
-        if (!Boolean.getBoolean("farlands.diag.exactwrap")) {
+        if (!ENABLED) {
             return;
         }
         // Only the [2^52, 2^53) window can mis-round; outside it the vanilla

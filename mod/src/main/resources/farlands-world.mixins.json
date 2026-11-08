@@ -27,6 +27,7 @@
         "MinecraftServerBandsMixin",
         "LevelHeightAccessorBoundsMixin",
         "ChunkMapStepDiagMixin",
+        "ChunkMapStepTimingMixin",
         "ChunkBiomesDiagMixin",
         "NoiseSettingsWindowMixin",
         "NoiseRouterDataWideYMixin",

@@ -9,7 +9,17 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/**\n * The FlatCache long patch produced wrong column values for far origins\n * (jaggedness cached from a stale cell), which raised the eastern seam chunk\n * by ~49 blocks. FlatCache is a pure memoisation of a 2D function, so for far\n * origins we call the wrapped function directly: identical values, vanilla\n * semantics, and the measured generation time is unchanged.\n */
+/**
+ * The 2D memoisation of {@code NoiseChunk} keys on {@code ChunkPos.pack(int,int)},
+ * which wraps at far X/Z, so a far column can hit a value cached for a different
+ * column ("jaggedness cached from a stale cell"). For far origins the wrapped 2D
+ * function is called directly: identical values, vanilla semantics.
+ *
+ * <p>Measured 2026-11-05: replacing this with a long-keyed column memoisation kept
+ * the far fingerprint identical ({@code surf=879024146b33 floor=9319dd6a448a}) but
+ * did not move generation time — the step latencies at far coords are dominated by
+ * dependency waiting, not by this cache. Reverted to the plain bypass.</p>
+ */
 @Mixin(targets = "net.minecraft.world.level.levelgen.NoiseChunk$FlatCache")
 public class FlatCacheFarBypassMixin {
 
