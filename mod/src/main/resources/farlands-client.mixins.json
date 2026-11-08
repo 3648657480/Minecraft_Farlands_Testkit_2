@@ -23,6 +23,10 @@
         "LevelRendererCamWrapMixin",
         "LevelExtractorTrackerCapture",
         "SectionUpdateTrackerGateMixin",
+        "LevelRendererLocalFrameMixin",
+        "LevelExtractorLocalFrameMixin",
+        "ViewAreaCenterSyncMixin",
+        "LevelExtractorViewSyncMixin",
 
         "LevelExtractorFrustumResetMixin",
         "LevelExtractorDirtyMixin",

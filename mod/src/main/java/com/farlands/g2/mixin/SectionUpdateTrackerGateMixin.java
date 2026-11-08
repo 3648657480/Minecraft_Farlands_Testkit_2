@@ -28,6 +28,13 @@ public class SectionUpdateTrackerGateMixin {
     private static final Set<Long> FARLANDS_FILLED = ConcurrentHashMap.newKeySet();
 
     private static boolean farlands$far(long node) {
+        // The render grid now runs in a local frame, so a section node's own
+        // coordinates are small; identify far sections by their wide key first.
+        var key = com.farlands.g2.client.RenderKeys.keyOf(node);
+        if (key != null) {
+            return key.lx != (long) (int) key.lx || key.ly != (long) (int) key.ly
+                || key.lz != (long) (int) key.lz;
+        }
         return Math.abs((long) SectionPos.x(node)) > 1_000_000L
             || Math.abs((long) SectionPos.z(node)) > 1_000_000L;
     }

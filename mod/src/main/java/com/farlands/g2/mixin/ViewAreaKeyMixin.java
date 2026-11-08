@@ -29,10 +29,16 @@ public abstract class ViewAreaKeyMixin {
      * A new ViewArea owns a new set of {@code RenderSection} instances. Drop the
      * previous world's registrations so a lookup can never return a stale section
      * (already compiled) from an earlier ViewArea.
+     *
+     * <p>This runs unconditionally by default: a ViewArea replacement (level load,
+     * render-distance change) leaves ~10k far keys behind otherwise, which breaks
+     * the "key table == window" invariant ({@code farKeyChunks} stayed at the old
+     * 21x21 grid instead of the 9x9 window). {@code -Dfarlands.render.reentryFix=false}
+     * is kept as a rollback switch only.</p>
      */
     @Inject(method = "<init>", at = @At("TAIL"))
     private void farlands$resetKeys(CallbackInfo ci) {
-        if (!Boolean.getBoolean("farlands.render.reentryFix")) {
+        if (!Boolean.parseBoolean(System.getProperty("farlands.render.reentryFix", "true"))) {
             return;
         }
         RenderKeys.clear();

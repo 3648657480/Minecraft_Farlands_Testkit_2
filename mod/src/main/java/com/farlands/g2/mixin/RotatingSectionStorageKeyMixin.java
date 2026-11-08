@@ -19,8 +19,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Assigns the 2560-bit {@link SectionKey} to every render section whenever the
- * rotating grid is re-centred. The coordinates come straight from the grid maths
- * (never from the packed long), so far-Y sections get their true absolute Y.
+ * rotating grid is re-centred.
+ *
+ * <p>The grid works in a <b>local</b> frame (camera section minus a fixed base,
+ * see {@code WideRenderBase}), so the packed node value in this loop is a local
+ * section. The world identity is {@code key = base + localNode}: the anchor is
+ * the base and never moves with the camera, so a slot that keeps its node keeps
+ * its key, and a slot that rotates follows its world cell by the node delta.
+ * Keys therefore track the camera through the grid rotation instead of being
+ * re-anchored every chunk.</p>
  *
  * <p>{@code repositionCenter} runs every frame when the camera moves, so a node
  * whose key is unchanged is skipped: setting the key resets the mesh (cancels
@@ -35,31 +42,28 @@ public abstract class RotatingSectionStorageKeyMixin {
     @Shadow @Final private int sectionGridSizeXZ;
 
     @Unique private SectionPos farlands$lastCenter;
-    @Unique private BigInteger farlands$lastAnchorX;
-    @Unique private BigInteger farlands$lastAnchorZ;
-    @Unique private int farlands$anchorCenterX;
-    @Unique private int farlands$anchorCenterZ;
+    @Unique private BigInteger farlands$lastBaseX;
+    @Unique private BigInteger farlands$lastBaseZ;
     @Unique private boolean farlands$loggedWideKey;
     @Unique private static int farlands$keyLogs;
 
     @Inject(method = "repositionCenter", at = @At("RETURN"))
     private void farlands$assignKeys(SectionPos newCenter, CallbackInfoReturnable<Boolean> cir) {
-        WideSectionAnchor anchor = (WideSectionAnchor) (Object) this;
-        BigInteger anchorX = anchor.farlands$wideAnchorX();
-        BigInteger anchorZ = anchor.farlands$wideAnchorZ();
+        // The base owns the world origin of this grid's local frame. It is read
+        // straight from the frame (not from the storage) so a rebuilt ViewArea
+        // cannot lose it; only a (re-)base makes the keys stale.
+        BigInteger anchorX = com.farlands.g2.client.WideRenderBase.established()
+            ? com.farlands.g2.client.WideRenderBase.baseX() : null;
+        BigInteger anchorZ = com.farlands.g2.client.WideRenderBase.established()
+            ? com.farlands.g2.client.WideRenderBase.baseZ() : null;
         if (newCenter.equals(this.farlands$lastCenter)
-            && Objects.equals(anchorX, this.farlands$lastAnchorX)
-            && Objects.equals(anchorZ, this.farlands$lastAnchorZ)) {
-            return; // same grid origin + anchor: keys cannot have changed
-        }
-        if (!Objects.equals(anchorX, this.farlands$lastAnchorX)
-            || !Objects.equals(anchorZ, this.farlands$lastAnchorZ)) {
-            this.farlands$anchorCenterX = newCenter.x();
-            this.farlands$anchorCenterZ = newCenter.z();
+            && Objects.equals(anchorX, this.farlands$lastBaseX)
+            && Objects.equals(anchorZ, this.farlands$lastBaseZ)) {
+            return; // same grid origin + base: keys cannot have changed
         }
         this.farlands$lastCenter = newCenter;
-        this.farlands$lastAnchorX = anchorX;
-        this.farlands$lastAnchorZ = anchorZ;
+        this.farlands$lastBaseX = anchorX;
+        this.farlands$lastBaseZ = anchorZ;
         long keyBefore = com.farlands.g2.client.RenderResetStats.keySets();
         int i = 0;
         Iterator<?> it = ((Iterable<?>) (Object) this).iterator();
@@ -72,9 +76,9 @@ public abstract class RotatingSectionStorageKeyMixin {
                 int worldY = SectionPos.y(node);
                 int worldZ = SectionPos.z(node);
                 BigInteger keyX = anchorX == null ? BigInteger.valueOf(worldX)
-                    : anchorX.add(BigInteger.valueOf((long) worldX - this.farlands$anchorCenterX));
+                    : anchorX.add(BigInteger.valueOf(worldX));
                 BigInteger keyZ = anchorZ == null ? BigInteger.valueOf(worldZ)
-                    : anchorZ.add(BigInteger.valueOf((long) worldZ - this.farlands$anchorCenterZ));
+                    : anchorZ.add(BigInteger.valueOf(worldZ));
                 SectionKey oldKey = accessor.farlands$getKey();
                 long oldNode = accessor.farlands$keyNode();
                 boolean oldFar = oldKey != null
@@ -112,9 +116,7 @@ public abstract class RotatingSectionStorageKeyMixin {
                 if (!key.equals(accessor.farlands$getKey())) {
                     if (i < 3 && Boolean.getBoolean("farlands.diag.origin")) {
                         System.out.println("[KEYDIFF] i=" + i
-                            + " node=" + node + " world=" + worldX + "," + worldY + "," + worldZ
-                            + " anchorCenter=" + this.farlands$anchorCenterX + ","
-                            + this.farlands$anchorCenterZ
+                            + " node=" + node + " local=" + worldX + "," + worldY + "," + worldZ
                             + " old=" + accessor.farlands$getKey() + " new=" + key);
                         System.out.flush();
                     }

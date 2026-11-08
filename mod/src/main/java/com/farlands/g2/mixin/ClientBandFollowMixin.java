@@ -21,10 +21,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class ClientBandFollowMixin {
 
     @org.spongepowered.asm.mixin.Unique private static int farlands$lastBand = Integer.MIN_VALUE;
-    @org.spongepowered.asm.mixin.Unique private static boolean farlands$anchorFrozen;
-    @org.spongepowered.asm.mixin.Unique private static long farlands$anchorSecX;
-    @org.spongepowered.asm.mixin.Unique private static long farlands$anchorSecZ;
-    @org.spongepowered.asm.mixin.Unique private static Object farlands$lastViewArea;
     /** Last far page the renderer was rebuilt for (page start section). */
     @org.spongepowered.asm.mixin.Unique private static int farlands$lastPage = Integer.MIN_VALUE;
 
@@ -58,6 +54,7 @@ public class ClientBandFollowMixin {
             // not be applied to chunks of the new world at the same coordinates.
             com.farlands.g2.client.ClientBandBridge.clearPending();
             com.farlands.g2.client.BandState.setFar(false);
+            com.farlands.g2.client.WideRenderBase.clear();
         }
         if (!mc.hasSingleplayerServer()) {
             return; // multiplayer unsupported: keep the dimension band
@@ -98,8 +95,7 @@ public class ClientBandFollowMixin {
             return;
         }
         var camPos = mc.gameRenderer.mainCamera().position();
-        if (Math.abs(camPos.x) > 1.0E12
-            && viewArea instanceof com.farlands.g2.runtime.section.WideViewArea wideView) {
+        if (com.farlands.g2.client.WideRenderBase.isFar(camPos.x, camPos.z)) {
             int farRenderDistance = Integer.getInteger("farlands.far.renderDistance", 4);
             if (mc.options.renderDistance().get() != farRenderDistance) {
                 // The 9x9 data window is the view; a 25x25 section grid would
@@ -108,34 +104,20 @@ public class ClientBandFollowMixin {
                 com.farlands.g2.client.RenderKeys.clear();
                 com.farlands.g2.client.FarRegionBuilder.clearCache();
             }
-            java.math.BigInteger ax = java.math.BigInteger.valueOf(
-                Math.floorDiv((long) Math.floor(camPos.x), 16L));
-            java.math.BigInteger az = java.math.BigInteger.valueOf(
-                Math.floorDiv((long) Math.floor(camPos.z), 16L));
-            long axL = ax.longValue();
-            long azL = az.longValue();
-            if (farlands$lastViewArea != viewArea) {
-                farlands$lastViewArea = viewArea;
-                farlands$anchorFrozen = false;
-            }
-            int leash = Integer.getInteger("farlands.anchor.leash", 1);
-            boolean freeze = Boolean.getBoolean("farlands.anchor.freeze");
-            boolean need;
-            if (!farlands$anchorFrozen) {
-                need = true;
-            } else if (freeze) {
-                need = false;
-            } else {
-                need = Math.max(Math.abs(axL - farlands$anchorSecX),
-                    Math.abs(azL - farlands$anchorSecZ)) >= leash;
-            }
-            if (need && wideView.farlands$setWideAnchor(ax, az)) {
-                farlands$anchorFrozen = true;
-                farlands$anchorSecX = axL;
-                farlands$anchorSecZ = azL;
-                System.out.println("[WIDESET] anchor=" + ax + "," + az
-                    + " leash=" + leash);
+            // Fixed base + local frame: the renderer grid is fed local camera
+            // sections, and keys are base + localNode. The base therefore moves
+            // only on (re-)base, never per chunk.
+            int baseState = com.farlands.g2.client.WideRenderBase.ensure(camPos.x, camPos.z);
+            if (baseState != 0) {
+                System.out.println("[WIDEBASE] state=" + baseState + " "
+                    + com.farlands.g2.client.WideRenderBase.describe(camPos.x, camPos.z));
                 System.out.flush();
+                if (baseState == 2) {
+                    // The frame origin moved: rebuild the grid so every slot re-keys
+                    // from the new base instead of being offset by the node delta.
+                    mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options,
+                        mc.gameRenderer.mainCamera(), mc.getBlockColors());
+                }
             }
         }
         // On re-entry the chunks load with the window already moved and no band

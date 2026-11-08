@@ -325,7 +325,10 @@ public class RenderDiagMixin {
             + " below=" + clientBlock + " clientNonAir=" + clientNonAir
             + " chunkWin=" + (clientChunk instanceof com.farlands.g2.runtime.WindowedChunk wc
                 ? (wc.farlands$windowMinSectionY() + ".." + wc.farlands$windowMaxSectionY()) : "none")
-            + " camSection=" + camInfo);
+            + " camSection=" + camInfo
+            + " viewC=" + view.getCameraSectionPos().x() + "," + view.getCameraSectionPos().z()
+            + " pSec=" + (mc.player.blockPosition().getX() >> 4) + ","
+                + (mc.player.blockPosition().getZ() >> 4));
         System.out.flush();
     }
 
