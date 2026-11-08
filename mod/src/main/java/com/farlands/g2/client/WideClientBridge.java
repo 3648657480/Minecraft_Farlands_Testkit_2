@@ -12,6 +12,8 @@ import net.minecraft.world.level.chunk.LevelChunkSection;
 public final class WideClientBridge {
 
     private static long lastVersion = -1;
+    /** Mark only the arriving chunk's own sections (fewer competing compiles). */
+    private static final boolean SELF_DIRTY = Boolean.getBoolean("farlands.render.selfDirty");
 
     private WideClientBridge() {
     }
@@ -51,7 +53,17 @@ public final class WideClientBridge {
                     int sx = packet.pos().x().toBigInteger().intValue();
                     int sz = packet.pos().z().toBigInteger().intValue();
                     for (int i = 0; i < count; i++) {
-                        mc.level.setSectionDirtyWithNeighbors(sx, minSy + i, sz);
+                        if (SELF_DIRTY) {
+                            // Only the sections of the chunk itself. Marking the
+                            // 3x3x3 neighbourhood here adds ~300 extra compiles per
+                            // window move, which competes with chunk generation for
+                            // CPU; the cost is a little border overdraw until the
+                            // neighbour rotates/recompiles.
+                            mc.level.setSectionRangeDirty(sx, minSy + i, sz,
+                                sx, minSy + i, sz);
+                        } else {
+                            mc.level.setSectionDirtyWithNeighbors(sx, minSy + i, sz);
+                        }
                     }
                 }
             }

@@ -35,8 +35,16 @@ public class ChunkMapGenRateLimitMixin {
         throw new AssertionError();
     }
 
+    @Unique
+    private static int farlands$calls;
+
     @Inject(method = "runGenerationTasks", at = @At("HEAD"), cancellable = true)
     private void farlands$rateLimit(CallbackInfo ci) {
+        if (Boolean.getBoolean("farlands.diag.gen") && farlands$calls++ % 20 == 0) {
+            System.out.println("[GENTASKS] call=" + farlands$calls
+                + " pending=" + pendingGenerationTasks.size());
+            System.out.flush();
+        }
         int n = Math.min(pendingGenerationTasks.size(), MAX_PER_RUN);
         for (int i = 0; i < n; i++) {
             ChunkGenerationTask task = pendingGenerationTasks.remove(0);

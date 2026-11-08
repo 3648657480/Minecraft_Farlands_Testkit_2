@@ -233,6 +233,13 @@ public class ClientAutoTestMixin {
                 }
             }
             case 1 -> {
+                // Passive mode: the teleport already happened in phase 0; keep the
+                // session for manual play and never run the scripted pass. The
+                // script's target is an int BlockPos, which saturates to 2^31 at
+                // far X and would teleport the player out of the far window.
+                if (Boolean.getBoolean("farlands.autotest.passive")) {
+                    return;
+                }
                 if (Boolean.parseBoolean(System.getProperty("farlands.autotest.hold", "false"))
                     && farlands$ticks % 60 == 0) {
                     // Hold the player at the target so the window band can settle and
