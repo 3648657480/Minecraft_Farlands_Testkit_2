@@ -40,8 +40,8 @@ public class ChunkMapStepTimingMixin {
             return;
         }
         long x = holder.getPos().xLong();
-        if (x < 2_147_483_648L) {
-            return; // normal coordinates: not the subject
+        if (x < 2_147_483_648L && !Boolean.getBoolean("farlands.gen.timing.all")) {
+            return; // normal coordinates: only logged when the control group is on
         }
         CompletableFuture<ChunkAccess> future = cir.getReturnValue();
         String where = x + "," + holder.getPos().zLong();
