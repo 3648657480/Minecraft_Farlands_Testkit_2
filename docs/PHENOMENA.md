@@ -80,13 +80,29 @@ int cellX = Mth.floor(cloudX / 12.0);
 
 **状态**：保留。精确阈值未扫描；不要修。
 
-## P3 — 天空闪烁（未确认）
+## P3 — 天空闪烁（代码级结论：26.2 同样存在该机制）
 
 - 1.19.2 文档称 2^52–53，**不适用于 26.2**；
 - 26.2 用户 2^53 客户端未看到；我们 2^52 白天/静止/无区块也未看到 `skyColor` 变化；
 - 代码路径：`SkyRenderer.extractRenderState` → `EnvironmentAttributeProbe` → `GaussianSampler` 的 `Mth.floor` int；2^52 的 `relativeX` 巨大，但需要真实群系/移动位置才能判定。
 
-**状态**：未确认；不宣称有/没有。若复现，按现象保留。
+**2026-11-09 补充：与 1.19.2 官方客户端反编译对照（只比行为，不引入其代码）**
+
+- 1.19.2 的 `ClientLevel.getSkyColor` 走一个 6×6×6 高斯采样帮助类：`Mth.floor(pos)` 取 int、
+  `relative = pos - floor`、kernel `[0,1,4,6,4,1,0]`、按权重和归一化；
+- 26.2 的 `GaussianSampler.sample` 与它**常量完全一致**（`radius=2`、`breadth=6`、同一 kernel、
+  同样归一化），只是采样位置改成 `position.scale(0.25)` 并用 `getNoiseBiomeAtQuart`（quart 坐标），
+  外层由 `EnvironmentAttributeProbe.tick` 驱动，`SKY_COLOR` 是 `spatiallyInterpolated` 属性；
+- 在 2^53：`pos*0.25 ≈ 2.25e15` → `Mth.floor` 饱和成 `Integer.MAX_VALUE`；
+  `sampleX = integralX - 2 + i` 在 `i≥3` 时 **int 溢出**；`relative ≈ 2.25e15` 把 kernel 权重
+  放大到无意义（差分有正有负，归一化后由极端项主导）。玩家移动会改变 `relative` → 颜色跳变。
+
+**结论**：机制在 26.2 **仍然存在**，预期同样会闪烁（quart 空间把阈値推远 4 倍，但仍饱和）。
+这是**代码级推断**，不是本机构建的实测；`P3` 状态从「未确认」改为「机制确认、待实测」。
+Alpha1 处理建议：**保留为已知现象并在说明里写明**；修法（探针改宽坐标采样）与三轴噪声一起放 Alpha2。
+
+**状态**：未实测；不宣称本机一定可见/不可见。若复现，按现象保留。
+
 
 ## P4 — 方块交互（开放）
 
