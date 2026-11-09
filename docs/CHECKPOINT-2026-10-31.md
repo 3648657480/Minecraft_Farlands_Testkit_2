@@ -584,13 +584,32 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
   `structure_references` → `biomes`(latency 182 ms，但完成落后了约 4 s) → `noise`(76 ms，
   又落后约 3 s) → `surface`(10 ms) → `light` → `full`。即首块时间主要是等 biomes/noise 的
   父链，不是单步 CPU。
-- **重要现象**：传送后 `[FOL]`（每 10 tick 打印）出现 **4 s + 6 s 的空档**——服务端主线程在
-  进入全新远域时被同步 chunk 加载阻塞约 10 秒，游戏实际是**冻结**的，不只是"没画面"。
+- **重要现象（待复核，见下条更正）**：传送后 `[FOL]`（每 10 tick 打印）出现 **4 s + 6 s 的空档**，
+  当时判断是主线程被同步 chunk 加载阻塞约 10 秒。
 - 同场景 JFR 热点没有单一元凶：`doFill` 3.7%、`NoiseInterpolator` 2.3%、
   `Aquifer.computeSubstance` 2.2%、`Climate$RTree` 1.8%+1.3%。结合 `[GENSTEP]` 的
-  `sync=0/done=false`，冻结是**等待**而不是 CPU 打满。
+  `sync=0/done=false`，当时判断是**等待**而不是 CPU 打满。
 - 下一步方向（未做）：让远域到达不再阻塞 tick（到达前预置 ticket / 异步加载态），
   或压缩中心 chunk 的冷锥（biomes 289 块 + noise 25 块）。
+
+### 2026-11-09 更正：上条的“冻结 10 s”证据不成立（撤回）
+
+- 同场景三次 jstack（传送后 2 s 间隔）：Server thread 全部停在
+  `MinecraftServer.waitUntilNextTick → BlockableEventLoop.managedBlock → waitForTasks`
+  的 **TIMED_WAITING 空闲 park**，没有卡在任何 chunk future / 锁上。
+- `[FOL]` 那段 4 s + 6 s 空档更可能是**日志写出批量延迟**（`System.out` 到 log4j 的落盘），
+  不是 tick 停摆；用 tick 计数核对是唯一判据，但当天客户端反复被 `lost connection`
+  踢出，没能取到“gap 内 tick 只涨 10 个”的证据。
+- 因此：**“进入全新远域会冻结 10 s”撤回为“未验证”**。确定性结论只有：
+  首个远区块从直传到可见约 8–11 s（墙钟，方差大），期间服务端在等 chunk 的冷依赖链。
+- 同日服务端采样（`exp-run` + JFR，2^53 冷块）：`doFill` 11.7%、`DoubleArrayList.getDouble`
+  8.1%（vanilla `PerlinNoise` 的梯度表）、`Climate$RTree` 3.3%、`Aquifer` 2.1%、
+  `ImprovedNoise.p` 2.1% —— **全是原版工作，没有宽坐标类型开销**。
+- 冷块对照（近原点 chunk 64,64 vs 2^53）：`gen OK` 1298 ms vs 4194 ms；但原点那次的锥
+  有相当一部分被出生点预热过，**不是干净的冷对照**，不能据此宣称“远域慢 3.2×”。
+- 测试环境问题（当天）：旧存档 `test7`/`test8` 报 `Failed to read level ... data`；
+  从 `mod/run/world` 复制的干净存档也会被 `lost connection`（同账号 session 冲突）踢出。
+  客户端验证在 session 冲突解决前不可用。
 
 ## 规则
 
