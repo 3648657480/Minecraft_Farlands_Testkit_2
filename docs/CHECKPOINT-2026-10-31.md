@@ -611,6 +611,24 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
   从 `mod/run/world` 复制的干净存档也会被 `lost connection`（同账号 session 冲突）踢出。
   客户端验证在 session 冲突解决前不可用。
 
+### 2026-11-09（二）冻结是真的：tick 计数判定 + 双开世界 bug 已修
+
+- **判定方法**：`[FOL]` 行带 `tick=N`，把相邻两行的 tick 差与墙钟差相比即可区分
+  「真停摆」和「日志批量落盘」。上一节的撤回依据（三次 jstack 停在空闲 park）来自一次
+  `Failed to read level ... data` 后根本没加载世界的坏 run，证据无效。
+- **判据结果**（健康 run：单次 `Starting integrated`、FOL=98、FARPUSH=8）：
+  `16:38:37 → 16:38:47  dt=10 s  dticks=10  → 1.0 TPS`，即传送后 10 秒内只跑了 10 tick。
+  **“进入全新远域时 tick 掉到 1 TPS、持续约 10 秒”成立**，比“画面慢”更严重。
+  之后稳态为 `dt=1 s / dticks=10 = 10 TPS`（跟随时整体只有半速，另记）。
+- **挡路的测试 bug（已修，`8333a67`）**：客户端世界被打开两次——
+  `mod/build.gradle` 的 `--quickPlaySingleplayer` 与 `ClientAutoTestMixin` 的
+  `createWorldOpenFlows().openWorld(...)` 竞态，两个集成服务端 → 第二个登录把第一个踢掉
+  （`duplicate_login`，中文“你已在异地登录”，离线账户也会出现）。
+  mixin 的自动开世界已改为显式 opt-in（`-Dfarlands.autotest.openWorld=true`），默认交给
+  quickplay；修复后日志只剩一次 `Starting integrated`，客户端不再被踢。
+- 另：`FarChunkFeeder` 的 `startFollow` 由 testgen 钩子触发，客户端跑 follow 时必须带
+  `-Dfarlands.testgen=0,0 -Dfarlands.testgen.pushRadius=4`，否则 feeder 不启动（没有 `[FOL]`）。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
