@@ -629,6 +629,19 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
 - 另：`FarChunkFeeder` 的 `startFollow` 由 testgen 钩子触发，客户端跑 follow 时必须带
   `-Dfarlands.testgen=0,0 -Dfarlands.testgen.pushRadius=4`，否则 feeder 不启动（没有 `[FOL]`）。
 
+### 2026-11-09（三）到达卡顿已修：warmup 推送节流 16 → 4 块/tick
+
+- 定位：每 tick 推送 16 块时，每块要在服务端序列化 24 个 section，tick 被压到 1 TPS。
+  `ServerChunkCache.farlands$getChunkWide` 里确实有 `managedBlock` + `join` 的阻塞路径，
+  但 feeder 推送前已经检查 `getFullChunkFuture().isDone()`，所以不是它。
+- 修复（`5172e7d`）：`farlands.follow.warmupChunksPerTick` 默认 16 → 4；仍是可配置项。
+- 实测（z=-800000 全新区域，客户端，健康 run）：
+  - 修复前：`16:38:37 → 16:38:47  dt=10 s  dticks=10  → 1.0 TPS`（约 10 秒卡顿）。
+  - 修复后：最坏 gap `dt=1 s  dticks=10  → 10.0 TPS`（无卡顿）。
+  - 填充未变慢：整环 121 块 **20 秒**填满（`ring recenter 16:58:35 → warmup done 16:58:55`），
+    `farChunks=81`、`uncompiled=0`。
+- 附带发现（待查）：跟随时稳态只有 **10 TPS**（正常 20），与节流无关（2 块/tick 时也是 10）。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
