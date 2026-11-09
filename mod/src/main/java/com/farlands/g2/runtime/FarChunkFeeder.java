@@ -326,8 +326,12 @@ public final class FarChunkFeeder {
                 System.out.flush();
             }
         }
+        // Each pushed chunk serialises 24 sections on the server thread, so a large
+        // per-tick budget during the warmup stalls the tick loop: 16/tick measured
+        // 1.0 TPS for ~10 s on arrival at a fresh far area, 4/tick measured 5 TPS
+        // with a 2 s worst gap (the ring still fills, FOL 215 samples, no errors).
         int perTick = ringWarmup
-            ? Math.max(1, Integer.getInteger("farlands.follow.warmupChunksPerTick", 16))
+            ? Math.max(1, Integer.getInteger("farlands.follow.warmupChunksPerTick", 4))
             : Math.max(1, Integer.getInteger("farlands.follow.chunksPerTick", 8));
         for (int n = 0; n < perTick && ringPushOnce(); n++) {
             // keep draining
