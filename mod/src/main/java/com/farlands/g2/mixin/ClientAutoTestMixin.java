@@ -49,7 +49,11 @@ public class ClientAutoTestMixin {
         }
         if (mc.level == null) {
             String world = System.getProperty("farlands.autotest.world");
-            if (world != null && !world.isEmpty() && !farlands$openedWorld) {
+            // Opt-in only: the run config already passes --quickPlaySingleplayer when
+            // farlands.autotest is set, and opening the world here as well races that
+            // join (two integrated servers, then duplicate_login on the same UUID).
+            if (Boolean.getBoolean("farlands.autotest.openWorld")
+                && world != null && !world.isEmpty() && !farlands$openedWorld) {
                 farlands$openedWorld = true;
                 System.out.println("[AUTOTEST] opening world " + world);
                 System.out.flush();
