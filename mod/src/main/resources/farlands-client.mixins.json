@@ -35,6 +35,7 @@
         "RenderDiagMixin",
         "SectionCompilerDiagMixin",
         "WeatherEffectFarGuardMixin",
+        "SectionSliceDiagMixin",
         "BlockOutlineWideMixin",
         "SectionRenderSortingWideMixin",
         "EntityShadowFarSkipMixin",

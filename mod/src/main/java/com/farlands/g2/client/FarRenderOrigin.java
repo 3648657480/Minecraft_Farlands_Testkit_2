@@ -28,9 +28,13 @@ public final class FarRenderOrigin {
         }
         var camera = Minecraft.getInstance().gameRenderer.mainCamera().position();
         long y = holder.g2WideY();
-        boolean farY = y != (long) (int) y;
+        // 26.2 draws sections with cameraRenderState.viewRotationMatrix, which is a
+        // rotation-only matrix: the section origin has to be camera relative on ALL
+        // three axes. Keeping Y absolute here shifted every section up by camera.y
+        // (at y=70 nothing was on screen at all).
+        boolean farY = true;
         FarSectionMatrixXZ.mark(true, farY);
-        int originY = farY ? (int) (y - camera.y) : (int) y;
+        int originY = (int) Math.floor(y - camera.y);
         int relX = (int) (holder.g2WideX() - camera.x);
         int relZ = (int) (holder.g2WideZ() - camera.z);
         if (Boolean.getBoolean("farlands.trace.farorigin")
