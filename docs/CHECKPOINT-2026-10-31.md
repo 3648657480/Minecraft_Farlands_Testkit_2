@@ -677,10 +677,51 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
   `FarRegionBuilder` 的 `calls/built/distinctKeys` 从 `1/0/0` 变成 `10378/10375/1942`。
 - **仍未解决**：579 个非空网格一个都没出现在屏幕上 → 纯提交/变换问题。已排除：数据、编译、
   区域、局部帧原点（`[FORIG] rel=17,96,0`）、矩阵平移（`[FMAT] m30=m31=m32=0`）。
-- **下一步建议**：查 26.2 的段提交路径——`getRenderOrigin` 的补丁是否真的被绘制路径使用，
-  以及 `FarSectionMatrixXZ.adjust` 作用在哪一个矩阵上（若视锥是世界空间而我们给了相机相对的
-  剔除盒，会全部被剔掉；若是相机空间，则盒是对的而矩阵取消是多余的）。建议先用
-  `-Dfarlands.diag.nocull=true` 再对比一次，若仍空则问题一定在提交原点。
+### 2026-11-10 傍晚 远域渲染打通（2^31-1 与 2^53 均可渲染）
+
+**结论**：渲染链已打通。2^31-1 以内和 2^53 都能正常出地形，移动与转视角正常。
+verify 门禁 5/5 通过（norm / seam / coll / save / dist53）。
+
+**关键认知（读 terrain.vsh 得出，之前所有猜测都被它解释）**：
+
+```glsl
+vec3 pos = Position + (ChunkPosition - CameraBlockPos) + CameraOffset;
+gl_Position = ProjMat * ModelViewMat * vec4(pos, 1.0);
+```
+
+- `ChunkPosition` 是 UBO 里的 `ivec3`，语义是**段的世界原点**；相机由着色器自己减
+  （`CameraBlockPos`）。此前 `FarRenderOrigin` 返回相机相对原点 = 减了两次 → 偏移约 2^31 格，
+  所以 579 个非空网格一个都看不见。
+- `ModelViewMat` 是 `cameraRenderState.viewRotationMatrix`，**纯旋转**，不含平移。
+- 整帧方案（2^53 必需）：`GlobalSettingsFarCameraMixin` 把传给 `GlobalSettingsUniform` 的相机
+  位置换成它自己的小数部分 → `CameraBlockPos` 变成 (0,0,0)，`CameraOffset` 保持原亚方块偏移；
+  于是所有段的 `ChunkPosition = worldOrigin - cameraBlock`，一定装得进 int。
+  26.2 里只有 `terrain.vsh` 读 `CameraBlockPos`，天空/云/实体/粒子不受影响。
+- **剔除盒必须用世界坐标**：视锥是世界空间；把 AABB 改成相机相对后，静止画面正常（复用上一帧
+  可见列表）但一转视角整片消失。双精度可精确表示 2^53 的方块坐标，所以只有 ivec3 原点需要相对。
+
+**这一串修掉的 bug（按发现顺序）**：
+1. 卡死：原版天气柱循环 `for (x = cameraBlockX - r; x <= cameraBlockX + r; x++)` 在
+   `cameraBlockX≈Integer.MAX_VALUE` 时 int 溢出，循环约 2^32 次，渲染线程卡在
+   `ClientChunkCache.getChunk`（thread dump + JFR 证实 83% 采样）。→ `WeatherEffectFarGuardMixin`。
+2. 永不编译：`SectionUpdateTrackerGateMixin` 用「key 超出 int」判远，本地帧下失效 →
+   改「本地帧建立即为远域」。曾出现 `visible=333 / uncompiled=333 / CMP=0`。
+3. 编译归零：`setKey` 把本地 `sectionNode` 覆盖成世界值 → 网格身份错乱、全部 UNCOMPILED。
+   移除该覆盖（node 保持本地，世界身份只由 `SectionKey` 承载）。
+4. 标脏坐标系错：`setKey` 用世界坐标调 `setSectionRangeDirty`，而追踪器在本地帧 →
+   改本地 node；并在建立/重基后 `RenderKeys.redirtyAll()`。
+   `FarRegionBuilder` 从 `calls=1/built=0` 变为 `calls=10375/built=1942 distinct keys`。
+5. 剔除盒坐标系：世界坐标（见上）。
+6. 原点语义：世界原点 + 整帧 `CameraBlockPos=0`（见上）。
+7. 指标误导：`meshNonEmpty` 只统计玩家所在列、`farChunks` 只统计 key 超出 int 的段 →
+   新增全局 `meshGlobal`。诊断时不要再用前者判断「全屏为空」。
+
+**已知限制（Alpha1）**：`F3+G`（区块边界调试渲染）在 2^53 不可用——`ChunkBorderRenderer`
+用 `SectionPos.of(entity.blockPosition())`，int 装不下远域坐标。属调试功能，未修。
+
+**未提交**：无。当天提交 `7272fa3` / `506b587` / `bd19bd9` / `d963a53` / `8c79f9c`。
+
+## 规则
 - **未提交**：工作树约 12 个文件改动 + 3 个新 mixin（`SectionCompilerDiagMixin`、
   `WeatherEffectFarGuardMixin`、以及各诊断开关），全部未提交。
 
