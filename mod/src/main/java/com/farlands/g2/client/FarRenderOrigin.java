@@ -39,20 +39,35 @@ public final class FarRenderOrigin {
         long x = holder.g2WideX();
         long y = holder.g2WideY();
         long z = holder.g2WideZ();
+        var camera = Minecraft.getInstance().gameRenderer.mainCamera().position();
+        // Whole-frame local space: GlobalSettingsFarCameraMixin pins CameraBlockPos
+        // at 0, so ChunkPosition is measured from the camera's block corner.
+        if (WideRenderBase.established()) {
+            long cbx = (long) Math.floor(camera.x);
+            long cby = (long) Math.floor(camera.y);
+            long cbz = (long) Math.floor(camera.z);
+            FarSectionMatrixXZ.mark(false, false);
+            fallback.set((int) (x - cbx), (int) (y - cby), (int) (z - cbz));
+            if (Boolean.getBoolean("farlands.trace.farorigin") && logged++ < 8) {
+                System.out.println("[FORIG] wide=" + x + "," + y + "," + z
+                    + " relBlock=" + (x - cbx) + "," + (y - cby) + "," + (z - cbz)
+                    + " mode=frame");
+                System.out.flush();
+            }
+            return fallback;
+        }
         boolean fitsInt = x == (long) (int) x && y == (long) (int) y
             && z == (long) (int) z;
         if (fitsInt) {
             FarSectionMatrixXZ.mark(false, false);
             fallback.set((int) x, (int) y, (int) z);
             if (Boolean.getBoolean("farlands.trace.farorigin") && logged++ < 8) {
-                var camera = Minecraft.getInstance().gameRenderer.mainCamera().position();
                 System.out.println("[FORIG] world=" + x + "," + y + "," + z
                     + " cam=" + (long) camera.x + "," + (long) camera.z + " mode=world");
                 System.out.flush();
             }
             return fallback;
         }
-        var camera = Minecraft.getInstance().gameRenderer.mainCamera().position();
         boolean farY = true;
         FarSectionMatrixXZ.mark(true, farY);
         int relX = (int) (x - camera.x);

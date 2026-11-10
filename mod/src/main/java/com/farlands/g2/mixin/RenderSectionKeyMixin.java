@@ -168,37 +168,42 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
             long x = key.lx << 4;
             long y = key.ly << 4;
             long z = key.lz << 4;
-            this.farlands$wideBb = new AABB((double) x, (double) y, (double) z,
-                (double) (x + 16L), (double) (y + 16L), (double) (z + 16L));
-            this.farlands$bbKey = key;
-            // World-space box is what the renderer's frustum expects for sections
-            // whose origin still fits the ivec3 uniform; the shader subtracts the
-            // camera itself (terrain.vsh). Camera-relative boxes are only needed
-            // once the origin cannot be expressed in world ints.
-            boolean fitsInt = x == (long) (int) x && y == (long) (int) y
-                && z == (long) (int) z;
-            if (!fitsInt) {
+            // Same space as the origin: in the local frame (and for origins that do
+            // not fit an int) the box is measured from the camera's block corner,
+            // otherwise it stays in world space like vanilla.
+            boolean relative = com.farlands.g2.client.WideRenderBase.established()
+                || x != (long) (int) x || y != (long) (int) y || z != (long) (int) z;
+            double rx = 0.0;
+            double ry = 0.0;
+            double rz = 0.0;
+            if (relative) {
                 var cam = net.minecraft.client.Minecraft.getInstance()
                     .gameRenderer.mainCamera().position();
-                this.farlands$wideBb = this.farlands$wideBb.move(-cam.x, -cam.y, -cam.z);
-                this.farlands$bbCamX = cam.x;
-                this.farlands$bbCamY = cam.y;
-                this.farlands$bbCamZ = cam.z;
-            } else {
-                this.farlands$bbCamX = Double.NaN;
+                rx = Math.floor(cam.x);
+                ry = Math.floor(cam.y);
+                rz = Math.floor(cam.z);
             }
+            this.farlands$wideBb = new AABB(x - rx, y - ry, z - rz,
+                x + 16L - rx, y + 16L - ry, z + 16L - rz);
+            this.farlands$bbKey = key;
+            this.farlands$bbCamX = relative ? rx : Double.NaN;
+            this.farlands$bbCamY = ry;
+            this.farlands$bbCamZ = rz;
         } else if (!Double.isNaN(this.farlands$bbCamX)) {
             // Camera moved since the box was built: shift it instead of rebuilding.
             var cam = net.minecraft.client.Minecraft.getInstance()
                 .gameRenderer.mainCamera().position();
-            if (cam.x != this.farlands$bbCamX || cam.y != this.farlands$bbCamY
-                || cam.z != this.farlands$bbCamZ) {
+            double rx = Math.floor(cam.x);
+            double ry = Math.floor(cam.y);
+            double rz = Math.floor(cam.z);
+            if (rx != this.farlands$bbCamX || ry != this.farlands$bbCamY
+                || rz != this.farlands$bbCamZ) {
                 this.farlands$wideBb = this.farlands$wideBb.move(
-                    this.farlands$bbCamX - cam.x, this.farlands$bbCamY - cam.y,
-                    this.farlands$bbCamZ - cam.z);
-                this.farlands$bbCamX = cam.x;
-                this.farlands$bbCamY = cam.y;
-                this.farlands$bbCamZ = cam.z;
+                    this.farlands$bbCamX - rx, this.farlands$bbCamY - ry,
+                    this.farlands$bbCamZ - rz);
+                this.farlands$bbCamX = rx;
+                this.farlands$bbCamY = ry;
+                this.farlands$bbCamZ = rz;
             }
         }
         cir.setReturnValue(this.farlands$wideBb);

@@ -36,6 +36,7 @@
         "SectionCompilerDiagMixin",
         "WeatherEffectFarGuardMixin",
         "SectionSliceDiagMixin",
+        "GlobalSettingsFarCameraMixin",
         "BlockOutlineWideMixin",
         "SectionRenderSortingWideMixin",
         "EntityShadowFarSkipMixin",
