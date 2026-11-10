@@ -168,43 +168,15 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
             long x = key.lx << 4;
             long y = key.ly << 4;
             long z = key.lz << 4;
-            // Same space as the origin: in the local frame (and for origins that do
-            // not fit an int) the box is measured from the camera's block corner,
-            // otherwise it stays in world space like vanilla.
-            boolean relative = com.farlands.g2.client.WideRenderBase.established()
-                || x != (long) (int) x || y != (long) (int) y || z != (long) (int) z;
-            double rx = 0.0;
-            double ry = 0.0;
-            double rz = 0.0;
-            if (relative) {
-                var cam = net.minecraft.client.Minecraft.getInstance()
-                    .gameRenderer.mainCamera().position();
-                rx = Math.floor(cam.x);
-                ry = Math.floor(cam.y);
-                rz = Math.floor(cam.z);
-            }
-            this.farlands$wideBb = new AABB(x - rx, y - ry, z - rz,
-                x + 16L - rx, y + 16L - ry, z + 16L - rz);
+            // Frustum culling is world space: the box must stay in world coordinates
+            // even in the far domain. Doubles hold 2^53 block positions exactly, so
+            // only the ivec3 render ORIGIN has to be camera relative - a relative box
+            // made every section vanish as soon as the view moved (the still frame
+            // kept reusing the previous, already-culled list).
+            this.farlands$wideBb = new AABB((double) x, (double) y, (double) z,
+                (double) (x + 16L), (double) (y + 16L), (double) (z + 16L));
             this.farlands$bbKey = key;
-            this.farlands$bbCamX = relative ? rx : Double.NaN;
-            this.farlands$bbCamY = ry;
-            this.farlands$bbCamZ = rz;
-        } else if (!Double.isNaN(this.farlands$bbCamX)) {
-            // Camera moved since the box was built: shift it instead of rebuilding.
-            var cam = net.minecraft.client.Minecraft.getInstance()
-                .gameRenderer.mainCamera().position();
-            double rx = Math.floor(cam.x);
-            double ry = Math.floor(cam.y);
-            double rz = Math.floor(cam.z);
-            if (rx != this.farlands$bbCamX || ry != this.farlands$bbCamY
-                || rz != this.farlands$bbCamZ) {
-                this.farlands$wideBb = this.farlands$wideBb.move(
-                    this.farlands$bbCamX - rx, this.farlands$bbCamY - ry,
-                    this.farlands$bbCamZ - rz);
-                this.farlands$bbCamX = rx;
-                this.farlands$bbCamY = ry;
-                this.farlands$bbCamZ = rz;
-            }
+            this.farlands$bbCamX = Double.NaN;
         }
         cir.setReturnValue(this.farlands$wideBb);
     }
