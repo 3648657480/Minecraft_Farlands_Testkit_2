@@ -6,7 +6,6 @@ import java.util.function.BooleanSupplier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.ChunkPos;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -22,15 +21,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * ({@code -Dfarlands.diag.clientWideChunk}), so a normal install had no far data at
  * all and rendered nothing - the dev runs only worked because they passed that flag.</p>
  *
- * <p>This hook makes the feeder follow the player whenever the player is in the far
- * domain, so a plain install behaves like the test runs. Disable with
- * {@code -Dfarlands.far.stream=false}.</p>
+ * <p>Start it <b>once</b> when the player enters the far domain. The feeder's own
+ * {@code ringTick} reads the player's chunk every tick and re-centres the ring, so
+ * restarting it per chunk crossing reset the whole window every time: chunks kept
+ * unloading/reloading ("Trying to schedule tick in not loaded position") and the
+ * client re-keyed its whole grid on every tick.</p>
+ *
+ * <p>Disable with {@code -Dfarlands.far.stream=false}.</p>
  */
 @Mixin(MinecraftServer.class)
 public class ServerFarStreamMixin {
 
-    @Unique private static long farlands$lastChunkX = Long.MIN_VALUE;
-    @Unique private static long farlands$lastChunkZ = Long.MIN_VALUE;
+    @Unique private static boolean farlands$streaming;
 
     @Inject(method = "tickServer", at = @At("HEAD"))
     private void farlands$followFarPlayer(BooleanSupplier hasTime, CallbackInfo ci) {
@@ -45,26 +47,26 @@ public class ServerFarStreamMixin {
         ServerPlayer player = players.get(0);
         double x = player.getX();
         double z = player.getZ();
-        if (Math.abs(x) <= 1.6777216E7 && Math.abs(z) <= 1.6777216E7) {
-            farlands$lastChunkX = Long.MIN_VALUE;
-            farlands$lastChunkZ = Long.MIN_VALUE;
+        boolean far = Math.abs(x) > 1.6777216E7 || Math.abs(z) > 1.6777216E7;
+        if (!far) {
+            farlands$streaming = false;
             return;
         }
+        if (farlands$streaming) {
+            return;
+        }
+        farlands$streaming = true;
         long cx = Math.floorDiv((long) Math.floor(x), 16L);
         long cz = Math.floorDiv((long) Math.floor(z), 16L);
-        if (cx == farlands$lastChunkX && cz == farlands$lastChunkZ) {
-            return;
-        }
-        farlands$lastChunkX = cx;
-        farlands$lastChunkZ = cz;
         if (!(player.level() instanceof ServerLevel level)) {
+            farlands$streaming = false;
             return;
         }
         int radius = Integer.getInteger("farlands.far.pushRadius", 5);
         FarChunkFeeder.startFollow(level,
             com.scalarwide.mc.WideChunkPos.of(BigInteger.valueOf(cx), BigInteger.valueOf(cz)),
             radius);
-        System.out.println("[FARSTREAM] follow player chunk " + cx + "," + cz
+        System.out.println("[FARSTREAM] follow started at " + cx + "," + cz
             + " radius=" + radius);
         System.out.flush();
     }
