@@ -6,6 +6,7 @@
     "mixins": [
         "BlockPosMixin",
         "MthFloorMixin",
+        "ServerFarStreamMixin",
         "SectionPosMixin",
         "ChunkPosMixin",
         "Vec3RealCoordsMixin",

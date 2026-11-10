@@ -19,8 +19,15 @@ public final class WideClientBridge {
     }
 
     public static void apply(Minecraft mc) {
-        if (!Boolean.getBoolean("farlands.diag.clientWideChunk")
-            || mc.level == null || WideChunkPacketStore.size() == 0) {
+        // Production default: apply wide chunks whenever the server streams them.
+        // -Dfarlands.far.clientWide=false disables; the old diag flag also forces it on.
+        boolean enabled = System.getProperty("farlands.far.clientWide") != null
+            ? Boolean.parseBoolean(System.getProperty("farlands.far.clientWide"))
+            : true;
+        if (!enabled && !Boolean.getBoolean("farlands.diag.clientWideChunk")) {
+            return;
+        }
+        if (mc.level == null || WideChunkPacketStore.size() == 0) {
             return;
         }
         repairVisibleFar(mc);

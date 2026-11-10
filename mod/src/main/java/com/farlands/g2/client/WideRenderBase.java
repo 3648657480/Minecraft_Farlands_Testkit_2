@@ -124,15 +124,37 @@ public final class WideRenderBase {
      * camera left the aligned window).
      */
     public static SectionPos localSectionOf(double blockX, double blockY, double blockZ) {
+        boolean log = Boolean.getBoolean("farlands.trace.lsec") && logs < 12;
         if (!established || !isFar(blockX, blockZ)) {
+            if (log) {
+                logs++;
+                System.out.println("[LSEC] null established=" + established + " far="
+                    + isFar(blockX, blockZ) + " cam=" + blockX + "," + blockZ
+                    + " base=" + baseX + "," + baseZ);
+                System.out.flush();
+            }
             return null;
         }
         long lx = section(blockX) - baseX;
         long lz = section(blockZ) - baseZ;
         if (Math.abs(lx) > HALF || Math.abs(lz) > HALF) {
+            if (log) {
+                logs++;
+                System.out.println("[LSEC] out-of-window lx=" + lx + " lz=" + lz
+                    + " half=" + HALF + " sec=" + section(blockX) + ","
+                    + section(blockZ) + " base=" + baseX + "," + baseZ);
+                System.out.flush();
+            }
             return null;
         }
         int ly = (int) Math.floorDiv((long) Math.floor(blockY), 16L);
+        if (log) {
+            logs++;
+            System.out.println("[LSEC] ok local=" + lx + "," + ly + "," + lz
+                + " sec=" + section(blockX) + "," + section(blockZ)
+                + " base=" + baseX + "," + baseZ);
+            System.out.flush();
+        }
         return SectionPos.of((int) lx, ly, (int) lz);
     }
 
