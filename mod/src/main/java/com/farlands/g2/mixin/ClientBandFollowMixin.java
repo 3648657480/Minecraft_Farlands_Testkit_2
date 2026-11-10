@@ -45,6 +45,22 @@ public class ClientBandFollowMixin {
                 mc0.gameRenderer.mainCamera().position().x,
                 mc0.gameRenderer.mainCamera().position().z);
         if (!Boolean.getBoolean("farlands.y.window") && !farCamera) {
+            // Leaving the far domain (e.g. teleporting back to spawn) must drop the
+            // local frame: localSectionOf() returns null out of window, so the grid
+            // silently falls back to world coordinates while the tracker, gate and
+            // region builder still answer "far" - the two frames then disagree and
+            // the normal world renders broken.
+            if (com.farlands.g2.client.WideRenderBase.established()) {
+                com.farlands.g2.client.WideRenderBase.clear();
+                com.farlands.g2.client.RenderKeys.clear();
+                com.farlands.g2.client.FarRegionBuilder.clearCache();
+                if (mc0.level != null && mc0.levelRenderer != null && mc0.gameRenderer != null) {
+                    mc0.levelRenderer.invalidateCompiledGeometry(mc0.level, mc0.options,
+                        mc0.gameRenderer.mainCamera(), mc0.getBlockColors());
+                }
+                System.out.println("[WIDEBASE] cleared (left far domain)");
+                System.out.flush();
+            }
             return;
         }
         Minecraft mc = mc0;
