@@ -22,8 +22,20 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(LevelRenderer.class)
 public class LevelRendererLocalFrameMixin {
 
+    /**
+     * A stale camera render state (previous teleport target) fed through the
+     * local-frame subtraction yields a centre like {@code -base}, so the grid
+     * re-centres every frame and re-keys the whole set. Prefer the live camera
+     * whenever the incoming position is far away from it.
+     */
     @Unique
     private static SectionPos farlands$localOrVanilla(Position pos) {
+        var cam = net.minecraft.client.Minecraft.getInstance()
+            .gameRenderer.mainCamera().position();
+        if (Math.abs(pos.x() - cam.x) > 1.0E7 || Math.abs(pos.z() - cam.z) > 1.0E7) {
+            SectionPos live = WideRenderBase.localSectionOf(cam.x, cam.y, cam.z);
+            return live != null ? live : SectionPos.of(cam);
+        }
         SectionPos local = WideRenderBase.localSectionOf(pos.x(), pos.y(), pos.z());
         return local != null ? local : SectionPos.of(pos);
     }

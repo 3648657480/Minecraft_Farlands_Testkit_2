@@ -18,8 +18,21 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(LevelExtractor.class)
 public class LevelExtractorLocalFrameMixin {
 
+    /**
+     * Camera-position inputs here can be one frame stale (the render state still
+     * carries the previous teleport target). Feeding a stale far position into the
+     * local-frame subtraction produces a centre like {@code -base}, and the grid
+     * then re-centres every frame - 650+ full re-keys, chunks reloading, no render.
+     * When the incoming position is far away from the live camera, use the live one.
+     */
     @Unique
     private static SectionPos farlands$localOrVanilla(Position pos) {
+        var cam = net.minecraft.client.Minecraft.getInstance()
+            .gameRenderer.mainCamera().position();
+        if (Math.abs(pos.x() - cam.x) > 1.0E7 || Math.abs(pos.z() - cam.z) > 1.0E7) {
+            SectionPos live = WideRenderBase.localSectionOf(cam.x, cam.y, cam.z);
+            return live != null ? live : SectionPos.of(cam);
+        }
         SectionPos local = WideRenderBase.localSectionOf(pos.x(), pos.y(), pos.z());
         return local != null ? local : SectionPos.of(pos);
     }
