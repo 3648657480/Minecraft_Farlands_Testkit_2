@@ -31,9 +31,16 @@ public final class FarRenderOrigin {
         boolean farY = y != (long) (int) y;
         FarSectionMatrixXZ.mark(true, farY);
         int originY = farY ? (int) (y - camera.y) : (int) y;
-        fallback.set((int) (holder.g2WideX() - camera.x),
-            originY,
-            (int) (holder.g2WideZ() - camera.z));
+        int relX = (int) (holder.g2WideX() - camera.x);
+        int relZ = (int) (holder.g2WideZ() - camera.z);
+        if (Boolean.getBoolean("farlands.trace.farorigin")
+            && Math.abs(camera.x) < 3.0E9 && logged++ < 8) {
+            System.out.println("[FORIG] wide=" + holder.g2WideX() + "," + y + ","
+                + holder.g2WideZ() + " cam=" + (long) camera.x + "," + (long) camera.z
+                + " rel=" + relX + "," + originY + "," + relZ);
+            System.out.flush();
+        }
+        fallback.set(relX, originY, relZ);
         return fallback;
     }
 }

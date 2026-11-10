@@ -33,6 +33,8 @@
         "RenderRegionCacheDiagMixin",
         "RenderRegionCmpDiagMixin",
         "RenderDiagMixin",
+        "SectionCompilerDiagMixin",
+        "WeatherEffectFarGuardMixin",
         "BlockOutlineWideMixin",
         "SectionRenderSortingWideMixin",
         "EntityShadowFarSkipMixin",

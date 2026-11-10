@@ -29,7 +29,17 @@ public final class FarSectionMatrixXZ {
         boolean farY = Boolean.TRUE.equals(FAR_Y.get());
         FAR_Y.set(false);
         Matrix4f copy = new Matrix4f(modelView);
+        if (Boolean.getBoolean("farlands.trace.farmatrix") && farlands$logs++ < 8) {
+            var cam = net.minecraft.client.Minecraft.getInstance()
+                .gameRenderer.mainCamera().position();
+            System.out.println("[FMAT] in m30=" + copy.m30() + " m31=" + copy.m31()
+                + " m32=" + copy.m32() + " cam=" + cam.x + "," + cam.y + "," + cam.z
+                + " farY=" + farY);
+            System.out.flush();
+        }
         copy.setTranslation(0.0f, farY ? 0.0f : copy.m31(), 0.0f);
         return copy;
     }
+
+    private static int farlands$logs;
 }

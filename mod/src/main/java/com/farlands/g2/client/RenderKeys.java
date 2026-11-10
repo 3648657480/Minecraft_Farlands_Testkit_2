@@ -85,6 +85,27 @@ public final class RenderKeys {
         BY_KEY.clear();
     }
 
+    /**
+     * Mark every registered section dirty using its LOCAL node coordinates. The
+     * update tracker and extractor work in the render grid's local frame, so world
+     * coordinates here mark unrelated slots and the sections never get a region.
+     */
+    public static int redirtyAll() {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc == null || mc.level == null) {
+            return 0;
+        }
+        int n = 0;
+        for (SectionRenderDispatcher.RenderSection section : BY_NODE.values()) {
+            long node = section.getSectionNode();
+            mc.level.setSectionRangeDirty(SectionPos.x(node), SectionPos.y(node),
+                SectionPos.z(node), SectionPos.x(node), SectionPos.y(node),
+                SectionPos.z(node));
+            n++;
+        }
+        return n;
+    }
+
     public static SectionRenderDispatcher.RenderSection get(long node) {
         return BY_NODE.get(node);
     }
@@ -99,6 +120,15 @@ public final class RenderKeys {
             return accessor.farlands$getKey();
         }
         return null;
+    }
+
+    /** Diagnostic: how many nodes are registered, and whether a node is present. */
+    public static int nodeCount() {
+        return BY_NODE.size();
+    }
+
+    public static boolean hasNode(long node) {
+        return BY_NODE.containsKey(node);
     }
 
     public static int x(long node) {

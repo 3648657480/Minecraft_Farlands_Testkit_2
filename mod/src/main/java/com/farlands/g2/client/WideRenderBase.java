@@ -25,10 +25,18 @@ import net.minecraft.core.SectionPos;
  */
 public final class WideRenderBase {
 
-    /** Same "far" threshold the follow code uses. */
-    private static final double FAR = 1.0E12;
-    /** X/Z field width of a packed section node (29 bits). */
-    private static final long ALIGN = 1L << 29;
+    /**
+     * Far threshold: 2^24 blocks. Vanilla packs a section coordinate into 22 bits
+     * (SectionPos.asLong masks X/Z with 0x3FFFFF), so anything past section 2^21
+     * (block 2^25 = 33.5M) aliases to a different section and the renderer reads
+     * the wrong chunks. The local frame must therefore engage before that.
+     */
+    private static final double FAR = 1.6777216E7;
+    /**
+     * X/Z field width of a packed section node (22 bits). The local section must
+     * fit the signed 22-bit field, so ALIGN = 2^22 and |local| <= 2^21.
+     */
+    private static final long ALIGN = 1L << 22;
     /** Half window: the local section must stay inside this. */
     private static final long HALF = ALIGN >> 1;
 

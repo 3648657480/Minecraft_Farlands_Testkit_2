@@ -74,6 +74,27 @@ public class ClientChunkCacheDiagMixin {
         Map<Heightmap.Types, long[]> heightmaps,
         Consumer<ClientboundLevelChunkPacketData.BlockEntityTagOutput> consumer,
         CallbackInfoReturnable<LevelChunk> cir) {
+        if (Boolean.getBoolean("farlands.trace.chunkdata")) {
+            LevelChunk c = cir.getReturnValue();
+            int nonAir = 0;
+            int h = -1;
+            if (c != null) {
+                try {
+                    h = c.getHeight(Heightmap.Types.WORLD_SURFACE, 0, 0);
+                } catch (Throwable ignored) {
+                    // keep the diag alive
+                }
+                var sections = c.getSections();
+                for (var s : sections) {
+                    if (s != null && !s.hasOnlyAir()) {
+                        nonAir++;
+                    }
+                }
+            }
+            System.out.println("[CCHD] recv=" + x + "," + z + " null=" + (c == null)
+                + " nonAirSec=" + nonAir + " height=" + h);
+            System.out.flush();
+        }
         if (!farlands$near(x)) {
             return;
         }

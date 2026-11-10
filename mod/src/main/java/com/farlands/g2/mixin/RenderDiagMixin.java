@@ -172,6 +172,7 @@ public class RenderDiagMixin {
         int dataSections = 0;
         int meshSections = 0;
         int meshNonEmpty = 0;
+        int meshGlobal = 0;
         int farMeshSections = 0;
         int farKeySections = 0;
         int farNodeDup = 0;
@@ -210,6 +211,10 @@ public class RenderDiagMixin {
             for (var s : com.farlands.g2.client.RenderKeys.all()) {
                 var k = s instanceof com.farlands.g2.runtime.section.RenderSectionKeyAccessor a
                     ? a.farlands$getKey() : null;
+                if (s.getSectionMesh() != CompiledSectionMesh.UNCOMPILED
+                    && s.getSectionMesh().hasRenderableLayers()) {
+                    meshGlobal++;
+                }
                 if (k != null
                     && (k.lx != (long) (int) k.lx || k.ly != (long) (int) k.ly
                         || k.lz != (long) (int) k.lz)) {
@@ -314,6 +319,7 @@ public class RenderDiagMixin {
             + " innerUncompiled=" + innerUncompiled + " chunks5x5=" + chunkPresent
             + " dirtyNull=" + dirtyNull + " dirtyFalse=" + dirtyFalse + " noNeighbors=" + noNeighbors
             + " lightCam=" + lightCam + " light3x3=" + light3x3 + " dataSec=" + dataSections + " meshSec=" + meshSections + " meshNonEmpty=" + meshNonEmpty
+                + " meshGlobal=" + meshGlobal
             + " farChunks=" + farChunks.size() + " farMeshSec=" + farMeshSections
             + " farKeySec=" + farKeySections + " farKeyChunks=" + farKeyChunks.size()
             + " farNodeDup=" + farNodeDup

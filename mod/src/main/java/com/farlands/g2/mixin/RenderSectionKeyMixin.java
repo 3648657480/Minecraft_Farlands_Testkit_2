@@ -39,6 +39,9 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
     @Unique private long farlands$wideOriginY;
     @Unique private long farlands$wideOriginZ;
     @Unique private long farlands$keyNode;
+    @Unique private double farlands$bbCamX;
+    @Unique private double farlands$bbCamY;
+    @Unique private double farlands$bbCamZ;
     @Unique private static int farlands$originLogs;
 
     @Override
@@ -95,14 +98,17 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
         this.farlands$wideOriginX = lx;
         this.farlands$wideOriginY = ly;
         this.farlands$wideOriginZ = lz;
-        boolean far = lx != (long) (int) lx || ly != (long) (int) ly
+        // Must match the gate/builder rule: once the render grid runs in a local
+        // frame, EVERY section takes the camera-relative origin path. Deciding by
+        // "block coords exceed int" alone mixes both origins in one frame (some
+        // sections cancel the camera translation, others do not), which is the
+        // shattered/overlapping geometry seen right at the 2^31 boundary.
+        boolean far = com.farlands.g2.client.WideRenderBase.established()
+            || lx != (long) (int) lx || ly != (long) (int) ly
             || lz != (long) (int) lz;
-        if (far) {
-            // Vanilla RotatingSectionStorage stores local packed section nodes.
-            // At 2^53 the absolute packed value collides/reports a different
-            // node for every slot, so repositionCenter resets all sections.
-            this.sectionNode = SectionPos.asLong(key.x, key.y, key.z);
-        }
+        // The packed node stays the LOCAL grid node: the world identity lives in
+        // farlands$key. Overwriting it with SectionPos.asLong(key...) is what made the
+        // grid stop compiling (all visible sections stayed UNCOMPILED).
         if (far && this instanceof WideOriginHolder holder) {
             holder.g2SetWideOrigin(lx, ly, lz);
             if (Boolean.getBoolean("farlands.diag.origin") && farlands$originLogs++ < 20) {
@@ -120,16 +126,41 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
         // reset() dropped the mesh; mark only this section dirty. Marking the whole
         // 3x3x3 neighbourhood here floods the queue whenever the camera moves and
         // leaves the view blank until every round of recompiles finishes.
+        //
+        // The coordinates must be the LOCAL node's: the update tracker and the extractor
+        // work in the render grid's local frame, so dirtying key.x/y/z (world) marks
+        // unrelated slots and the section itself never gets a region (measured:
+        // createRegion called once instead of once per section).
         var mc = net.minecraft.client.Minecraft.getInstance();
         if (mc != null && mc.level != null) {
-            mc.level.setSectionRangeDirty(key.x, key.y, key.z, key.x, key.y, key.z);
+            long node = this.sectionNode;
+            int nx = SectionPos.x(node);
+            int ny = SectionPos.y(node);
+            int nz = SectionPos.z(node);
+            mc.level.setSectionRangeDirty(nx, ny, nz, nx, ny, nz);
         }
     }
 
     @Inject(method = "getBoundingBox", at = @At("RETURN"), cancellable = true)
     private void farlands$wideCullingBox(CallbackInfoReturnable<AABB> cir) {
         SectionKey key = this.farlands$key;
-        if (key == null || key.lx == (long) (int) key.lx
+        if (key == null) {
+            return;
+        }
+        if (Boolean.getBoolean("farlands.diag.nocull")) {
+            // Diagnostic: make every section unconditionally visible so a culling
+            // mistake can be told apart from a placement/mesh mistake. The box is
+            // built around the camera so it cannot be frustum-culled itself.
+            var cam = net.minecraft.client.Minecraft.getInstance()
+                .gameRenderer.mainCamera().position();
+            cir.setReturnValue(new AABB(cam.x - 1.0E6, cam.y - 1.0E6, cam.z - 1.0E6,
+                cam.x + 1.0E6, cam.y + 1.0E6, cam.z + 1.0E6));
+            return;
+        }
+        // Same rule as setKey: in the local frame every section is culled with the
+        // wide box (the camera is camera-relative there too).
+        if (!com.farlands.g2.client.WideRenderBase.established()
+            && key.lx == (long) (int) key.lx
             && key.ly == (long) (int) key.ly && key.lz == (long) (int) key.lz) {
             return;
         }
@@ -137,9 +168,32 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
             long x = key.lx << 4;
             long y = key.ly << 4;
             long z = key.lz << 4;
-            this.farlands$wideBb = new AABB((double) x, (double) y, (double) z,
-                (double) (x + 16L), (double) (y + 16L), (double) (z + 16L));
+            // The section model-view is camera space (its translation is already
+            // zero for far sections, see FarSectionMatrixXZ), so the culling box has
+            // to be camera relative as well. A world-space box against a camera-space
+            // frustum culls every far section - which is exactly "meshes exist but
+            // nothing is on screen".
+            var cam = net.minecraft.client.Minecraft.getInstance()
+                .gameRenderer.mainCamera().position();
+            this.farlands$wideBb = new AABB(x - cam.x, y - cam.y, z - cam.z,
+                x + 16L - cam.x, y + 16L - cam.y, z + 16L - cam.z);
             this.farlands$bbKey = key;
+            this.farlands$bbCamX = cam.x;
+            this.farlands$bbCamY = cam.y;
+            this.farlands$bbCamZ = cam.z;
+        } else {
+            // Camera moved since the box was built: shift it instead of rebuilding.
+            var cam = net.minecraft.client.Minecraft.getInstance()
+                .gameRenderer.mainCamera().position();
+            if (cam.x != this.farlands$bbCamX || cam.y != this.farlands$bbCamY
+                || cam.z != this.farlands$bbCamZ) {
+                this.farlands$wideBb = this.farlands$wideBb.move(
+                    this.farlands$bbCamX - cam.x, this.farlands$bbCamY - cam.y,
+                    this.farlands$bbCamZ - cam.z);
+                this.farlands$bbCamX = cam.x;
+                this.farlands$bbCamY = cam.y;
+                this.farlands$bbCamZ = cam.z;
+            }
         }
         cir.setReturnValue(this.farlands$wideBb);
     }

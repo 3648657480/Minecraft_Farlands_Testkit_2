@@ -43,6 +43,8 @@ public final class FarRenderSectionRegion extends RenderSectionRegion {
         return section(pos).getBlockEntity(pos);
     }
 
+    private static int farlands$logs;
+
     private SectionCopy section(BlockPos pos) {
         long sx = Math.floorDiv(pos.getLongX(), 16L);
         long sy = Math.floorDiv(pos.getLongY(), 16L);
@@ -51,7 +53,16 @@ public final class FarRenderSectionRegion extends RenderSectionRegion {
         int dy = (int) (sy - base.ly);
         int dz = (int) (sz - base.lz);
         int index = (dx + 1) + (dy + 1) * 3 + (dz + 1) * 9;
-        if (index < 0 || index >= copies.length || copies[index] == null) {
+        boolean hit = index >= 0 && index < copies.length && copies[index] != null;
+        if (Boolean.getBoolean("farlands.trace.regionlookup") && farlands$logs++ < 16) {
+            System.out.println("[RLOOK] pos=" + pos.getLongX() + "," + pos.getLongY() + ","
+                + pos.getLongZ() + " sec=" + sx + "," + sy + "," + sz
+                + " base=" + base.lx + "," + base.ly + "," + base.lz
+                + " d=" + dx + "," + dy + "," + dz + " idx=" + index
+                + " hit=" + hit);
+            System.out.flush();
+        }
+        if (!hit) {
             if (empty == null) {
                 empty = FarRegionBuilder.emptyCopy(level);
             }

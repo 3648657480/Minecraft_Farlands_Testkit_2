@@ -121,9 +121,12 @@ public abstract class RotatingSectionStorageKeyMixin {
                         System.out.flush();
                     }
                     accessor.farlands$setKey(key);
-                } else if (value instanceof net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection section) {
-                    RenderKeys.put(key, section);
                 }
+                // Always register, not just on the "unchanged" path: the first pass
+                // sets the key (RenderKeys was empty) and repositionCenter then
+                // short-circuits on an unchanged centre, so the registry would stay
+                // empty forever and every far lookup would miss.
+                RenderKeys.put(key, renderSection);
             }
             i++;
         }

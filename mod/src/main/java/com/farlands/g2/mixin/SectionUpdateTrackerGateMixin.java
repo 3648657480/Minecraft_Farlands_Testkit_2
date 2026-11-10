@@ -28,8 +28,14 @@ public class SectionUpdateTrackerGateMixin {
     private static final Set<Long> FARLANDS_FILLED = ConcurrentHashMap.newKeySet();
 
     private static boolean farlands$far(long node) {
-        // The render grid now runs in a local frame, so a section node's own
-        // coordinates are small; identify far sections by their wide key first.
+        // When the render grid runs in a local frame, EVERY section is far in the
+        // sense this gate cares about: the vanilla neighbour predicate looks for
+        // chunks at the node's (small) local coordinates, which never exist.
+        // Key magnitude cannot decide this any more - base + local stays inside int
+        // for world coordinates below 2^31 blocks.
+        if (com.farlands.g2.client.WideRenderBase.established()) {
+            return true;
+        }
         var key = com.farlands.g2.client.RenderKeys.keyOf(node);
         if (key != null) {
             return key.lx != (long) (int) key.lx || key.ly != (long) (int) key.ly

@@ -112,12 +112,22 @@ public class ClientBandFollowMixin {
                 System.out.println("[WIDEBASE] state=" + baseState + " "
                     + com.farlands.g2.client.WideRenderBase.describe(camPos.x, camPos.z));
                 System.out.flush();
-                if (baseState == 2) {
-                    // The frame origin moved: rebuild the grid so every slot re-keys
-                    // from the new base instead of being offset by the node delta.
-                    mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options,
-                        mc.gameRenderer.mainCamera(), mc.getBlockColors());
+                // Rebuild on the first establish too: the grid was built before the base
+                // existed, so its slots still carry world sections (aliased past the
+                // 22-bit packing) and would never re-key by themselves.
+                mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options,
+                    mc.gameRenderer.mainCamera(), mc.getBlockColors());
+                // re-keying calls reset() on every slot, which clears the mesh but does
+                // not re-queue a compile. allChanged() is vanilla's "mark everything
+                // dirty" path (render-distance change); its SectionPos.of calls are
+                // redirected to the local frame, so the tracker re-dirties exactly the
+                // slots of this grid.
+                if (mc.levelExtractor != null) {
+                    mc.levelExtractor.allChanged();
                 }
+                int redirtied = com.farlands.g2.client.RenderKeys.redirtyAll();
+                System.out.println("[WIDEBASE] redirtied=" + redirtied);
+                System.out.flush();
             }
         }
         // On re-entry the chunks load with the window already moved and no band
