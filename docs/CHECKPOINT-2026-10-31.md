@@ -668,6 +668,19 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
   （`[FMAT] in m30=0 m31=0 m32=0 cam=2.147e9`）。已改成相机相对；`visible` 从 241 → 1943，
   但 `meshNonEmpty` 仍只有 8。
 - **当前症状**：`meshNonEmpty=8` 恰好等于玩家所在那一列的非空段数；其余列有数据却没有网格。
+- **更正 2026-11-10 下午**：`meshNonEmpty` 只统计**玩家所在 chunk 列**的段
+  （`k.x == ccx && k.z == ccz`），`farChunks` 又只统计「key 超出 int」的段，2^31-1 下天然为 0。
+  这两个指标长期误导判断。新增全局计数后：**`meshGlobal=579`**（579 个段有非空网格），
+  `visible=1943`、`uncompiled=0`。**网格是建出来了的，只是没画到屏幕上。**
+- **本轮新增修复**：`setKey` 的脏标记原来用世界坐标，网格/追踪器在本地帧 → 改成 node 坐标；
+  建立/重基后额外调用 `RenderKeys.redirtyAll()`（按本地 node 全量标脏），
+  `FarRegionBuilder` 的 `calls/built/distinctKeys` 从 `1/0/0` 变成 `10378/10375/1942`。
+- **仍未解决**：579 个非空网格一个都没出现在屏幕上 → 纯提交/变换问题。已排除：数据、编译、
+  区域、局部帧原点（`[FORIG] rel=17,96,0`）、矩阵平移（`[FMAT] m30=m31=m32=0`）。
+- **下一步建议**：查 26.2 的段提交路径——`getRenderOrigin` 的补丁是否真的被绘制路径使用，
+  以及 `FarSectionMatrixXZ.adjust` 作用在哪一个矩阵上（若视锥是世界空间而我们给了相机相对的
+  剔除盒，会全部被剔掉；若是相机空间，则盒是对的而矩阵取消是多余的）。建议先用
+  `-Dfarlands.diag.nocull=true` 再对比一次，若仍空则问题一定在提交原点。
 - **未提交**：工作树约 12 个文件改动 + 3 个新 mixin（`SectionCompilerDiagMixin`、
   `WeatherEffectFarGuardMixin`、以及各诊断开关），全部未提交。
 
