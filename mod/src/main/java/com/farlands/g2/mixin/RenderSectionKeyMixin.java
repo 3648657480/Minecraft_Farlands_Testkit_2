@@ -168,20 +168,26 @@ public abstract class RenderSectionKeyMixin implements RenderSectionKeyAccessor 
             long x = key.lx << 4;
             long y = key.ly << 4;
             long z = key.lz << 4;
-            // The section model-view is camera space (its translation is already
-            // zero for far sections, see FarSectionMatrixXZ), so the culling box has
-            // to be camera relative as well. A world-space box against a camera-space
-            // frustum culls every far section - which is exactly "meshes exist but
-            // nothing is on screen".
-            var cam = net.minecraft.client.Minecraft.getInstance()
-                .gameRenderer.mainCamera().position();
-            this.farlands$wideBb = new AABB(x - cam.x, y - cam.y, z - cam.z,
-                x + 16L - cam.x, y + 16L - cam.y, z + 16L - cam.z);
+            this.farlands$wideBb = new AABB((double) x, (double) y, (double) z,
+                (double) (x + 16L), (double) (y + 16L), (double) (z + 16L));
             this.farlands$bbKey = key;
-            this.farlands$bbCamX = cam.x;
-            this.farlands$bbCamY = cam.y;
-            this.farlands$bbCamZ = cam.z;
-        } else {
+            // World-space box is what the renderer's frustum expects for sections
+            // whose origin still fits the ivec3 uniform; the shader subtracts the
+            // camera itself (terrain.vsh). Camera-relative boxes are only needed
+            // once the origin cannot be expressed in world ints.
+            boolean fitsInt = x == (long) (int) x && y == (long) (int) y
+                && z == (long) (int) z;
+            if (!fitsInt) {
+                var cam = net.minecraft.client.Minecraft.getInstance()
+                    .gameRenderer.mainCamera().position();
+                this.farlands$wideBb = this.farlands$wideBb.move(-cam.x, -cam.y, -cam.z);
+                this.farlands$bbCamX = cam.x;
+                this.farlands$bbCamY = cam.y;
+                this.farlands$bbCamZ = cam.z;
+            } else {
+                this.farlands$bbCamX = Double.NaN;
+            }
+        } else if (!Double.isNaN(this.farlands$bbCamX)) {
             // Camera moved since the box was built: shift it instead of rebuilding.
             var cam = net.minecraft.client.Minecraft.getInstance()
                 .gameRenderer.mainCamera().position();
