@@ -34,10 +34,20 @@ public class ClientBandFollowMixin {
 
     @Inject(method = "tick", at = @At("TAIL"))
     private void farlands$followBand(CallbackInfo ci) {
-        if (!Boolean.getBoolean("farlands.y.window")) {
+        Minecraft mc0 = (Minecraft) (Object) this;
+        // The fixed base / local frame must be established for ANY far camera, not
+        // only when the far-Y window experiment is enabled: a plain install has no
+        // JVM flags, and gating this on farlands.y.window meant [WIDEBASE] never ran
+        // there and the screen stayed empty.
+        boolean farCamera = mc0.level != null && mc0.gameRenderer != null
+            && mc0.player != null
+            && com.farlands.g2.client.WideRenderBase.isFar(
+                mc0.gameRenderer.mainCamera().position().x,
+                mc0.gameRenderer.mainCamera().position().z);
+        if (!Boolean.getBoolean("farlands.y.window") && !farCamera) {
             return;
         }
-        Minecraft mc = (Minecraft) (Object) this;
+        Minecraft mc = mc0;
         if (mc.level == null || mc.gameRenderer == null || mc.levelRenderer == null
             || mc.player == null) {
             return;
