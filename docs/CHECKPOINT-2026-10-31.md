@@ -642,6 +642,41 @@ tag：`stabilize/S2b4-ticket-remove-2026-10-31` 等。
     `farChunks=81`、`uncompiled=0`。
 - 附带发现（待查）：跟随时稳态只有 **10 TPS**（正常 20），与节流无关（2 块/tick 时也是 10）。
 
+### 2026-11-10 远域渲染链打通记录（未完成：只有玩家列出网格）
+
+**结论先行**：数据、编译调用、区域构建、远原点都已验证正常工作；卡在「除玩家所在列外，
+其它段的网格为空 / 被剔除」。以下每条都有实测日志支撑，新会话不要重走。
+
+- **远端区块数据完整**：`[CCHD]` 统计 117 个收到的远区块，`nonEmptyChunks=117`、
+  `emptyChunks=0`、`height=62..103`。`clientNonAir` 只是「玩家所在单 chunk 的非空段数」，
+  不代表全局，别被它误导。
+- **卡死根因（已修）**：原版 `WeatherEffectRenderer.extractRenderState` 的天气柱循环
+  `for (x = cameraBlockX - r; x <= cameraBlockX + r; x++)` 在 `cameraBlockX = Integer.MAX_VALUE`
+  时 `x++` 溢出、上界已回绕、条件长期为真 → 约 2^32 次迭代，渲染线程卡在
+  `ClientChunkCache.getChunk`。thread dump + JFR 证实（83% 采样）。已加
+  `WeatherEffectFarGuardMixin`（接近 int 极限跳过天气柱）。
+- **`SectionUpdateTrackerGateMixin` 判远错误（已修，关键）**：原来用「key 超出 int」判远，
+  本地帧下 key=base+local 在 int 内 → 被当普通段 → 原版邻居谓词拒绝 → 段永不脏、永不编译
+  （曾出现 `visible=333 / uncompiled=333 / CMP=0`）。改成「本地帧已建立即为远域」后
+  `CMP=24 / FARRD=24 / FARREGION=36`。
+- **`setKey` 里覆盖 `sectionNode` 是有害的（已移除）**：把本地 node 改成
+  `SectionPos.asLong(key.x,...)` 会让网格身份错乱，所有可见段停在 UNCOMPILED。
+  删掉后编译恢复（`uncompiled=0`）。node 必须保持本地，世界身份只由 `SectionKey` 承载。
+- **编译确实读到了真实方块**：`[CMP] y=-4 center=deepslate nonAirSample=64`（另一段
+  `nonAirSample=0` 是空气段，正常）。
+- **剔除**：`getBoundingBox` 原来返回世界坐标 AABB，而远段 modelView 已经是相机空间
+  （`[FMAT] in m30=0 m31=0 m32=0 cam=2.147e9`）。已改成相机相对；`visible` 从 241 → 1943，
+  但 `meshNonEmpty` 仍只有 8。
+- **当前症状**：`meshNonEmpty=8` 恰好等于玩家所在那一列的非空段数；其余列有数据却没有网格。
+- **未提交**：工作树约 12 个文件改动 + 3 个新 mixin（`SectionCompilerDiagMixin`、
+  `WeatherEffectFarGuardMixin`、以及各诊断开关），全部未提交。
+
+**下一步线索**：渲染距离在 `ClientBandFollowMixin` 里被强制成 4（9×9）；但 `[FARRD]` 的
+`regNodes=1943`，说明网格远大于 9×9。先确认「只有一列出网格」是视锥剔除（拿相机空间的
+盒去对世界空间的视锥？）还是其余段的 `FarRegionBuilder` 没被调用（`FARREGION` 打印被
+`entered<12` 限制，看不出来）。建议在 `FarRegionBuilder.create` 里改成按分钟计数并统计
+「构建了多少个不同 key」，一次运行就能区分。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
