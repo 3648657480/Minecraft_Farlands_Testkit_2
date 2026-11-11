@@ -47,7 +47,7 @@
         "ViewAreaWindowMixin",
         "ViewAreaWideLookupMixin",
         "ClientBandFollowMixin",
-        "ViewAreaRepositionDiagMixin",
+        "ViewAreaCenterCanonicalMixin",
         "ViewAreaKeyMixin",
         "ViewAreaWideMixin",
         "RotatingSectionStorageKeyMixin",
