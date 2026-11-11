@@ -50,12 +50,14 @@ public class ServerFarStreamMixin {
         boolean far = Math.abs(x) > 1.6777216E7 || Math.abs(z) > 1.6777216E7;
         if (!far) {
             farlands$streaming = false;
+            com.farlands.g2.runtime.FarLightMode.set(false);
             return;
         }
         if (farlands$streaming) {
             return;
         }
         farlands$streaming = true;
+        com.farlands.g2.runtime.FarLightMode.set(true);
         long cx = Math.floorDiv((long) Math.floor(x), 16L);
         long cz = Math.floorDiv((long) Math.floor(z), 16L);
         if (!(player.level() instanceof ServerLevel level)) {

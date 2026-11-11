@@ -17,10 +17,13 @@ public class LayerLightSectionStorageMixin {
 
     @Unique
     private static boolean farlands$isFar(int v) {
-        // long-based abs: Math.abs(Integer.MIN_VALUE) stays negative and
-        // would silently bypass the guard. Beyond this the packed section
-        // keys collide (phantom columns) and must not be touched until the
-        // 128-bit light storage lands.
+        // In the far domain the packed BlockPos long cannot be decoded: asLong keeps
+        // X/Z in 26-bit fields, so at 2^31 blocks the unpacked value is garbage and
+        // the threshold below stops matching. The far-domain flag is authoritative
+        // there; the magnitude check stays as the normal-range fallback.
+        if (com.farlands.g2.runtime.FarLightMode.active()) {
+            return true;
+        }
         return Math.abs((long) v) > 33_554_000L;
     }
 

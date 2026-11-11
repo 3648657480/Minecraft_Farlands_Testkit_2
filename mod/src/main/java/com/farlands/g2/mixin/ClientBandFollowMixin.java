@@ -60,6 +60,7 @@ public class ClientBandFollowMixin {
                 }
                 System.out.println("[WIDEBASE] cleared (left far domain)");
                 System.out.flush();
+                com.farlands.g2.runtime.FarLightMode.set(false);
             }
             return;
         }
@@ -135,6 +136,7 @@ public class ClientBandFollowMixin {
             // only on (re-)base, never per chunk.
             int baseState = com.farlands.g2.client.WideRenderBase.ensure(camPos.x, camPos.z);
             if (baseState != 0) {
+                com.farlands.g2.runtime.FarLightMode.set(true);
                 System.out.println("[WIDEBASE] state=" + baseState + " "
                     + com.farlands.g2.client.WideRenderBase.describe(camPos.x, camPos.z));
                 System.out.flush();
