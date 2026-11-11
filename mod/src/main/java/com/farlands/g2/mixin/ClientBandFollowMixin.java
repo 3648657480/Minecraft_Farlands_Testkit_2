@@ -185,11 +185,13 @@ public class ClientBandFollowMixin {
         // it and the screen shows large holes until the player rotates the view. In
         // the far domain the list is refreshed periodically as well.
         boolean farFrame = com.farlands.g2.client.WideRenderBase.established();
-        boolean refreshDue = farFrame && (++farlands$visFrames % 40 == 0);
-        // The refill is NOT one of the "strict band" hacks: the fork bypasses
-        // SectionOcclusionGraph.update entirely, so without it the visible list never
-        // picks up newly compiled far sections (large holes, fixed only by rotating
-        // the view). STRICT_BAND must not gate it.
+        // Periodic refresh is OFF by default: clearing the list while the extractor's
+        // frustum is momentarily empty refills it with 0 sections and the screen goes
+        // blank (observed "refilled visible=0" repeating). Opt in with
+        // -Dfarlands.client.refillEvery=<frames> when investigating stale holes.
+        int refillEvery = Integer.getInteger("farlands.client.refillEvery", 0);
+        boolean refreshDue = farFrame && refillEvery > 0
+            && (++farlands$visFrames % refillEvery == 0);
         boolean refill = mc.levelRenderer.visibleSections().isEmpty() || refreshDue;
         if (refill && (farFrame || !STRICT_BAND)) {
             try {
