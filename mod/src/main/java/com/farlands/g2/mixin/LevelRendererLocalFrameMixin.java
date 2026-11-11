@@ -32,13 +32,25 @@ public class LevelRendererLocalFrameMixin {
     private static SectionPos farlands$localOrVanilla(Position pos) {
         var cam = net.minecraft.client.Minecraft.getInstance()
             .gameRenderer.mainCamera().position();
+        SectionPos out;
         if (Math.abs(pos.x() - cam.x) > 1.0E7 || Math.abs(pos.z() - cam.z) > 1.0E7) {
             SectionPos live = WideRenderBase.localSectionOf(cam.x, cam.y, cam.z);
-            return live != null ? live : SectionPos.of(cam);
+            out = live != null ? live : SectionPos.of(cam);
+        } else {
+            SectionPos local = WideRenderBase.localSectionOf(pos.x(), pos.y(), pos.z());
+            out = local != null ? local : SectionPos.of(pos);
         }
-        SectionPos local = WideRenderBase.localSectionOf(pos.x(), pos.y(), pos.z());
-        return local != null ? local : SectionPos.of(pos);
+        if (farlands$frameLogs++ < 40) {
+            System.out.println("[LFRAME] src=renderer in=" + (long) pos.x() + ","
+                + (long) pos.z() + " cam=" + (long) cam.x + "," + (long) cam.z
+                + " out=" + out.x() + "," + out.y() + "," + out.z()
+                + " established=" + WideRenderBase.established());
+            System.out.flush();
+        }
+        return out;
     }
+
+    @Unique private static int farlands$frameLogs;
 
     /** Per-frame camera reposition ({@code LevelRenderer.repositionCamera}). */
     @Redirect(method = "repositionCamera",

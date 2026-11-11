@@ -135,7 +135,26 @@ public abstract class RotatingSectionStorageKeyMixin {
             System.out.println("[KEYREKEY] center=" + newCenter
                 + " anchor=" + anchorX + "," + anchorZ
                 + " changed=" + keyChanged);
+            // A centre far outside the local window means some subsystem fed the
+            // grid a world (or stale) section; the grid then re-centres every frame
+            // and re-keys the whole set. Print the caller once so the source is
+            // visible without a debugger.
+            if (anchorX != null && farlands$stackLogs < 3
+                && (Math.abs(newCenter.x()) > 4_194_304 || Math.abs(newCenter.z()) > 4_194_304)) {
+                farlands$stackLogs++;
+                for (StackTraceElement e : Thread.currentThread().getStackTrace()) {
+                    String cls = e.getClassName();
+                    if (cls.startsWith("com.farlands") || cls.startsWith("net.minecraft.client.renderer")
+                        || cls.startsWith("net.minecraft.client.Rotating")
+                        || cls.startsWith("net.minecraft.client.Section")) {
+                        System.out.println("[KEYSTACK] " + cls + "#" + e.getMethodName()
+                            + ":" + e.getLineNumber());
+                    }
+                }
+            }
             System.out.flush();
         }
     }
+
+    @Unique private static int farlands$stackLogs;
 }
