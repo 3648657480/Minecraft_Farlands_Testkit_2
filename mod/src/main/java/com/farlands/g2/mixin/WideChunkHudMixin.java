@@ -1,6 +1,9 @@
 package com.farlands.g2.mixin;
 
+import com.farlands.g2.runtime.FarLightMode;
+import com.farlands.g2.client.RenderKeys;
 import com.farlands.g2.client.WideClientChunkStore;
+import com.farlands.g2.client.WideRenderBase;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -8,7 +11,6 @@ import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.state.gui.GuiRenderState;
 import net.minecraft.client.renderer.state.gui.GuiTextRenderState;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.level.block.Blocks;
 import org.joml.Matrix3x2f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -17,9 +19,17 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * W1-4b2a: visible HUD top view of the decoded far chunk. This is a debug view,
- * not the 3D world renderer; it proves the wide sections are usable on the
- * client before the wide render pass exists.
+ * Far-domain diagnostic table (opt-in, {@code -Dfarlands.diag.hud=true}).
+ *
+ * <p>Replaces the old 16x16 character "top view". That view existed to prove the
+ * client decoded far chunks before the 3D far renderer existed; now that the
+ * renderer works it only added a coarse map with five glyphs ({@code ~} water,
+ * {@code #} stone, {@code g} soil, {@code ?} other, {@code .} air) which read as
+ * "the HUD is full of g" on any grassy area.</p>
+ *
+ * <p>The table reports the numbers that actually decide whether the far domain
+ * works: the render frame (base/local), the decoded data window, the render set
+ * and the far-light guard.</p>
  */
 @Mixin(Gui.class)
 public class WideChunkHudMixin {
@@ -27,64 +37,60 @@ public class WideChunkHudMixin {
     @Shadow private GuiRenderState guiRenderState;
 
     @Inject(method = "extractRenderState", at = @At("TAIL"))
-    private void farlands$wideHud(DeltaTracker deltaTracker, boolean a, boolean b,
+    private void farlands$diagTable(DeltaTracker deltaTracker, boolean a, boolean b,
         CallbackInfo ci) {
-        if (!Boolean.getBoolean("farlands.diag.clientWideChunk")) {
-            return;
-        }
-        if (!Boolean.parseBoolean(System.getProperty("farlands.diag.hud", "true"))) {
-            return;
-        }
-        WideClientChunkStore.Data data = WideClientChunkStore.current();
-        if (data == null || data.sections().length == 0) {
+        if (!Boolean.parseBoolean(System.getProperty("farlands.diag.hud", "false"))) {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
-        Font font = mc.font;
-        String[] lines = new String[18];
-        lines[0] = "WIDE " + data.pos() + " minSy=" + data.minSectionY();
-        for (int z = 0; z < 16; z++) {
-            StringBuilder row = new StringBuilder(16);
-            for (int x = 0; x < 16; x++) {
-                row.append(farlands$topChar(data, x, z));
-            }
-            lines[z + 1] = row.toString();
+        if (mc.level == null || mc.player == null || mc.font == null) {
+            return;
         }
-        lines[17] = "HUD map: not 3D render";
+        String[] lines = farlands$lines(mc);
         Matrix3x2f pose = new Matrix3x2f();
         for (int i = 0; i < lines.length; i++) {
-            guiRenderState.addText(new GuiTextRenderState(font,
+            guiRenderState.addText(new GuiTextRenderState(mc.font,
                 Component.literal(lines[i]).getVisualOrderText(), pose,
                 8, 8 + i * 9, 0xFFFFFFFF, 0, true, false, null));
         }
-        System.out.println("[WIDEHUD] " + lines[0] + " rows=16");
-        System.out.flush();
     }
 
-    private static char farlands$topChar(WideClientChunkStore.Data data, int x, int z) {
-        for (int idx = data.sections().length - 1; idx >= 0; idx--) {
-            var section = data.sections()[idx];
-            if (section == null || section.hasOnlyAir()) {
-                continue;
+    private static String[] farlands$lines(Minecraft mc) {
+        double camX = mc.player.getX();
+        double camZ = mc.player.getZ();
+        String frame = WideRenderBase.established()
+            ? WideRenderBase.describe(camX, camZ)
+            : "not established";
+        int storeChunks = WideClientChunkStore.all().size();
+        WideClientChunkStore.Data cur = WideClientChunkStore.current();
+        String curDesc = cur == null ? "-" : cur.pos() + " minSy=" + cur.minSectionY();
+        int nodes = RenderKeys.nodeCount();
+        int mesh = 0;
+        int uncompiled = 0;
+        try {
+            for (var s : RenderKeys.all()) {
+                var m = s.getSectionMesh();
+                if (m == net.minecraft.client.renderer.chunk.CompiledSectionMesh.UNCOMPILED) {
+                    uncompiled++;
+                } else if (m.hasRenderableLayers()) {
+                    mesh++;
+                }
             }
-            for (int ly = 15; ly >= 0; ly--) {
-                var state = section.getBlockState(x, ly, z);
-                if (state.isAir()) {
-                    continue;
-                }
-                if (state.is(Blocks.WATER)) {
-                    return '~';
-                }
-                if (state.is(Blocks.STONE)) {
-                    return '#';
-                }
-                if (state.is(Blocks.DIRT) || state.is(Blocks.GRASS_BLOCK)
-                    || state.is(Blocks.SAND) || state.is(Blocks.GRAVEL)) {
-                    return 'g';
-                }
-                return '?';
-            }
+        } catch (Throwable ignored) {
+            // render types can be mid-rebuild; the table must never throw
         }
-        return '.';
+        int visible = mc.levelRenderer == null || mc.levelRenderer.visibleSections() == null
+            ? -1 : mc.levelRenderer.visibleSections().size();
+        long x = (long) Math.floor(camX);
+        long z = (long) Math.floor(camZ);
+        return new String[] {
+            "[G2] far diagnostics",
+            "pos    " + x + ", " + z,
+            "frame  " + frame,
+            "data   chunks=" + storeChunks + "  cur=" + curDesc,
+            "render visible=" + visible + "  sections=" + nodes
+                + "  mesh=" + mesh + "  uncompiled=" + uncompiled,
+            "light  far=" + FarLightMode.active(),
+        };
     }
 }
