@@ -23,6 +23,8 @@ public class ClientBandFollowMixin {
     @org.spongepowered.asm.mixin.Unique private static int farlands$lastBand = Integer.MIN_VALUE;
     /** Last far page the renderer was rebuilt for (page start section). */
     @org.spongepowered.asm.mixin.Unique private static int farlands$lastPage = Integer.MIN_VALUE;
+    @org.spongepowered.asm.mixin.Unique private static int farlands$visFrames;
+    @org.spongepowered.asm.mixin.Unique private static int farlands$visLogs;
 
     /** Last level the wide-key table was built for; cleared when the level changes. */
     /** Strict band contract: no local window moves / refill / dirty hacks. */
@@ -177,14 +179,34 @@ public class ClientBandFollowMixin {
         // The fork bypasses SectionOcclusionGraph.update, so applyFrustum only runs
         // when the camera rotation changes. After a band move with a still camera the
         // visible list stays empty and nothing is compiled; refill it from the grid.
-        if (!STRICT_BAND && mc.levelRenderer.visibleSections().isEmpty()) {
+        //
+        // Refilling only when the list is EMPTY leaves the static-camera case broken:
+        // the list keeps whatever it had, so newly compiled far sections never enter
+        // it and the screen shows large holes until the player rotates the view. In
+        // the far domain the list is refreshed periodically as well.
+        boolean farFrame = com.farlands.g2.client.WideRenderBase.established();
+        boolean refreshDue = farFrame && (++farlands$visFrames % 40 == 0);
+        // The refill is NOT one of the "strict band" hacks: the fork bypasses
+        // SectionOcclusionGraph.update entirely, so without it the visible list never
+        // picks up newly compiled far sections (large holes, fixed only by rotating
+        // the view). STRICT_BAND must not gate it.
+        boolean refill = mc.levelRenderer.visibleSections().isEmpty() || refreshDue;
+        if (refill && (farFrame || !STRICT_BAND)) {
             try {
+                // addSectionsInFrustum APPENDS; waitAndReset does not clear the visible
+                // list, so periodic refills would duplicate entries (observed 3072 entries
+                // for a 1943-section grid). Clear both lists first.
+                mc.levelRenderer.visibleSections().clear();
+                mc.levelRenderer.nearbyVisibleSections().clear();
                 mc.levelRenderer.sectionOcclusionGraph().waitAndReset(viewArea);
                 mc.levelRenderer.sectionOcclusionGraph().addSectionsInFrustum(com.farlands.g2.client.RenderKeys.frustum(),
                     mc.levelRenderer.visibleSections(), mc.levelRenderer.nearbyVisibleSections());
-                System.out.println("[YF-VIS] refilled visible="
-                    + mc.levelRenderer.visibleSections().size());
-                System.out.flush();
+                if (!refreshDue || farlands$visLogs++ < 8) {
+                    System.out.println("[YF-VIS] refilled visible="
+                        + mc.levelRenderer.visibleSections().size()
+                        + (refreshDue ? " (periodic)" : ""));
+                    System.out.flush();
+                }
             } catch (Throwable t) {
                 System.out.println("[YF-VIS] refill failed: " + t);
                 System.out.flush();
