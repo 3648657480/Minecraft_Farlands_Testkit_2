@@ -8,6 +8,22 @@ import net.fabricmc.loader.api.FabricLoader;
 
 public class G2Mod implements ModInitializer {
     public void onInitialize() {
+        // Frozen 2^53 recipe (dev run frame53c, 2026-11-10). These switches used to be
+        // passed by hand on every experiment; the tuning value is now far below the
+        // debugging cost, so the known-good recipe becomes the default. Anything can
+        // still be overridden explicitly with -Dfarlands.<key>=false.
+        if (FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT) {
+            String[][] defaults = {
+                {"farlands.y.window", "true"},
+                {"farlands.follow", "true"},
+                {"farlands.diag.clientWideChunk", "true"},
+            };
+            for (String[] kv : defaults) {
+                if (System.getProperty(kv[0]) == null) {
+                    System.setProperty(kv[0], kv[1]);
+                }
+            }
+        }
         // Multiplayer is not supported: the vertical-window machinery relies on
         // same-process client/server sync. On a dedicated server, turn it off
         // loudly instead of running half a feature. The headless experiment rig
