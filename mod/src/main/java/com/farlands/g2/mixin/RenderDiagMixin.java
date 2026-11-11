@@ -33,7 +33,13 @@ public class RenderDiagMixin {
 
     @Inject(method = "endFrame", at = @At("HEAD"))
     private void farlands$diag(CallbackInfo ci) {
-        if (!Boolean.getBoolean("farlands.diag.render")) {
+        boolean explicit = Boolean.getBoolean("farlands.diag.render");
+        // In the far domain the summary is printed periodically even without the
+        // flag: the "renders incompletely, F3+A does not help" class of bug can only
+        // be judged from meshGlobal / uncompiled / client chunk counts, and asking
+        // for a JVM flag every time has cost more than the logging.
+        boolean autoFar = com.farlands.g2.client.WideRenderBase.established();
+        if (!explicit && !autoFar) {
             return;
         }
         int frame = ++farlands$frames;
@@ -49,18 +55,24 @@ public class RenderDiagMixin {
         }
         if (Math.abs(mc.player.getX()) > 1.0E9) {
             farlands$farFrames++;
-            // 30 / 60 / 90 s after arriving: watch the uncompiled set settle.
-            if ((farlands$farFrames == 1800 || farlands$farFrames == 3600 || farlands$farFrames == 5400)
-                && farlands$dumps < 3) {
-                farlands$dumps++;
-                farlands$dump(mc, self, view, farlands$farFrames);
-                if (farlands$dumps >= 2) {
-                    try {
-                        net.minecraft.client.Screenshot.grab(mc, false);
-                    } catch (Throwable t) {
-                        System.out.println("[RDIAG] screenshot failed: " + t);
+            if (explicit) {
+                // 30 / 60 / 90 s after arriving: watch the uncompiled set settle.
+                if ((farlands$farFrames == 1800 || farlands$farFrames == 3600
+                    || farlands$farFrames == 5400) && farlands$dumps < 3) {
+                    farlands$dumps++;
+                    farlands$dump(mc, self, view, farlands$farFrames);
+                    if (farlands$dumps >= 2) {
+                        try {
+                            net.minecraft.client.Screenshot.grab(mc, false);
+                        } catch (Throwable t) {
+                            System.out.println("[RDIAG] screenshot failed: " + t);
+                        }
                     }
                 }
+            } else if (farlands$farFrames % 400 == 0 && farlands$dumps < 12) {
+                // Automatic far-domain sampling (~every 7 s at 60 fps, 12 samples).
+                farlands$dumps++;
+                farlands$dump(mc, self, view, farlands$farFrames);
             }
         }
         if (frame % 20 != 0) {
