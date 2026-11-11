@@ -721,6 +721,39 @@ gl_Position = ProjMat * ModelViewMat * vec4(pos, 1.0);
 
 **未提交**：无。当天提交 `7272fa3` / `506b587` / `bd19bd9` / `d963a53` / `8c79f9c`。
 
+### 2026-11-11 实机可用化 + 待办清单
+
+**当天修掉（按提交顺序）**：
+1. 生产路径：客户端宽区块默认解析、服务端 `ServerFarStreamMixin` 进入远域时启动一次推流
+   （之前只在测试 harness 里启动，普通安装完全没有远域数据）。
+2. `ClientBandFollowMixin` 的本地帧建立不再被 `-Dfarlands.y.window` 挡住（否则实机永不建帧）。
+3. 离开远域时清帧（回出生点后两套坐标系混用导致普通世界错乱）。
+4. 方块实体坐标写入 `farlands$x/y/z` long（仅超出 int 时），读回用宽 `BlockPos`。
+5. 可见集重填不再受 `STRICT_BAND` 门控；重填前清空列表避免重复累积（3072→427）。
+6. 2^53 成功配方的开关固化为默认值（`G2Mod.onInitialize`）：`y.window` / `follow` /
+   `diag.clientWideChunk`，实机不再需要任何 JVM 参数。
+7. HUD 从 16×16 字符假地图改为远域诊断表，默认关闭。
+
+**方法论教训**：开发世界的远区块是 11-02 生成的旧数据，此前的 runClient「成功」都在读旧
+区块。**远域实验必须用新世界**，否则生成侧的问题永远暴露不出来。
+
+**当前未解决**：
+- 2^31-1 大面积缺块：`visible=361 / mesh=167 / uncompiled=1312`。需看诊断表 `vis` 行
+  （可见段中未编译 / 空 / 无网格）判断是「编译积压」还是「脏标记没覆盖」。
+- 地形生成错乱（平原压水域）：`StructureTemplate` 放置链的 int 坐标回绕，
+  `BlockEntity.getPosFromTag` 仍报 `wrong chunk`。按 A 方案宽化结构放置链（不动噪声数学）。
+- `F3+G` 在远域不可用。
+
+**待办（用户已确认的顺序与要求）**：
+1. 缺块定位（进行中）
+2. 结构放置链宽化（选项 B，Alpha2 前的硬损坏）
+3. `F3+G` 修复（`ChunkBorderRenderer` 改 `Vec3` 世界坐标）
+4. HUD 并入 F3：F3 打开时不再单独绘制浮层，而是作为 F3 的条目；
+   独立浮层保留为可选模式
+5. **HUD 显示内容做成可配置项**（用户 11-11 追加）：哪些行显示由配置决定
+6. 主界面设置 / 预设 / 内置 testgen
+7. F3 界面美化（参考 26.4）
+
 ## 规则
 - **未提交**：工作树约 12 个文件改动 + 3 个新 mixin（`SectionCompilerDiagMixin`、
   `WeatherEffectFarGuardMixin`、以及各诊断开关），全部未提交。
