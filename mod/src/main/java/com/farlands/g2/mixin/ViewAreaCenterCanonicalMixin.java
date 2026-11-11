@@ -32,6 +32,9 @@ public class ViewAreaCenterCanonicalMixin {
 
     @ModifyVariable(method = "repositionCamera", at = @At("HEAD"), argsOnly = true)
     private SectionPos farlands$canonicalCenter(SectionPos passed) {
+        if (!Boolean.getBoolean("farlands.diag.canonicalCenter")) {
+            return passed;
+        }
         if (!WideRenderBase.established()) {
             return passed;
         }
