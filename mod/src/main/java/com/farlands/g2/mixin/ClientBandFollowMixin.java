@@ -193,7 +193,11 @@ public class ClientBandFollowMixin {
         boolean refreshDue = farFrame && refillEvery > 0
             && (++farlands$visFrames % refillEvery == 0);
         boolean refill = mc.levelRenderer.visibleSections().isEmpty() || refreshDue;
-        if (refill && (farFrame || !STRICT_BAND)) {
+        // An EMPTY visible list is broken in every world, not just the far domain:
+        // the fork bypasses SectionOcclusionGraph.update, so nothing ever refills it
+        // and a freshly entered world compiles nothing until F3+A forces a rebuild.
+        // STRICT_BAND must only gate the far-domain periodic refresh, not this.
+        if (refill) {
             try {
                 // addSectionsInFrustum APPENDS; waitAndReset does not clear the visible
                 // list, so periodic refills would duplicate entries (observed 3072 entries
