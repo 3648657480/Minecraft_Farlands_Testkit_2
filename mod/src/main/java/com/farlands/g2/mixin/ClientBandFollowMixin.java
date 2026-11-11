@@ -213,7 +213,17 @@ public class ClientBandFollowMixin {
         // rotating centre, so every lookup returns null and nothing compiles.
         if (!com.farlands.g2.client.BandState.far()
             && viewArea.getRenderSectionAt(mc.player.blockPosition()) == null) {
-            viewArea.repositionCamera(net.minecraft.core.SectionPos.of(camera.blockPosition()));
+            // SectionPos.of(BlockPos) does NOT go through the Position redirects in
+            // LevelRenderer, so passing the world section here fought the local frame:
+            // the grid alternated between the local camera section and the world one
+            // (0 <-> -134217728), re-keying all 1943 sections every frame.
+            var camPos2 = mc.gameRenderer.mainCamera().position();
+            var localCenter = com.farlands.g2.client.WideRenderBase.established()
+                ? com.farlands.g2.client.WideRenderBase.localSectionOf(
+                    camPos2.x, camPos2.y, camPos2.z)
+                : null;
+            viewArea.repositionCamera(localCenter != null ? localCenter
+                : net.minecraft.core.SectionPos.of(camera.blockPosition()));
             var playerSec = net.minecraft.core.SectionPos.of(mc.player.blockPosition());
             var midPos = new net.minecraft.core.BlockPos(mc.player.blockPosition().getX(),
                 viewArea.minSectionY() * 16 + 8, mc.player.blockPosition().getZ());
