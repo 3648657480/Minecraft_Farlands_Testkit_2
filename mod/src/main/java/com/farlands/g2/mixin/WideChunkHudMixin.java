@@ -81,6 +81,23 @@ public class WideChunkHudMixin {
         }
         int visible = mc.levelRenderer == null || mc.levelRenderer.visibleSections() == null
             ? -1 : mc.levelRenderer.visibleSections().size();
+        // The decisive number: of the sections the frustum actually wants, how many are
+        // still uncompiled. "uncompiled=1312" over ALL sections is mostly out-of-view
+        // sections that legitimately stay uncompiled and hides the real backlog.
+        int visUnc = 0;
+        int visEmpty = 0;
+        try {
+            for (var s : mc.levelRenderer.visibleSections()) {
+                var m = s.getSectionMesh();
+                if (m == net.minecraft.client.renderer.chunk.CompiledSectionMesh.UNCOMPILED) {
+                    visUnc++;
+                } else if (!m.hasRenderableLayers()) {
+                    visEmpty++;
+                }
+            }
+        } catch (Throwable ignored) {
+            visUnc = -1;
+        }
         long x = (long) Math.floor(camX);
         long z = (long) Math.floor(camZ);
         return new String[] {
@@ -90,6 +107,8 @@ public class WideChunkHudMixin {
             "data   chunks=" + storeChunks + "  cur=" + curDesc,
             "render visible=" + visible + "  sections=" + nodes
                 + "  mesh=" + mesh + "  uncompiled=" + uncompiled,
+            "vis    uncompiled=" + visUnc + "  empty=" + visEmpty
+                + "  missing=" + Math.max(0, visible - visUnc - visEmpty - mesh),
             "light  far=" + FarLightMode.active(),
         };
     }
