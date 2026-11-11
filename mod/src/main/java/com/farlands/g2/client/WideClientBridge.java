@@ -59,17 +59,25 @@ public final class WideClientBridge {
                 if (!firstFill) {
                     int sx = packet.pos().x().toBigInteger().intValue();
                     int sz = packet.pos().z().toBigInteger().intValue();
+                    // The render grid runs in the LOCAL frame (node = worldSection - base),
+                    // so dirtying world coordinates marks unrelated slots: the far section
+                    // itself keeps its empty mesh and only F3+A repairs it. Convert first.
+                    boolean established = com.farlands.g2.client.WideRenderBase.established();
+                    long bx = com.farlands.g2.client.WideRenderBase.baseXLong();
+                    long bz = com.farlands.g2.client.WideRenderBase.baseZLong();
                     for (int i = 0; i < count; i++) {
+                        int wy = minSy + i;
+                        int dx = established ? (int) (sx - bx) : sx;
+                        int dz = established ? (int) (sz - bz) : sz;
                         if (SELF_DIRTY) {
                             // Only the sections of the chunk itself. Marking the
                             // 3x3x3 neighbourhood here adds ~300 extra compiles per
                             // window move, which competes with chunk generation for
                             // CPU; the cost is a little border overdraw until the
                             // neighbour rotates/recompiles.
-                            mc.level.setSectionRangeDirty(sx, minSy + i, sz,
-                                sx, minSy + i, sz);
+                            mc.level.setSectionRangeDirty(dx, wy, dz, dx, wy, dz);
                         } else {
-                            mc.level.setSectionDirtyWithNeighbors(sx, minSy + i, sz);
+                            mc.level.setSectionDirtyWithNeighbors(dx, wy, dz);
                         }
                     }
                 }
