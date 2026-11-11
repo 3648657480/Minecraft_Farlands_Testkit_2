@@ -754,6 +754,48 @@ gl_Position = ProjMat * ModelViewMat * vec4(pos, 1.0);
 6. 主界面设置 / 预设 / 内置 testgen
 7. F3 界面美化（参考 26.4）
 
+### 2026-11-11 下午 缺块定位 + 生成性能测量（新会话从这里接）
+
+**缺块的完整因果链（截图证据）**：
+- 诊断表显示空洞时 `vis uncompiled=0 empty=322`：可见段**全部编译完成**，但其中 322 段
+  编译成了空网格；按 F3+A 后 `empty` 降到 274、`mesh` 上升。
+- 根因：`WideClientBridge` 在数据到达时用**世界区块坐标**调 `setSectionDirtyWithNeighbors`，
+  而渲染网格运行在本地帧（`node = worldSection - base`），脏标记落到无关槽位，真正那段
+  永远保持空网格 → 只在 F3+A（全量重建）后恢复。已修（`da32499`）。
+- 另一个独立问题：可见集重填曾整块被 `!STRICT_BAND` 门控，而 `STRICT_BAND` 默认 `true`，
+  等于默认关闭；fork 绕过 `SectionOcclusionGraph.update` 后可见集永不更新。已改为「空列表
+  无条件重填」，周期性重填默认关闭（曾把可见集清成 0 导致整屏失效，见 `36c0bc7`）。
+- 新世界进档完全不出地形、F3+A 才恢复：同一原因（可见集为空后无人恢复），已随上一并修复。
+
+**生成性能测量（无头 rig，2^31-1 处 chunk 134217727,0）**：
+
+| 配置 | 网格 | 耗时 | 每块 | 哈希 |
+|---|---|---|---|---|
+| `max.bg.threads=1` | 3×3 | 3162 ms | 1.05 s | `surf=b9216bad2029` |
+| `max.bg.threads=1` | 5×5 | 4172 ms | 0.167 s | `surf=0a4849472ac8` |
+| `max.bg.threads=4` | 5×5 | **756 ms** | **0.030 s** | `surf=0a4849472ac8`（一致） |
+
+- 结论：**区块生成可并行且扩展良好（4 线程快 5.5 倍），多线程下哈希不变（仍确定）**；
+  首块含冷启动成本，边际成本约 30 ms/块（4 线程）。
+- 实机观测约 375 ms/块，说明对局内**并行度没跑满**：候选是集成服务端后台线程数偏低，
+  或 feeder 的在途 ticket 回收/再发节奏。feeder 已有 `farlands.follow.concurrent`（默认 32）。
+- 建议（尚未实施）：把集成服务端后台线程提到 `min(8, 核心数)` 一档；推流半径 5→4
+  （121→81 块）。按 30 ms/块算 9×9 理论 2.4 s。
+
+**JFR 采样的坑**：`JAVA_TOOL_OPTIONS=-XX:StartFlightRecording` 会污染 Gradle 探测 JDK 版本的
+子进程（stdout 出现 `[jfr,startup]`）导致构建失败；`jcmd JFR.start` 挂不上下——因为服务端
+在网格跑完前就退出。`runServer` **本身已支持** `-Dfarlands.jfr=<file>`（build.gradle），
+但两次 `dumponexit` 都没落盘。下次改用「服务端起来后 `jcmd` 挂 + 显式 `JFR.dump`」，
+并在跑之前确认没有残留服务端进程占着 `mod/run/world`（否则 `validateAndCreateAccess` 失败）。
+
+**HUD 现状**：已改为远域诊断表（`ad66beb`），默认关闭（`-Dfarlands.diag.hud=true`），
+显示 `pos / frame / data / render / vis / light`；其中 `vis` 行（visible 中未编译 / 空 /
+无网格）是判断缺块的关键。原 16×16 字符图已删除，其字符表为 `~`水 `#`石 `g`土 `?`其它
+`.`空气——草地地形必然满屏 `g`，不是渲染故障。
+
+**当天提交**：`dbd6231` `4ab29a4` `0b5bc7b` `ca62fa0` `b24320e` `d0490a7` `36c0bc7`
+`ad66beb` `7dbfe1b` `fa392da` `da32499` `2ed8bc8`。
+
 ## 规则
 - **未提交**：工作树约 12 个文件改动 + 3 个新 mixin（`SectionCompilerDiagMixin`、
   `WeatherEffectFarGuardMixin`、以及各诊断开关），全部未提交。
