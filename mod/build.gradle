@@ -66,6 +66,12 @@ loom {
             if (jfr != null) {
                 jvmArguments.add("-XX:StartFlightRecording=dumponexit=true,filename=" + jfr)
             }
+            // -Dfarlands.jvmArgs='a,b,c' forwards extra JVM flags to the GAME process only
+            // (JAVA_TOOL_OPTIONS leaks into the Gradle launcher and breaks it).
+            String extraJvm = System.getProperty('farlands.jvmArgs')
+            if (extraJvm != null) {
+                extraJvm.split(',').each { a -> jvmArguments.add(a.trim()) }
+            }
             if (System.getProperty('farlands.autotest') != null) {
                 programArg '--quickPlaySingleplayer'
                 programArg 'test7'
