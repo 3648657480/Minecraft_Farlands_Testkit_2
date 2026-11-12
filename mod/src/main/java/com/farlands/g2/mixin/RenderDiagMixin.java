@@ -332,6 +332,7 @@ public class RenderDiagMixin {
             + " dirtyNull=" + dirtyNull + " dirtyFalse=" + dirtyFalse + " noNeighbors=" + noNeighbors
             + " lightCam=" + lightCam + " light3x3=" + light3x3 + " dataSec=" + dataSections + " meshSec=" + meshSections + " meshNonEmpty=" + meshNonEmpty
                 + " meshGlobal=" + meshGlobal
+                + " store=" + com.farlands.g2.client.WideClientChunkStore.all().size()
             + " farChunks=" + farChunks.size() + " farMeshSec=" + farMeshSections
             + " farKeySec=" + farKeySections + " farKeyChunks=" + farKeyChunks.size()
             + " farNodeDup=" + farNodeDup
