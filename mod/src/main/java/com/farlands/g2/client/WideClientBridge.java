@@ -90,7 +90,7 @@ public final class WideClientBridge {
             BigInteger cz = BigInteger.valueOf(
                 Math.floorDiv((long) Math.floor(mc.player.getZ()), 16L));
             var center = com.scalarwide.mc.WideChunkPos.of(cx, cz);
-            int dataRadius = Integer.getInteger("farlands.far.dataRadius", 5);
+            int dataRadius = Integer.getInteger("farlands.far.dataRadius", 4);
             // Prune only when every chunk of the new ring is present; a count
             // can be satisfied by stale trailing chunks while the leading edge
             // is still missing.

@@ -64,7 +64,7 @@ public class ServerFarStreamMixin {
             farlands$streaming = false;
             return;
         }
-        int radius = Integer.getInteger("farlands.far.pushRadius", 5);
+        int radius = Integer.getInteger("farlands.far.pushRadius", 4);
         FarChunkFeeder.startFollow(level,
             com.scalarwide.mc.WideChunkPos.of(BigInteger.valueOf(cx), BigInteger.valueOf(cz)),
             radius);
