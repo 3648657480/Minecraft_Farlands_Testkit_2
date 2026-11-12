@@ -44,6 +44,24 @@ public class G2Mod implements ModInitializer {
         FarConfig.loadGlobalTemplate(FabricLoader.getInstance().getConfigDir());
         System.out.println("[FarLands-G2] " + FarConfig.buildVersion()
             + " wide build (real coordinates)");
+        // The frozen defaults only apply to keys that are NOT set, so a stale JVM
+        // argument left in a launcher profile silently overrides them and makes a
+        // real install behave differently from the dev run. Print what is actually
+        // in effect so the difference is visible without guessing.
+        System.out.println("[FarLands-G2] env cores=" + Runtime.getRuntime().availableProcessors()
+            + " maxMemoryMB=" + (Runtime.getRuntime().maxMemory() >> 20)
+            + " maxBgThreads=" + System.getProperty("max.bg.threads", "(default cores-1)"));
+        java.util.TreeMap<String, String> props = new java.util.TreeMap<>();
+        for (String name : System.getProperties().stringPropertyNames()) {
+            if (name.startsWith("farlands.")) {
+                props.put(name, System.getProperty(name));
+            }
+        }
+        System.out.println("[FarLands-G2] farlands.* properties (" + props.size() + "):");
+        for (var e : props.entrySet()) {
+            System.out.println("[FarLands-G2]   " + e.getKey() + "=" + e.getValue());
+        }
+        System.out.flush();
         if (Boolean.getBoolean("farlands.gen.cwg")) {
             System.out.println("[FarLands-G2] Cwg far-Y = observation model "
                 + "(STONE/AIR, int32 dome); not vanilla terrain, not 2^53");
