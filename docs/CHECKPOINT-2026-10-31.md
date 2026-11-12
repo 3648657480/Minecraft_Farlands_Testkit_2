@@ -796,6 +796,41 @@ gl_Position = ProjMat * ModelViewMat * vec4(pos, 1.0);
 **当天提交**：`dbd6231` `4ab29a4` `0b5bc7b` `ca62fa0` `b24320e` `d0490a7` `36c0bc7`
 `ad66beb` `7dbfe1b` `fa392da` `da32499` `2ed8bc8`。
 
+### 2026-11-12 晚 「实机 vs runClient」定位到可复现层
+
+**核心进展：`tools/prod-client.ps1` 复现了实机症状。**
+它按版本 JSON 组装 classpath，用 `KnotClient` 启动**安装形态**（真实 patched jar + 真实 mod jar），
+参数由我们控制。结果：2^31-1 下出现与 PCL 实机完全一样的现象（runClient 正常）。
+→ 问题在「安装形态 + Knot 启动」这一层，**与 PCL 启动器无关**，且现在可做二分实验。
+
+**已经排除的变量（都有实测）**：
+- **jar**：fork jar 与 loom 开发 jar 的 10952 个 class **CRC 逐字节一致**（0 差异）。
+- **mixin 注入**：两侧 `-Dmixin.debug.verbose=true`，取「共同加载的 53 个目标类」逐类比对注入集合，
+  **0 缺失**。（总量 dev 208 / 实机 101 只是会话长度不同，Mixin 按类加载时应用。）
+- **JVM/GC**：把 PCL 注入的整套参数（`+UseG1GC / MaxGCPauseMillis=50 / G1HeapRegionSize=32M /
+  MaxHeapFreeRatio=40 / +UseCompactObjectHeaders` 等）套到 runClient，2^53 生成速率 25 → 28 块/秒，
+  **无影响**。转发口：`mod/build.gradle` 的 `-Dfarlands.jvmArgs=a,b,c`。
+- **farlands.*** 参数：两侧一致；PCL 只额外传了一个 `-Dfarlands.diag.hud=true`（说明启动器不吞参数）。
+- **JDK**：都是 25.0.3。`isDevelopmentEnvironment()` 在 mod 与反编译原版里均无使用。
+
+**顺带确认的重要事实**：
+- 用 CLI 直接启动安装版会崩 `ClassNotFoundException: com.farlands.g2.util.FarProjection`
+  ——**patched jar 直接引用 mod 类，二者强绑定**，缺一不可。
+- `game_directory` 必须是**版本目录**（PCL 版本隔离），否则 Fabric 到全局 `mods` 找包，mod 不加载。
+
+**剩余两个候选（下一步二分，按顺序）**：
+1. **mod 形态**：runClient 用 `mod/build/classes`，安装用 remapped mod jar。
+   实验：给 runClient 加 `-Dfabric.addMods=<安装的 mod jar>`，若症状出现 → 问题在 remap/打包形态。
+2. **Knot 启动本身**：`fabric.dli` vs `KnotClient`。
+   实验：`prod-client.ps1` 加 `-Dmixin.debug.export=true`，导出变换后的 class 与 dev 逐字节对比。
+
+**之前以为是玄学、现已解释为场景差异的原因**：开发世界 `test7_01` 的远区块是 11-02 预生成的
+（只读不生成）；实机是新世界现场生成；再加「建立帧时三连全量标脏」与「推流半径 5」。
+相关修复：`2f2964e`（去重复标脏）、`a5ecc31` 及后续（建立帧不标脏，改每帧最多 64 个可见未编译段）、
+半径 5→4。
+
+**当天提交**：`2f2964e` `a5ecc31` `f8706a0` `b1d845f` `2fb3846`。
+
 ## 规则
 - **未提交**：工作树约 12 个文件改动 + 3 个新 mixin（`SectionCompilerDiagMixin`、
   `WeatherEffectFarGuardMixin`、以及各诊断开关），全部未提交。
