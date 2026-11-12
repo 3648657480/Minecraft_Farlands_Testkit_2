@@ -51,6 +51,15 @@ public class G2Mod implements ModInitializer {
         System.out.println("[FarLands-G2] env cores=" + Runtime.getRuntime().availableProcessors()
             + " maxMemoryMB=" + (Runtime.getRuntime().maxMemory() >> 20)
             + " maxBgThreads=" + System.getProperty("max.bg.threads", "(default cores-1)"));
+        // A launcher can inject its own -XX flags (GC choice in particular) and can
+        // swallow the ones typed into its UI. Print exactly what the JVM received so
+        // "the launcher did something" stops being a guess.
+        System.out.println("[FarLands-G2] jvm=" + System.getProperty("java.vm.name")
+            + " " + System.getProperty("java.version")
+            + " args=" + java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments());
+        for (var gc : java.lang.management.ManagementFactory.getGarbageCollectorMXBeans()) {
+            System.out.println("[FarLands-G2] gc=" + gc.getName());
+        }
         java.util.TreeMap<String, String> props = new java.util.TreeMap<>();
         for (String name : System.getProperties().stringPropertyNames()) {
             if (name.startsWith("farlands.")) {
