@@ -153,9 +153,45 @@ public class ClientBandFollowMixin {
                 // local frame, so it dirties exactly this grid).
                 mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options,
                     mc.gameRenderer.mainCamera(), mc.getBlockColors());
+                // Marking EVERY section dirty compiles ~1940 slots while only ~600 are in
+                // view: the first arrival sat at "vis uncompiled=464" with the queue full
+                // of off-screen work. Fill the visible list first and dirty only that;
+                // the rest compile as they rotate into view, exactly like vanilla.
+                boolean scoped = false;
                 if (mc.levelExtractor != null) {
+                    try {
+                        var va = mc.levelRenderer.viewArea();
+                        if (va != null && com.farlands.g2.client.RenderKeys.nodeCount() > 0) {
+                            mc.levelRenderer.visibleSections().clear();
+                            mc.levelRenderer.nearbyVisibleSections().clear();
+                            mc.levelRenderer.sectionOcclusionGraph().waitAndReset(va);
+                            mc.levelRenderer.sectionOcclusionGraph().addSectionsInFrustum(
+                                com.farlands.g2.client.RenderKeys.frustum(),
+                                mc.levelRenderer.visibleSections(),
+                                mc.levelRenderer.nearbyVisibleSections());
+                            int marked = 0;
+                            for (var s : mc.levelRenderer.visibleSections()) {
+                                long node = s.getSectionNode();
+                                mc.level.setSectionRangeDirty(
+                                    net.minecraft.core.SectionPos.x(node),
+                                    net.minecraft.core.SectionPos.y(node),
+                                    net.minecraft.core.SectionPos.z(node),
+                                    net.minecraft.core.SectionPos.x(node),
+                                    net.minecraft.core.SectionPos.y(node),
+                                    net.minecraft.core.SectionPos.z(node));
+                                marked++;
+                            }
+                            scoped = marked > 0;
+                            System.out.println("[WIDEBASE] scopedDirty=" + marked);
+                            System.out.flush();
+                        }
+                    } catch (Throwable t) {
+                        scoped = false;
+                    }
+                }
+                if (!scoped && mc.levelExtractor != null) {
                     mc.levelExtractor.allChanged();
-                } else {
+                } else if (!scoped) {
                     int redirtied = com.farlands.g2.client.RenderKeys.redirtyAll();
                     System.out.println("[WIDEBASE] redirtied=" + redirtied);
                     System.out.flush();
