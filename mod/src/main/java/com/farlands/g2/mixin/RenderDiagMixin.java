@@ -33,6 +33,7 @@ public class RenderDiagMixin {
 
     @Inject(method = "endFrame", at = @At("HEAD"))
     private void farlands$diag(CallbackInfo ci) {
+        com.farlands.g2.runtime.StallWatchdog.frame();
         boolean explicit = Boolean.getBoolean("farlands.diag.render");
         // In the far domain the summary is printed periodically even without the
         // flag: the "renders incompletely, F3+A does not help" class of bug can only

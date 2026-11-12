@@ -76,5 +76,8 @@ public class G2Mod implements ModInitializer {
                 + "(STONE/AIR, int32 dome); not vanilla terrain, not 2^53");
         }
         Watchdog.start();
+        if (FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT) {
+            com.farlands.g2.runtime.StallWatchdog.start();
+        }
     }
 }
