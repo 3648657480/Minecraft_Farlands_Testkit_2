@@ -142,22 +142,24 @@ public class ClientBandFollowMixin {
                 System.out.println("[WIDEBASE] state=" + baseState + " "
                     + com.farlands.g2.client.WideRenderBase.describe(camPos.x, camPos.z));
                 System.out.flush();
-                // Rebuild on the first establish too: the grid was built before the base
-                // existed, so its slots still carry world sections (aliased past the
-                // 22-bit packing) and would never re-key by themselves.
+                // Three full passes used to run back to back here:
+                //   invalidateCompiledGeometry (new ViewArea + cleared queue)
+                //   allChanged()                  (mark every section dirty)
+                //   redirtyAll()                  (mark every section dirty again)
+                // The second and third duplicate each other; the burst is what makes the
+                // first arrival at a far base feel like a freeze, and it competes with
+                // the chunk streaming that is starting at the same moment. Keep only the
+                // rebuild + allChanged (its SectionPos.of calls are redirected to the
+                // local frame, so it dirties exactly this grid).
                 mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options,
                     mc.gameRenderer.mainCamera(), mc.getBlockColors());
-                // re-keying calls reset() on every slot, which clears the mesh but does
-                // not re-queue a compile. allChanged() is vanilla's "mark everything
-                // dirty" path (render-distance change); its SectionPos.of calls are
-                // redirected to the local frame, so the tracker re-dirties exactly the
-                // slots of this grid.
                 if (mc.levelExtractor != null) {
                     mc.levelExtractor.allChanged();
+                } else {
+                    int redirtied = com.farlands.g2.client.RenderKeys.redirtyAll();
+                    System.out.println("[WIDEBASE] redirtied=" + redirtied);
+                    System.out.flush();
                 }
-                int redirtied = com.farlands.g2.client.RenderKeys.redirtyAll();
-                System.out.println("[WIDEBASE] redirtied=" + redirtied);
-                System.out.flush();
             }
         }
         // On re-entry the chunks load with the window already moved and no band
