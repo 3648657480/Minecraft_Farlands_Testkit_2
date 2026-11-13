@@ -74,7 +74,11 @@ loom {
             }
             if (System.getProperty('farlands.autotest') != null) {
                 programArg '--quickPlaySingleplayer'
-                programArg 'test7'
+                // The world is part of the A/B setup: a run that compares the dev rig
+                // with an installed client must open the SAME world save on both sides,
+                // otherwise seed, time of day and saved player state differ and the
+                // comparison says nothing about packaging.
+                programArg(System.getProperty('farlands.autotest.world', 'test7'))
             } else if (System.getProperty('farlands.testgen') != null) {
                 programArg '--quickPlaySingleplayer'
                 programArg 'Test World'

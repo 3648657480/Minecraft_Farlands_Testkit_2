@@ -32,6 +32,7 @@ public class ClientAutoTestMixin {
     private static boolean farlands$saveSent;
     private static boolean farlands$soakTp;
     private static boolean farlands$shot;
+    private static boolean farlands$gmSet;
 
     @Inject(method = "runTick", at = @At("HEAD"))
     private void farlands$tick(boolean advanceGameTime, CallbackInfo ci) {
@@ -64,6 +65,16 @@ public class ClientAutoTestMixin {
         }
         if (mc.player == null || mc.gameMode == null) {
             return;
+        }
+        // Scripted modes (move/rotate/save/soak) return before the phase machine, so
+        // they never sent the gamemode command: in a world whose player data is
+        // survival, the teleport dropped the player at y=100 over ocean and it fell
+        // into the void (observed: y=-254, 312 sections permanently uncompiled because
+        // there is no terrain). Set it once for every autotest mode.
+        if (!farlands$gmSet && farlands$ticks > 20) {
+            farlands$gmSet = true;
+            mc.player.connection.sendCommand(Boolean.getBoolean("farlands.autotest.spectator")
+                ? "gamemode spectator" : "gamemode creative");
         }
         if (Boolean.getBoolean("farlands.diag.clientblocks") && farlands$ticks % 40 == 0 && mc.level != null) {
             StringBuilder sb = new StringBuilder("[CBLOCKS] ");
@@ -222,8 +233,18 @@ public class ClientAutoTestMixin {
                         if (server != null) {
                             server.execute(() -> {
                                 var sp = server.getPlayerList().getPlayers().get(0);
-                                sp.teleportTo(dx, dy, dz);
-                                System.out.println("[AUTOTEST] direct tp sent x=" + dx);
+                                // Rotation matters for an A/B: the frustum decides the
+                                // visible set, so two runs that end up facing different
+                                // ways produce different visible/uncompiled counts and
+                                // their screenshots are not comparable. Pin yaw/pitch
+                                // through the same packet /tp uses.
+                                float yaw = (float) Double.parseDouble(
+                                    System.getProperty("farlands.autotest.yaw", "0"));
+                                float pitch = (float) Double.parseDouble(
+                                    System.getProperty("farlands.autotest.pitch", "0"));
+                                sp.connection.teleport(dx, dy, dz, yaw, pitch);
+                                System.out.println("[AUTOTEST] direct tp sent x=" + dx
+                                    + " yaw=" + yaw + " pitch=" + pitch);
                             });
                         }
                     } else {

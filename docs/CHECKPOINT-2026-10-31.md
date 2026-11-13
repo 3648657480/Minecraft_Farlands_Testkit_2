@@ -929,6 +929,59 @@ mesh=0` 持续数百次采样）。也就是说 `ClientLevel.setSectionRangeDirt
   靠的是"chunk 宽原点 + 低 4 位"。副作用是**旧存档不需要迁移**即可被正确读回。
 - 仍未接线：这两条探针还没有并入 `verify.ps1` 成为门禁（需要两步、约 2 分钟）。
 
+## 2026-11-13 傍晚 runClient vs 实机：同世界同相机 A/B（结论：不是打包差异）
+
+**新增工具**：
+
+- `tools/ab-client.ps1 -Mode dev|prod -Tag <名> -Seconds <秒> -JvmArgs "..."`：两侧同一流程、
+  同一时间窗；游戏 JVM 打 `-Dfarlands.ab.tag=<名>`，只杀这一棵进程树。
+- `tools/ab-compare.ps1 -PathA <log> -PathB <log>`：只解析 `[RDIAG]` 时间序列，
+  输出 store→81 用时、末端 visible/uncompiled/farMeshSec。
+
+**两个必须先固定的变量（之前没固定，结论因此无效）**：
+
+1. **相机**：`ClientAutoTestMixin` 的 `directTp` 原用 `teleportTo(x,y,z)`，不设朝向；
+   两侧朝向不同 → 视锥不同 → 可见集 592 vs 234，`uncompiled` 根本不可比。改为
+   `connection.teleport(x,y,z,yaw,pitch)`，新增 `-Dfarlands.autotest.yaw/pitch`。
+2. **世界**：`mod/build.gradle` 的 quickPlay 世界名改为读 `-Dfarlands.autotest.world`
+   （默认仍是 `test7`）；把同一个存档（`test8`）复制成 `abw` 分别放到两侧。
+   否则种子、时间、存档里的玩家状态（位置/朝向/游戏模式）都不同。
+
+**主实验（2^53，chunk 2^49 / z=250000，spectator，y=100，yaw 0 / pitch 25，200 s）**：
+
+| 侧 | 世界存档 | 末端 visible | uncompiled | store | farMeshSec | keySets |
+|---|---|---|---|---|---|---|
+| dev（runClient） | `abw` | 327 | 0 | 81 | 175 | 7772 |
+| 实机（KnotClient + 真实 jar） | `abw` | 327 | 0 | 81 | 175 | 7772 |
+
+计数逐项相同；截图同一地形（中心树、右侧树、海岸线一致）。
+
+**对照：之前那些"差异"分别是什么**
+
+- **不同世界 + 未固定相机**（`新的世界 (2)`，2^53）：`visible=592`、`uncompiled=55`
+  （`dirtyNull=55`、`innerUncompiled=55`，稳定 4 分钟不变）。同一侧固定相机后变成
+  `327 / 0` → 是**可见集**依赖，不是打包形态。
+- **move 模式掉进虚空**：`prod53move` 末端 `y=-254.2`、`below=void_air`、
+  `uncompiled=312`、`meshGlobal=0`。根因是 `move/rotate/soak/save` 分支在 phase 机之前
+  `return`，从未设置游戏模式；存档里的玩家是 survival，传送到 y=100 的海面上就掉进 void。
+  已修：所有 autotest 模式在 `ticks>20` 发一次 `gamemode spectator|creative`。
+- **首屏/推流**（服务端 ring warmup→done）：2^31 dev 10 s / 实机 15 s；
+  2^53 dev 14 s / 实机 15 s。同一量级，没有 5–10 倍差异。
+
+**结论（带条件）**：在**同一存档 + 同一相机 + autotest 固定角色状态**下，安装形态
+（KnotClient + 真实 fork jar）与 runClient 在 2^53 的渲染收敛与画面一致。此前观察到的
+"runClient 好、实机有问题"可以由世界种子/时间/玩家存档状态、相机朝向、以及
+「开发世界旧区块 vs 新世界现场生成」解释；**本组实验没有证据表明 mod 打包形态或 Knot
+启动引入差异**。
+
+**仍开放**：
+
+1. `visible=592 / 55 段常驻 UNCOMPILED`（`dirtyNull=55`，数据存在）是一次
+   **大可见集下的"可见但无 tracker 状态"**候选，与 dev/prod 无关；需要在 dev 上造出同样
+   的可见集复现，再判断是剔除范围还是脏标记覆盖问题。
+2. 如果 PCL 实机仍有症状，需要具体操作步骤/截图。`prod-client.ps1` 与 PCL 的剩余差异
+   只有启动器注入的 JVM 参数（GC 参数此前已测无影响，见 HANDOFF §5）。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
