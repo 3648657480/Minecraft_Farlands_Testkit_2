@@ -1044,6 +1044,29 @@ HUD `visible=749 mesh=323 uncompiled=1128 / vis uncompiled=141 empty=198`。
 - 但同一截图里还有两处**确实可疑**的东西：左侧一条 1 格宽的"草线"悬在空中、右侧一丛
   树冠下方缺树干/出现竖直天空缝。这两处需要近距离截图或坐标才能定性（尚未修）。
 
+### 同日追加（日志洪水与地形复现）
+
+- **1.17 GB 日志**：`setL`（patcher 里遗留的调试打印，`LoadingChunkTrackerWidePatch`）、
+  `[RSEC]`（`RenderSectionWideOriginMixin` 硬编码打印）与 vanilla
+  `Detected unsafe terrain read during worldgen` 三者叠加。实测一次 2.5 分钟会话 1.17 GB。
+  - `setL` 已从 patcher 删除（`PATCH_REVISION 142 → 143`，fork jar 重打并安装，
+    类级比对只有 `LoadingChunkTracker` 变化）；
+  - `[RSEC]` 改为 `-Dfarlands.trace.rsec=true` 才打印；
+  - 新增 `WorldGenRegionWarnLimitMixin`：`warnIfReadOutsideWriteZone` 直接取消（保留一次
+    `[WGWARN]` 汇总）。复测：unsafe 告警 **0**，整段日志 733 行（原 22.5 万行/70 s）。
+- **洪水指向的真实问题**：告警内容是 `reading from chunk [-134217728, 612] while generating
+  chunk [134217727, 612] (distance: 268435455), step: features`，刷屏的 placed_feature 是
+  `minecraft:bamboo` / `bamboo_vegetation`：缝上的竹子特征通过 int 视图拿到了镜像坐标。
+  这条**没修**，只是不再刷日志。
+- **地形条纹复现**：把玩家当前存档（`world`，16:23）复制成 `reproU`，在同一坐标
+  `x=2147483699, z=9851` 用安装形态截图，得到与玩家截图相同的"百叶窗/沟槽"纹（见
+  `docs` 之外的分区截图），即**用户种子可复现**。
+- **客户端方块读取在远域返回空气**：用 `ClientLevel.getBlockState` 扫 32×32 列全部为 0
+  （`[HMAP]`），而同一帧渲染出完整地形。说明客户端方块 API 在远域不可用于取样，
+  判断"方块 vs 网格"必须走服务端数据（下一步：同种子服务端 dump 高度图）。
+- 判别实验（黑影）：远域全亮（`BlockModelLighterCacheFarMixin` + `15728880`）后草地变亮但
+  条纹不变；再关 AO（`ao:false`）条纹依旧 → 条纹不是光照/AO。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；

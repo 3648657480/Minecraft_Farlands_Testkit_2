@@ -30,6 +30,7 @@ public class RenderDiagMixin {
     private static int farlands$frames;
     private static int farlands$farFrames;
     private static int farlands$dumps;
+    private static boolean farlands$heightmapDone;
 
     @Inject(method = "endFrame", at = @At("HEAD"))
     private void farlands$diag(CallbackInfo ci) {
@@ -176,6 +177,36 @@ public class RenderDiagMixin {
                 }
             }
             System.out.println("[DIRTYALL] marked=" + marked + " uncompiled=" + uncompiled);
+            System.out.flush();
+        }
+        // One-shot height map around the player, to separate "the blocks are striped"
+        // (worldgen) from "the mesh is striped" (renderer). Each row is one Z line of
+        // WORLD_SURFACE heights, rendered as two hex digits per column so a 1-block
+        // corduroy pattern is visible in the log without a screenshot.
+        if (Boolean.getBoolean("farlands.diag.heightmap") && !farlands$heightmapDone
+            && mc.player != null && mc.level != null
+            && Math.abs(mc.player.getX()) > 1.0E9) {
+            farlands$heightmapDone = true;
+            long px = (long) Math.floor(mc.player.getX());
+            long pz = (long) Math.floor(mc.player.getZ());
+            System.out.println("[HMAP] center=" + px + "," + pz + " size=32 (block scan)");
+            for (int dz = -16; dz < 16; dz++) {
+                StringBuilder sb = new StringBuilder("[HMAP] z=");
+                sb.append(pz + dz).append(' ');
+                for (int dx = -16; dx < 16; dx++) {
+                    int top = -1;
+                    for (int y = 140; y >= 0; y--) {
+                        var st = mc.level.getBlockState(
+                            new net.minecraft.core.BlockPos((long) (px + dx), (long) y, (long) (pz + dz)));
+                        if (!st.isAir()) {
+                            top = y;
+                            break;
+                        }
+                    }
+                    sb.append(String.format(java.util.Locale.ROOT, "%02x", (top + 1) & 0xFF));
+                }
+                System.out.println(sb);
+            }
             System.out.flush();
         }
         net.minecraft.core.BlockPos camPos = new net.minecraft.core.BlockPos(

@@ -6,6 +6,7 @@
     "mixins": [
         "LevelMixin",
         "BlockEntityWidePosMixin",
+        "WorldGenRegionWarnLimitMixin",
         "LevelAbsYFastMixin",
         "ClimateSamplerWideMixin",
         "SectionPosAsLongAuditMixin",

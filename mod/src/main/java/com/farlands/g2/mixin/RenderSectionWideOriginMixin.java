@@ -34,7 +34,8 @@ public abstract class RenderSectionWideOriginMixin {
         this.renderOrigin.set((int) x, (int) y, (int) z);
         this.bb = new AABB((double) x, (double) y, (double) z,
             (double) (x + 16L), (double) (y + 16L), (double) (z + 16L));
-        if (x >= 2147483600L && x <= 2147483664L) {
+        if (Boolean.getBoolean("farlands.trace.rsec")
+            && x >= 2147483600L && x <= 2147483664L) {
             System.out.println("[RSEC] key=" + sectionNode
                 + " sec=" + SectionPos.x(sectionNode) + "," + SectionPos.y(sectionNode) + "," + SectionPos.z(sectionNode)
                 + " originLong=" + x + "," + y + "," + z
