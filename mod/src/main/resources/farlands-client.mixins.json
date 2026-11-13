@@ -1,4 +1,4 @@
-{
+﻿{
     "required": true,
     "minVersion": "0.8",
     "package": "com.farlands.g2.mixin",
@@ -23,6 +23,7 @@
         "LevelRendererCamWrapMixin",
         "LevelExtractorTrackerCapture",
         "SectionUpdateTrackerGateMixin",
+        "BlockModelLighterCacheFarMixin",
         "LevelRendererLocalFrameMixin",
         "LevelExtractorLocalFrameMixin",
         "ViewAreaCenterSyncMixin",
