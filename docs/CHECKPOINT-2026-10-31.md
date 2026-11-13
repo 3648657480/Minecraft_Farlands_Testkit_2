@@ -909,11 +909,25 @@ mesh=0` 持续数百次采样）。也就是说 `ClientLevel.setSectionRangeDirt
 
 **仍开放（本轮没碰）**：
 
-- 远域 chunk 存档→读档的方块实体往返**还没有无头门禁**：现有 `save` 门禁是远 Y + 近处箱子。
-  建议加 far-X 探针（放置 → 保存 → 读回位置/状态）。
+- 远域 chunk 存档→读档的方块实体往返**尚无门禁**：现有 `save` 门禁是远 Y + 近处箱子。
+  探针已加并实测通过（见下方"同日追加"），但还没并入 `verify.ps1`。
 - 2^31 处跨 chunk 的特征写入会被 `farlands$canWriteWide` 丢弃（**降级策略，不是本 bug**）；
   它是否就是"平原压水域"的可见成因，**未验证**——需要截图或坐标复现，别再凭猜测改结构链。
 - 安装形态的 mod jar 需与本次改动同步（fork jar 未变，patcher 未动）。
+
+### 同日追加：far-X 方块实体存档往返（实测通过）
+
+- 新增两个 testgen 探针（`MinecraftServerTestGenMixin`）：
+  `-Dfarlands.testgen.blockentfar=<lx,lz[,y]>`（在 `chunkMinBlockLong+偏移` 放箱子并打印宽位置）、
+  `-Dfarlands.testgen.readbefar=<lx,lz[,y]>`（从磁盘重新加载该区块后读回，打印 `ok=`）。
+  注意现有 `blockent` 用的是 int 的 `getMinBlockX()`，远域会回绕，只能用于近原点。
+- A（新世界，chunk `134217729`，本地 9,9，y=64）：
+  `[SAVEBEFAR] pos=2147483673,64,9 set=true bePos=2147483673,64,9`，0 条 wrong chunk。
+- B（同一世界重启，只读）：`[READBEFAR] pos=2147483673,64,9 state=Block{minecraft:chest}[...]
+  bePos=2147483673,64,9 ok=true`，0 条 wrong chunk。
+- 说明：`saveMetadata` 仍只写 int（本轮未改），所以磁盘上的 tag 依旧是回绕值；能读回真实位置
+  靠的是"chunk 宽原点 + 低 4 位"。副作用是**旧存档不需要迁移**即可被正确读回。
+- 仍未接线：这两条探针还没有并入 `verify.ps1` 成为门禁（需要两步、约 2 分钟）。
 
 ## 规则
 

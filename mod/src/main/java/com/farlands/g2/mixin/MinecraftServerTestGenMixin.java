@@ -511,6 +511,54 @@ public abstract class MinecraftServerTestGenMixin {
                         + " be=" + (be == null ? "null" : be.getType()));
                     System.out.flush();
                 }
+                // Far-X block-entity round trip. `blockent` above uses the int chunk
+                // origin, which wraps past block 2^31; this variant places at
+                // chunkMinBlockLong + local offset and reports the wide position of
+                // the resulting block entity. A second run on the same world
+                // (`readbefar`) loads the chunk from disk and reads it back, so the
+                // save path is covered, not just generation.
+                String blockentFar = System.getProperty("farlands.testgen.blockentfar");
+                if (blockentFar != null && !blockentFar.isEmpty()) {
+                    String[] p = blockentFar.split(",");
+                    int lx = Integer.parseInt(p[0].trim());
+                    int lz = Integer.parseInt(p[1].trim());
+                    int by = p.length > 2 ? Integer.parseInt(p[2].trim()) : 64;
+                    net.minecraft.core.BlockPos chest = new net.minecraft.core.BlockPos(
+                        chunk.getPos().getMinBlockXLong() + lx, by,
+                        chunk.getPos().getMinBlockZLong() + lz);
+                    boolean placed = level.setBlock(chest,
+                        net.minecraft.world.level.block.Blocks.CHEST.defaultBlockState(), 3);
+                    var be = level.getBlockEntity(chest);
+                    System.out.println("[SAVEBEFAR] pos=" + chest.getLongX() + ","
+                        + chest.getLongY() + "," + chest.getLongZ()
+                        + " set=" + placed
+                        + " be=" + (be == null ? "null" : be.getType())
+                        + " bePos=" + (be == null ? "null" : be.getBlockPos().getLongX()
+                            + "," + be.getBlockPos().getLongY()
+                            + "," + be.getBlockPos().getLongZ()));
+                    System.out.flush();
+                }
+                String readBeFar = System.getProperty("farlands.testgen.readbefar");
+                if (readBeFar != null && !readBeFar.isEmpty()) {
+                    String[] p = readBeFar.split(",");
+                    int lx = Integer.parseInt(p[0].trim());
+                    int lz = Integer.parseInt(p[1].trim());
+                    int by = p.length > 2 ? Integer.parseInt(p[2].trim()) : 64;
+                    net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(
+                        chunk.getPos().getMinBlockXLong() + lx, by,
+                        chunk.getPos().getMinBlockZLong() + lz);
+                    var be = level.getBlockEntity(pos);
+                    System.out.println("[READBEFAR] pos=" + pos.getLongX() + ","
+                        + pos.getLongY() + "," + pos.getLongZ()
+                        + " state=" + level.getBlockState(pos)
+                        + " be=" + (be == null ? "null" : be.getType())
+                        + " bePos=" + (be == null ? "null" : be.getBlockPos().getLongX()
+                            + "," + be.getBlockPos().getLongY()
+                            + "," + be.getBlockPos().getLongZ())
+                        + " ok=" + (be != null && be.getBlockPos().getLongX() == pos.getLongX()
+                            && be.getBlockPos().getLongZ() == pos.getLongZ()));
+                    System.out.flush();
+                }
                 // W1-6/S4: 2560-bit SectionKey round-trip at 2^53/2^88/2^1016.
                 String sectionKeyProbe = System.getProperty("farlands.testgen.sectionkey");
                 if (sectionKeyProbe != null && !sectionKeyProbe.isEmpty()) {
