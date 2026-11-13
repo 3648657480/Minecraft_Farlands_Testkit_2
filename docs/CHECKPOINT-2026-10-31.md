@@ -831,6 +831,28 @@ gl_Position = ProjMat * ModelViewMat * vec4(pos, 1.0);
 
 **当天提交**：`2f2964e` `a5ecc31` `f8706a0` `b1d845f` `2fb3846`。
 
+### 2026-11-13 安装形态复现 + 一次失败优化（重要教训）
+
+**`tools/prod-client.ps1` 修正后可用**：参数改为分号分隔（`-File` 无法接收数组）、
+默认版本名要用下划线形式 `26.2-Fabric_0.19.3_fork_v2`、`gameDir` 指向版本目录。
+用它启动**安装形态**（真实 patched jar + 真实 mod jar，KnotClient），2^31-1 下
+`[FARSTREAM] follow started radius=4`、`[WIDEBASE] state=1`、`store=81` 都能正常出现，
+说明数据链路在安装形态下没问题。
+
+**一次失败优化（务必记住）**：`676001b` 把「建立帧时标脏全网格」改成「每帧最多标脏 64 个
+可见未编译段」，结果**开发形态与安装形态都变成完全不编译**（`visible=416 uncompiled=416
+mesh=0` 持续数百次采样）。也就是说 `ClientLevel.setSectionRangeDirty(本地 node 坐标)`
+在这条调用路径下**不会真正入编译队列**，而 `LevelExtractor.allChanged()` 会。
+已 `git revert 676001b`（`27a2c38`），回退后 dev 验证 `uncompiled=0 mesh=108`。
+
+结论：**当前唯一可靠的「全量重建 + 标脏」入口是 `allChanged()`**，任何想省掉它的优化
+都必须先单独验证 `uncompiled` 会下降，否则会得到「一个都不编译」的假象。
+
+**下一步**：在回退后的版本上重做「安装形态 vs runClient」同点对比（2^31-1，
+`-Dfarlands.diag.render=true`），比较 `store=` 增长速度与 `mesh` 收敛速度；
+若两者一致，说明「实机慢」确实是旧的半径 5 + 三连标脏，已被修复；若不一致，差异只剩
+「mod 打包形态 / Knot 启动」两项，可继续用 prod-client 二分。
+
 ## 规则
 - **未提交**：工作树约 12 个文件改动 + 3 个新 mixin（`SectionCompilerDiagMixin`、
   `WeatherEffectFarGuardMixin`、以及各诊断开关），全部未提交。
