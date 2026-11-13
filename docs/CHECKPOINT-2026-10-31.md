@@ -982,6 +982,21 @@ mesh=0` 持续数百次采样）。也就是说 `ClientLevel.setSectionRangeDirt
 2. 如果 PCL 实机仍有症状，需要具体操作步骤/截图。`prod-client.ps1` 与 PCL 的剩余差异
    只有启动器注入的 JVM 参数（GC 参数此前已测无影响，见 HANDOFF §5）。
 
+### 同日追加（部署前）：第三个混淆变量——`gamemode` 命令受权限限制
+
+- **现象**：实机冒烟（2^31-1 / z=4M，100 s）末端 `player=2147483656.26, 91.74, 3999940.38`，
+  已经漂过 2^31 缝；`visible=790 uncompiled=221 dirtyNull=221 camSection=absent
+  pSec=-134217728`（int 视图回绕）。同一参数在 dev 侧是 `2147483647,70,4000000`、
+  `231/0/0`、`pSec=134217727` —— 看起来像"实机渲染坏了"。
+- **根因**：`gamemode` 是命令，存档 `abw`（源自 test8）没有作弊权限时被拒绝；玩家留在
+  survival，被传到 y=70 的地形里后被挤出/下滑，位置漂移 60 格并跨过缝。
+- **修法**：autotest 改为服务端直接 `ServerPlayer.setGameMode(GameType)`（不经命令权限）。
+- **复验**（重新用同一份 test8 复制 `abw` 到两侧，100 s）：实机与 dev 都是
+  `player=2.147483647E9,70,4000000`、`visible=231 uncompiled=0 dirtyNull=0`、
+  `camSection=origin=-15,-7,0`、`pSec=134217727`、`keySets=9715`、`meshGlobal=119`。
+- **结论**：这条"差异"同样是测试脚手架，不是渲染/打包。至此 dev 与实机在
+  （同存档、同相机、同角色状态）下的 2^31 缝与 2^53 都逐项一致。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；

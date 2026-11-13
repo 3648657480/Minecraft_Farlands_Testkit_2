@@ -5,6 +5,7 @@ import net.minecraft.client.Screenshot;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -71,10 +72,9 @@ public class ClientAutoTestMixin {
         // survival, the teleport dropped the player at y=100 over ocean and it fell
         // into the void (observed: y=-254, 312 sections permanently uncompiled because
         // there is no terrain). Set it once for every autotest mode.
-        if (!farlands$gmSet && farlands$ticks > 20) {
+        if (!farlands$gmSet && farlands$ticks > 10) {
             farlands$gmSet = true;
-            mc.player.connection.sendCommand(Boolean.getBoolean("farlands.autotest.spectator")
-                ? "gamemode spectator" : "gamemode creative");
+            farlands$setGameMode(mc);
         }
         if (Boolean.getBoolean("farlands.diag.clientblocks") && farlands$ticks % 40 == 0 && mc.level != null) {
             StringBuilder sb = new StringBuilder("[CBLOCKS] ");
@@ -219,8 +219,7 @@ public class ClientAutoTestMixin {
             case 0 -> {
                 int delayTicks = Integer.getInteger("farlands.autotest.delayTicks", 100);
                 if (farlands$ticks > delayTicks) {
-                    mc.player.connection.sendCommand(Boolean.getBoolean("farlands.autotest.spectator")
-                        ? "gamemode spectator" : "gamemode creative");
+                    farlands$setGameMode(mc);
                     double tx = Double.parseDouble(System.getProperty("farlands.autotest.x", "2147483648.0"));
                     double ty = Double.parseDouble(System.getProperty("farlands.autotest.y", "70"));
                     double tz = Double.parseDouble(System.getProperty("farlands.autotest.z", "0.5"));
@@ -382,6 +381,31 @@ public class ClientAutoTestMixin {
             default -> {
             }
         }
+    }
+
+    /**
+     * Set the game mode through the server player, not the {@code gamemode}
+     * command: a world whose player data is survival and whose level has cheats
+     * disabled rejects the command, the player then falls/pushes out of the
+     * teleport target, crosses the 2^31 seam and the whole run measures a
+     * different place than the one requested (observed: -60 blocks in Z and a
+     * wrapped chunk view, which looks exactly like a rendering bug).
+     */
+    @Unique
+    private static void farlands$setGameMode(Minecraft mc) {
+        var server = mc.getSingleplayerServer();
+        if (server == null) {
+            return;
+        }
+        final boolean spectator = Boolean.getBoolean("farlands.autotest.spectator");
+        server.execute(() -> {
+            var players = server.getPlayerList().getPlayers();
+            if (!players.isEmpty()) {
+                players.get(0).setGameMode(spectator
+                    ? net.minecraft.world.level.GameType.SPECTATOR
+                    : net.minecraft.world.level.GameType.CREATIVE);
+            }
+        });
     }
 
     private static BlockPos farlands$findSolid(Minecraft mc, int cx, int cz) {
