@@ -153,13 +153,49 @@ public class ClientBandFollowMixin {
                 // local frame, so it dirties exactly this grid).
                 mc.levelRenderer.invalidateCompiledGeometry(mc.level, mc.options,
                     mc.gameRenderer.mainCamera(), mc.getBlockColors());
-                // Do NOT mark the whole grid dirty here. At this instant the extractor's
-                // frustum is not built yet, so every scoping attempt degenerates to all
-                // 1944 sections (observed scopedDirty=1943) and the queue is flooded while
-                // chunk streaming is starting. The per-frame retry below marks only the
-                // visible-but-uncompiled sections, a slice at a time.
-                System.out.println("[WIDEBASE] rebuild only, dirtying deferred to per-frame retry");
-                System.out.flush();
+                // Marking EVERY section dirty compiles ~1940 slots while only ~600 are in
+                // view: the first arrival sat at "vis uncompiled=464" with the queue full
+                // of off-screen work. Fill the visible list first and dirty only that;
+                // the rest compile as they rotate into view, exactly like vanilla.
+                boolean scoped = false;
+                if (mc.levelExtractor != null) {
+                    try {
+                        var va = mc.levelRenderer.viewArea();
+                        if (va != null && com.farlands.g2.client.RenderKeys.nodeCount() > 0) {
+                            mc.levelRenderer.visibleSections().clear();
+                            mc.levelRenderer.nearbyVisibleSections().clear();
+                            mc.levelRenderer.sectionOcclusionGraph().waitAndReset(va);
+                            mc.levelRenderer.sectionOcclusionGraph().addSectionsInFrustum(
+                                com.farlands.g2.client.RenderKeys.frustum(),
+                                mc.levelRenderer.visibleSections(),
+                                mc.levelRenderer.nearbyVisibleSections());
+                            int marked = 0;
+                            for (var s : mc.levelRenderer.visibleSections()) {
+                                long node = s.getSectionNode();
+                                mc.level.setSectionRangeDirty(
+                                    net.minecraft.core.SectionPos.x(node),
+                                    net.minecraft.core.SectionPos.y(node),
+                                    net.minecraft.core.SectionPos.z(node),
+                                    net.minecraft.core.SectionPos.x(node),
+                                    net.minecraft.core.SectionPos.y(node),
+                                    net.minecraft.core.SectionPos.z(node));
+                                marked++;
+                            }
+                            scoped = marked > 0;
+                            System.out.println("[WIDEBASE] scopedDirty=" + marked);
+                            System.out.flush();
+                        }
+                    } catch (Throwable t) {
+                        scoped = false;
+                    }
+                }
+                if (!scoped && mc.levelExtractor != null) {
+                    mc.levelExtractor.allChanged();
+                } else if (!scoped) {
+                    int redirtied = com.farlands.g2.client.RenderKeys.redirtyAll();
+                    System.out.println("[WIDEBASE] redirtied=" + redirtied);
+                    System.out.flush();
+                }
             }
         }
         // On re-entry the chunks load with the window already moved and no band
@@ -209,24 +245,6 @@ public class ClientBandFollowMixin {
                 mc.levelRenderer.sectionOcclusionGraph().waitAndReset(viewArea);
                 mc.levelRenderer.sectionOcclusionGraph().addSectionsInFrustum(com.farlands.g2.client.RenderKeys.frustum(),
                     mc.levelRenderer.visibleSections(), mc.levelRenderer.nearbyVisibleSections());
-                // Retry slice: mark the visible sections that are still uncompiled, a
-                // bounded batch per frame, so the first arrival fills gradually instead
-                // of queueing the whole 9x9x24 grid at once.
-                int retryBudget = 64;
-                for (var rs : mc.levelRenderer.visibleSections()) {
-                    if (rs.getSectionMesh()
-                        != net.minecraft.client.renderer.chunk.CompiledSectionMesh.UNCOMPILED) {
-                        continue;
-                    }
-                    long rn = rs.getSectionNode();
-                    mc.level.setSectionRangeDirty(
-                        net.minecraft.core.SectionPos.x(rn), net.minecraft.core.SectionPos.y(rn),
-                        net.minecraft.core.SectionPos.z(rn), net.minecraft.core.SectionPos.x(rn),
-                        net.minecraft.core.SectionPos.y(rn), net.minecraft.core.SectionPos.z(rn));
-                    if (--retryBudget <= 0) {
-                        break;
-                    }
-                }
                 if (!refreshDue || farlands$visLogs++ < 8) {
                     System.out.println("[YF-VIS] refilled visible="
                         + mc.levelRenderer.visibleSections().size()
