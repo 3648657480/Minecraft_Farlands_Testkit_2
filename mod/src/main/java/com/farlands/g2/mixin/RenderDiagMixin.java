@@ -295,15 +295,36 @@ public class RenderDiagMixin {
         // bridge runs, and the client tick may be paused). The render thread always
         // runs: re-mark the player's column once per diagnostic tick until compiled.
         if (cam == null || cam.getSectionMesh() == CompiledSectionMesh.UNCOMPILED) {
-            int px = mc.player.blockPosition().getX() >> 4;
-            int pz = mc.player.blockPosition().getZ() >> 4;
-            for (int sy = view.minSectionY(); sy <= view.maxSectionY(); sy++) {
-                mc.level.setSectionDirtyWithNeighbors(px, sy, pz);
-            }
-            if (farlands$dirtyMarks++ % 5 == 0) {
-                System.out.println("[YF-DIRTY] render-thread re-mark column " + px + "," + pz
-                    + " viewY=" + view.minSectionY() + ".." + view.maxSectionY());
-                System.out.flush();
+            // The mark must use the same local frame as the view grid. With the far
+            // frame established, `player.x >> 4` is the WORLD section (134217730 at
+            // block 2^31) while every RenderSection node is base-relative (2), so the
+            // old mark landed ~134M sections away and the real column stayed
+            // UNCOMPILED (observed: 18 visible sections with dirtyNull=18 stuck for
+            // minutes at x=2147483689, z=9990).
+            var camLocal = com.farlands.g2.client.WideRenderBase.localSectionOf(
+                mc.player.getX(), mc.player.getY(), mc.player.getZ());
+            if (camLocal != null) {
+                int px = camLocal.x();
+                int pz = camLocal.z();
+                for (int sy = view.minSectionY(); sy <= view.maxSectionY(); sy++) {
+                    mc.level.setSectionDirtyWithNeighbors(px, sy, pz);
+                }
+                if (farlands$dirtyMarks++ % 5 == 0) {
+                    System.out.println("[YF-DIRTY] render-thread re-mark local column " + px + "," + pz
+                        + " viewY=" + view.minSectionY() + ".." + view.maxSectionY());
+                    System.out.flush();
+                }
+            } else {
+                int px = mc.player.blockPosition().getX() >> 4;
+                int pz = mc.player.blockPosition().getZ() >> 4;
+                for (int sy = view.minSectionY(); sy <= view.maxSectionY(); sy++) {
+                    mc.level.setSectionDirtyWithNeighbors(px, sy, pz);
+                }
+                if (farlands$dirtyMarks++ % 5 == 0) {
+                    System.out.println("[YF-DIRTY] render-thread re-mark column " + px + "," + pz
+                        + " viewY=" + view.minSectionY() + ".." + view.maxSectionY());
+                    System.out.flush();
+                }
             }
         }
         String camInfo = cam == null ? "absent"

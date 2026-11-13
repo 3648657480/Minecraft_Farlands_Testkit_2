@@ -26,6 +26,17 @@ public abstract class ViewAreaWideLookupMixin {
         long lx = pos.getLongX();
         long ly = pos.getLongY();
         long lz = pos.getLongZ();
+        // With the local frame established the view grid is keyed by LOCAL sections
+        // (worldSection - base). At block 2^31 the world section still fits an int
+        // (134217730), so the old "only when the section exceeds int" branch never
+        // fired and the lookup used the world section against a local-keyed table:
+        // getRenderSectionAt returned null for the camera itself (observed at
+        // x=2147483689, z=9990: camSection=absent while viewC=2,624).
+        SectionPos local = com.farlands.g2.client.WideRenderBase.localSectionOf(lx, ly, lz);
+        if (local != null) {
+            cir.setReturnValue(this.getRenderSection(local.asLong()));
+            return;
+        }
         if (lx == (long) pos.getX() && ly == (long) pos.getY() && lz == (long) pos.getZ()) {
             return; // int views are exact: vanilla path
         }

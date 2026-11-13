@@ -997,6 +997,39 @@ mesh=0` 持续数百次采样）。也就是说 `ClientLevel.setSectionRangeDirt
 - **结论**：这条"差异"同样是测试脚手架，不是渲染/打包。至此 dev 与实机在
   （同存档、同相机、同角色状态）下的 2^31 缝与 2^53 都逐项一致。
 
+## 2026-11-13 傍晚（二）2^31 缝上的空洞：相机段查找 + 补标脏坐标系
+
+**触发**：玩家截图（PCL2 实机）在 `x=2147483689, z=9990` 出现大面积空洞，
+HUD `visible=749 mesh=323 uncompiled=1128 / vis uncompiled=141 empty=198`。
+
+**复现（安装形态、新存档、同坐标，240 s）**：`uncompiled=18 dirtyNull=18` 稳定 4 分钟不收敛，
+且 `camSection=absent`、`viewC=2,624`、`pSec=-134217726,624`。
+
+**两个根因（都在"本地帧 vs 世界坐标"的桥上）**：
+
+1. `ViewAreaWideLookupMixin.getRenderSectionAt(BlockPos)` 只在 section **超出 int** 时才走宽路径，
+   且没有减 `base`。2^31 方块处 world section = 134217730 **仍在 int 内**，被直接拿去查
+   本地帧（base=134217728 → 本地 2）的段表 → 恒 `null`，相机自己的段永远找不到。
+2. `RenderDiagMixin` 的"render thread 补标脏"用 `player.x >> 4` 的 **int 世界段**去
+   `setSectionDirtyWithNeighbors`，本地帧下落到 1.3 亿段以外 → 真实列永不入编译队列。
+
+**修法**：两处都先用 `WideRenderBase.localSectionOf(...)` 取本地段，取不到才回落旧路径。
+
+**验收（同存档、同坐标、同相机，单变量）**：
+
+- `camSection` `absent` → `origin=-9,-5,-6`；
+- `uncompiled` `18`（常驻）→ `0`；`dirtyNull` `18` → `0`；
+- 收敛：到达后 store 0→81、`meshGlobal` 0→178 约 **15 s**，随后稳定（371 s 观察窗）。
+- 画面：修复前同一视点看不到空洞（空洞在相机自己那一列，pitch 25 时不在画面内），
+  修复后画面连续 —— 与玩家截图里的"整片空洞"仍需用他的存档/视角复测确认。
+
+**未处理（玩家同时报的另两条）**：
+
+- 「黑影」与「地形问题」尚未复现。已知远域光照是"全亮护栏"（`FarLightMode` +
+  `hasAllNeighbors` 里填 sky 14）；若某些段在护栏生效前就编译完，会呈现黑色面。
+  候选复验：同点开启强制重编译（`-Dfarlands.diag.recompileAll=true`）看黑影是否消失。
+- 首屏 15 s 属于冷区块 + 编译积压的已知量级，不是本次两条 bug 的一部分。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
