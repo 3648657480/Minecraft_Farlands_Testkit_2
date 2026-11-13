@@ -863,6 +863,58 @@ mesh=0` 持续数百次采样）。也就是说 `ClientLevel.setSectionRangeDirt
 `entered<12` 限制，看不出来）。建议在 `FarRegionBuilder.create` 里改成按分钟计数并统计
 「构建了多少个不同 key」，一次运行就能区分。
 
+## 2026-11-13 下午 接手基线 + 远域方块实体宽定位（wrong chunk 已修）
+
+**接手基线**：HEAD `98799f6`（工作树干净）；`:mod:build` 绿；`tools\verify.ps1 -Mode all`
+**5/5**（norm/seam/coll/save/dist53）。以下都在这个基线上做。
+
+**测量（无头、新世界、块 2^31 缝；`exp-run` + `-TestGen 134217727,0,7`）**：
+
+- `Block entity {id:"DUMMY",x:-2147483621,...} found in a wrong chunk, expected position
+  from chunk [134217729, 0]` **118 条**，全部来自 Worker-Main 线程，全部是生成期 `DUMMY` 标签；
+  `-TestGen 134217727,0,3` 时同样出现 2 条。
+- 同一跑的 `[STARTSCAN] box=2147483506..2147483548/y-41..2/z-12..30 inverted=false`、
+  `[STRUCT] hits=1` → **2^31 处结构盒没有倒挂或塌缩**。HANDOFF §8 第 2 步把原因归到
+  `StructureTemplate`/`StructurePlaceSettings` 放置链，与本测量不符；本条目按实测记账。
+
+**根因（两层，都在 int NBT 上）**：
+
+1. **生成期**：`WorldGenRegion.setBlock` 给生成期方块实体写 `DUMMY` 标签时用
+   `tag.putInt("x", pos.getX())`。2^31 以上 int 回绕，`BlockEntity.getPosFromTag` 的
+   `sectionX != base.x()` 检查触发告警，随后用同样回绕的 `ChunkPos.getBlockX(int)` "修补"；
+   `ChunkAccess.setBlockEntityNbt` 于是把待定方块实体挂到回绕坐标，永远匹配不到真实方块
+   （箱子/战利品/熔炉 NBT 在缝处丢失）。
+2. **读档期**：`saveMetadata` 只写 int 的 `x/y/z`，落盘 tag 同样带回绕值。远域 chunk 不能信它
+   ——2^53 处回绕值甚至能让原版检查通过并静默返回方块 0。
+
+**修法（本轮唯一变量；mod 层，不动 patcher、不动噪声数学）**：
+`BlockEntityWidePosMixin.farlands$readWidePos` 在 `getPosFromTag` HEAD：
+
+- 有 `farlands$x/y/z` → 用宽值（广域 NBT 优先）；
+- 否则若该 chunk 的方块原点已超出 int（`getMinBlockXLong() != (long)(int)`）→
+  `chunkMin + (wrapped & 15)`（2^32 回绕保留低 4 位，且 tag 本就在所属 chunk 的 NBT 里）；
+- 原点仍在 int 内的 chunk 完全走原版路径（逐位不变）。
+
+`saveWithoutMetadata` 的 `farlands$` long 写入保留：它服务的是网络/组件路径
+（`ServerGamePacketListenerImpl`、`KeyboardHandler`），不是 chunk 存档路径——这一点此前没记，
+容易误以为存档已宽化。
+
+**验收（同一命令、同一坐标、新世界，A/B 单变量）**：
+
+- 告警 **118 → 0**；
+- 地形/结构指纹完全一致：`wgHash=surf=15581e900fca floor=d3ed86b4e80b biome=13652d50c995`、
+  `topY=108`、`[STRUCT] hits=1`、`[STARTSCAN]` 盒不变 → 改的是身份解析，不是地形内容；
+- 五门 **5/5**，norm 指纹 `surf=b9216bad2029 floor=8936c275d063 biome=4bf4e2ea5526`、
+  dist53 `surf=879024146b33 floor=9319dd6a448a` 均不变。
+
+**仍开放（本轮没碰）**：
+
+- 远域 chunk 存档→读档的方块实体往返**还没有无头门禁**：现有 `save` 门禁是远 Y + 近处箱子。
+  建议加 far-X 探针（放置 → 保存 → 读回位置/状态）。
+- 2^31 处跨 chunk 的特征写入会被 `farlands$canWriteWide` 丢弃（**降级策略，不是本 bug**）；
+  它是否就是"平原压水域"的可见成因，**未验证**——需要截图或坐标复现，别再凭猜测改结构链。
+- 安装形态的 mod jar 需与本次改动同步（fork jar 未变，patcher 未动）。
+
 ## 规则
 
 - 2560 只做身份；int/long/double 现象保留；
