@@ -3,6 +3,20 @@
 > **中文** | [English](README.md)
 > 版本 0.1.0（权威：仓库根目录 VERSION）
 
+## Alpha1 预发布（0.1.0-alpha1）
+
+- **边界**：**2^53** 以内可用（门禁承诺），**2^63−1** 以内尽力可用，以外归 Alpha2。
+  权威定义：[docs/ALPHA1.md](docs/ALPHA1.md)。
+- **距离现象**：只交付**已知的**机制层结果——2^53 两格一组、2^55 八格平台、2^57 整块同值
+  （见 [docs/PHENOMENA.md](docs/PHENOMENA.md) P7）。2^53 的**地表外观正常**是 G1 §8 的既有
+  结论；**不承诺**目视形态（阶梯/平板/水面瓷砖）。
+- **内测**：安装、检查表、报告模板见 [docs/BETA.md](docs/BETA.md)。
+- **发布说明**：[docs/RELEASE-NOTES-ALPHA1.md](docs/RELEASE-NOTES-ALPHA1.md)。
+
+> 下面标注 "epoch / `/realtp`" 的段落描述的是 **G1 基线**，属历史内容；
+> epoch 路线已于 2026-10-22 退役（见 `docs/TOMBSTONE.md` T1）。
+
+
 Minecraft 26.2 边境之地工具集（G2）：**放弃 epoch / local 域路线**，改走**全链路宽化**
 （int → long/BigInteger 容器 + 128 位存储 key），让**真实的距离现象**在每一层都发生
 ——地形采样、实体、渲染、碰撞、tick——不缩放、不假坐标。基线继承自 G1（epoch 路线）；

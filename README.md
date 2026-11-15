@@ -3,6 +3,20 @@
 > [中文说明](README.zh-CN.md) | **English**
 > Version 0.1.0 (authority: repo-root VERSION)
 
+## Alpha1 prerelease (0.1.0-alpha1)
+
+- **Scope**: usable within **2^53** (gated), best-effort up to **2^63−1**; beyond that is Alpha2.
+  Authoritative definition: [docs/ALPHA1.md](docs/ALPHA1.md).
+- **Distance phenomena**: only the *known* ones, at the mechanism level — 2^53 groups of 2,
+  2^55 plateaus of 8, 2^57 whole-chunk constant (see [docs/PHENOMENA.md](docs/PHENOMENA.md) P7).
+  The 2^53 **surface looks normal** by the existing G1 §8 result; visual forms are not claimed.
+- **Closed beta**: install + checklist + report template in [docs/BETA.md](docs/BETA.md).
+- **Release notes**: [docs/RELEASE-NOTES-ALPHA1.md](docs/RELEASE-NOTES-ALPHA1.md).
+
+> Sections below marked "epoch / `/realtp`" describe the **G1 baseline** and are historical;
+> the epoch route was retired in 2026-10-22 (see `docs/TOMBSTONE.md` T1).
+
+
 Minecraft 26.2 Far Lands toolset (G2): **abandons the epoch / local-domain route**
 in favour of a full wide-coordinate engine (int -> long/BigInteger containers +
 128-bit storage keys), so real distance phenomena occur in every layer - terrain

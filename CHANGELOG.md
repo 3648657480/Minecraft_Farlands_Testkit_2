@@ -2,6 +2,26 @@
 
 > Version 0.1.0 (authority: repo-root VERSION)
 
+## 0.1.0-alpha1 (2026-11-15, prerelease)
+
+Scope is frozen in `docs/ALPHA1.md`: **2^53 gated, 2^63 best-effort, beyond that is Alpha2**.
+
+- **Distance phenomena (mechanism-level, only what is known)**: double-sampling quantization
+  reproduced in-world — 2^53 groups of 2 (round-to-even), 2^55 plateaus of 8, 2^57 whole-chunk
+  constant. 2^53's *surface looks normal*, which is the existing G1 `EXPERIMENTS.md` §8 result,
+  not a regression. Visual forms (2^55 stairs, 2^56 slabs) are **not** claimed.
+- **Fixes**: wide block-entity positions at the 2^31 seam; camera-section lookup and dirty marking
+  in the local frame (2^31 holes: 18 stuck sections → 0); far model lighting skips the 64-bit
+  position cache and is full-bright; log flood removed (1.17 GB per 2.5-min session → hundreds of
+  lines) by dropping `setL`/`[RSEC]` debug prints and gating unsafe-read warnings; mixin-config BOM
+  startup crash fixed.
+- **Instrumentation**: `farlands.testgen.xscan` (wide-chunk column scan); `fieldcols` no longer
+  reads a wrapped chunk at far X.
+- **Docs**: `docs/ALPHA1.md` (scope/acceptance), `docs/BETA.md` (closed-beta checklist),
+  `docs/RELEASE-NOTES-ALPHA1.md`, `docs/PHENOMENA.md` P7.
+- **Not promised**: multiplayer/dedicated, real lighting, structure/feature correctness at the
+  seam, visual phenomena, performance targets, everything beyond 2^63.
+
 ## 0.1.0 (G2 baseline)
 
 - G2 project created from the G1 code baseline (buildable, usable).
