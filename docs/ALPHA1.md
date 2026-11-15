@@ -88,6 +88,6 @@
 ## 6. 与旧文档的关系
 
 - `docs/ROADMAP.md` 的 W1–W5 是**依赖序**，不是 Alpha1 的完成定义；
-- `docs/STATUS.md`（2026-10-27）与 `docs/CURRENT.md`（2026-10-29）已过期，仅作历史；
+- `docs/STATUS.md` 已改为历史重定向；`docs/CURRENT.md` 已按 Alpha1 重写（一页真相）；
 - 本页由负责人 2026-11-15 口头决定（"Alpha1 只需保证 2^63 或 2^53 内可用，
   以外是 Alpha2 的事"）落地。
