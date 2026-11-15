@@ -1,47 +1,48 @@
-# FarLands G2 路线图（宽化 / 弃 epoch）
+# FarLands G2 路线图（宽化 / 距离现象）
 
 > 版本 0.1.0（权威：仓库根目录 VERSION）
+> **Alpha1 的完成定义在 [ALPHA1.md](ALPHA1.md)**；本页只记依赖序与里程碑，冲突以 ALPHA1 为准。
 
 ## 项目定位
 
-G2 = 沿用 G1 的全部经验与工具链，但**放弃 epoch（local 域）路线**，改走**全链路宽化**：
-引擎自身以真实坐标运行（int → long/宽整数容器 + 宽键账本），从而让**真实的距离现象**
-（地形采样、实体、渲染、碰撞、tick）都能发生，而不是被 local 域屏蔽。
+G2 = 沿用 G1 的经验与工具链，但**放弃 epoch（local 域）路线**，走**全链路宽化**：
+引擎以真实坐标运行（int → long/BigInteger 容器 + 宽键账本），让**真实的距离现象**
+（地形采样、实体、渲染、碰撞、tick）发生，而不是被 local 域屏蔽。
 
-> 基线：G2 初始提交 = G1 代码基线（可构建、可用）。`epoch` 相关代码将随宽化推进逐步移除。
-
-## 为什么另起 G2（G1 的边界）
-
-- G1（epoch 路线）= 当年设计账本里的"路线 B 滑动 epoch"：引擎只看 local int 域 →
-  可玩、可旅行、可研究地形量化。
-- G1 的硬边界：实体 / 渲染 / 交互全在 local → **2^53 以上的非地形精度现象不会发生**；
-  >1.8e308 地形是 Infinity 固定值。
-- G2（路线 A）= 真 128 位：见 `docs/archive/WIDE-DESIGN.md`（已随基线带入）。
+**交付边界（2026-11-15 冻结）**：Alpha1 只保证 2^53（门禁）/ 2^63−1（上限）以内可用；
+2^63 以外（2^88/171.103 高墙等）归 Alpha2。
 
 ## 依赖序（不是进度序）
 
-1. **宽容器**：`Vec3i / BlockPos / ChunkPos / SectionPos` 等 int → long/BigInteger（当前里程碑）
-2. **含水层宽化**：2^31 沟的直接根因（`minGridX/Y/Z` → long，缓存填充循环坐标从宽 origin 推导）
-3. **噪声采样双域 → 单域**：宽 origin + `getBlockXDouble` 宽域
-4. **宽键账本**：光照（SectionPos）、区块存储（ChunkPos）的 64 位打包 long 换成宽键
-   （X=Wide256 / Y=Wide128 / Z=Wide256 共 640，triple；chunk 键=Wide512；见 `M2-W4-PLAN.md` 键位账本，
-   2026-10-16 起移出仓库：`C:\Project-G2-aux\docs\`）
-5. **消费者**：光照、实体、tick、结构逐个打通（看门狗 / jstack 兜底）
-
-## 交界点（可验证里程碑）
-
-| 编号 | 内容 | 验收 | 状态 |
+| 编号 | 内容 | 当前状态（2026-11-15） | 证据 |
 |---|---|---|---|
-| W1 | 宽容器（int → long/BigInteger） | 正常坐标逐位零变化；越界不再回绕 | ⏳ |
-| W2 | 含水层宽化 | 2^31 处无沟；与 D 线等价 | ⏳ |
-| W3 | 噪声单域 | 宽 origin 采样连续 | ⏳ |
-| W4 | 宽键账本（X256/Y128/Z256；chunk 键 Wide512） | 宽域 key 不碰撞（≥int 段域全段，1e50 内） | ⏳ |
-| W5 | 消费者全通 | 2^63 光照 / 实体 / tick / 结构 | ⏳ |
+| W1 | 宽容器：`Vec3i` 128 位、`BlockPos` 宽字段、`ChunkPos`/`SectionPos` 宽 | ✅ | `Vec3iInline128Patch`、`ChunkPosPatch`、`SectionPosWideIdentityPatch` |
+| W2 | 含水层宽化（2^31 沟的根因） | ✅ | `AquiferContextPatch`/`AquiferLatticePatch`；`seam maxDelta=1` |
+| W3 | 噪声单域（宽 origin + long quart） | 🟡 部分 | 长 quart、FlatCache、NoiseChunk long 晶格已接；`GEN-DOMAIN` N2 偏移模型仍未完成 |
+| W4 | 宽键账本（`WideChunkPos` 2048 / `WideSectionKey2560`；chunk 键 Wide512） | ✅ | `ChunkMapKeyPatch`、`WideChunkPosFlatMap` |
+| W5 | 消费者（玩家/实体/tick/光照/结构） | 🟡 部分 | 玩家 + 碰撞 + 渲染 + 存档已通；光照是 stub；实体/结构仍有 int 回绕 |
+
+## 里程碑
+
+| 编号 | 内容 | 状态 |
+|---|---|---|
+| M1 | 可及域（chunk ∈ int 域）无回绕读写；正常世界逐位不变 | ✅ 2026-10-12 |
+| M2 | headless 在 chunk 2^49（block 2^53）生成并给指纹 | ✅（`verify -Mode dist53`） |
+| M3 | 客户端/渲染进游戏目视 | 🟡 2^53 可渲染/移动/存档（2026-11-10）；**现象只到机制层** |
+| Alpha1 | 冻结范围 + 内测（2^53 门禁 / 2^63 上限） | ✅ 2026-11-15（`v0.1.0-alpha1`） |
+| Alpha2 | 2^63 以外真·宽化（128 位管线）、2^88/171.103 高墙、真实光照、结构正确性、联机 | ⏳ |
+
+## 距离现象的交付口径
+
+- **只交付已知的**：G1 `EXPERIMENTS.md` §8 的量级阈值（2^53 两格 / 2^55 八格 / 2^56 平板 / 2^63 拼图）；
+- Alpha1 实测到密度层（2^53/2^55/2^57），**目视形态未验证**；
+- 现象"起点位置"随种子浮动；阈值只由量级决定（§8.1）；
+- 不与 Wiki/社区记录做"谁更准确"的比较（R10）。
 
 ## 隔离机制
 
-- 走开关隔离（继承 G1）：每条线一个开关，整线通过交界点才并入默认构建。
-- `farlands.wide` 等 flags 语义沿用；epoch 相关开关在迁移完成前保留为回退。
+- 走开关隔离：诊断/测试键默认关；生产键见 [CONFIG.md](CONFIG.md)；
+- 退役路线进 [TOMBSTONE.md](TOMBSTONE.md)；复活必须写 exhumation。
 
 ## 铁律（继承 G1）
 
@@ -51,23 +52,7 @@ G2 = 沿用 G1 的全部经验与工具链，但**放弃 epoch（local 域）路
 4. 每轮只改一个变量
 5. 双端共享状态先上日志
 
-## 当前状态
+## 当前状态（一句话）
 
-> **Alpha1 的完成定义已冻结在 `docs/ALPHA1.md`（2026-11-15）**：只承诺
-> 2^53（门禁）/ 2^63（上限）以内可用，2^63 以外（2^88/171.103 高墙等）归 Alpha2。
-> 本页 W1–W5 是**依赖序**，不是 Alpha1 的验收清单；两者冲突时以 `ALPHA1.md` 为准。
-
-- 基线：G1 代码（可构建）。已完成身份迁移（`farlands-g1` → `farlands-g2`，包 `com.farlands.g2`）。
-- W1/W2/W4 容器与含水层宽化、W5 部分消费者已完成（记录见 `docs/EXPERIMENTS.md` §7）。
-- **里程碑（2026-09-29 定）**：
-  - **M1（完成 2026-10-12）**：可及域（chunk ∈ int 域 ⇒ 真实 block ±2^35）无回绕读写（diag=0）、
-    `gen OK`、正常坐标逐位不变。bug A 已修（§10）、bug C 刷屏随 REV29 消失（A/B §11）、far-read
-    诊断线为仪器误报已修正（§12）；**代表集 14 坐标验收通过（§13）**。bug B（MAX−1/MAX 静默挂起）
-    不在 M1 追，归 W4。
-  - **M2（当前）**：W4（chunk key 128bit + 存档 + 客户端）→ headless 可在 chunk 2^49（真实 block 2^53）
-    生成并给出量化指纹（第一个现象的可测量形态）。
-  - **M3**：客户端/渲染 → 进游戏目视现象。
-  - 判据：只修挡 M1/M2 验收的；其余记账。
-- 观测侦察记录：`docs/EXPERIMENTS.md` §9；半成品分支 `wip/m1-surface-feature-wrap`（未验证）。
-- 随基线带入的历史结论：`docs/EXPERIMENTS.md`（现象表 / 起点随种子浮动）、
-  `docs/archive/WIDE-DESIGN.md`（宽化设计账本与当年失败链）。
+Alpha1 已发布（2^53 门禁、2^63 上限、现象机制层可复现）；下一步是内测报缺 +
+按 Alpha2 清单推进（2^63 以外、2^88、光照、结构、联机）。

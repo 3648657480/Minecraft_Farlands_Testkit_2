@@ -1,93 +1,67 @@
 # G2 CURRENT（一页真相）
 
-> 2026-10-29。分支 `stabilize/2026-10-29`；基线 tag `stabilize/base-2026-10-29`（`04456de`）；
-> A 批 tag `stabilize/A-green-2026-10-29`（`89a6da2`）；B 批 tag `stabilize/B-green-2026-10-29`；
-> B2/B3 tag `stabilize/B2-green-2026-10-29`；C 批 tag `stabilize/C-green-2026-10-29`；
-> D 批 tag `stabilize/D-green-2026-10-29`。
-> 新会话先读本页 + 跑 `tools\verify.ps1`，不要从 50 份文档里猜。
-> **世界契约（LOCKED v2 2026-10-30）**：`docs/WIDE-CONTRACT.md`；任何契约变更必须升版并显式批准，**不做游戏内热调试**。
-> **W0 审计（完成 2026-10-29）**：`docs/WIDE-AUDIT.md`；**先看 G0 含水层红线**——现有 normal/seam/dist 指纹可能建立在含水层降级地形上。
-> **W0.5（已修 2026-10-29）**：`FarAquiferHelper.at` 链接已补 + 限流 fallback 日志；5/5 门禁指纹不变、无 fallback 日志。行为中性，旧指纹在已测条件下仍有效。
-> **W1-0a（2026-10-30）**：`ChunkAccessWindowMixin.farlands$key` 改用 `chunkPos.widePos()`，不再用 `xLong/zLong`；norm/dist 通过。
-> **距离现象登记（2026-10-30）**：`docs/PHENOMENA.md`；**P0 2^53–56 密度 double 阶梯已实测**；P1 2^53 方块碰撞、P2 云消失 = **保留**；P5 2^53 块访问 alias = **已修**；P6 2^53 biome：默认 **int quart 现象保留**（ocean）；long-quart+wide zoom 仅 `-Dfarlands.biome.wide=true` 诊断。
-> **2560 生产门槛（2026-10-31）**：`docs/WIDE-SECTION-2560.md`；**NOT MET**。S1/S2/S2b1-3 完成；S2b4 origin/far 数据/单列复制已修（`356adfe`），`norm/seam/coll/save/dist53` 全 PASS。首预览只承诺 **2^53**，目标稳定形态是 **3×3 far chunk 可显示、可保存、服务端持续发包**；9×9 同步生成会过载（451 ticks behind、rx=0），已回退为测试参数。多 chunk 渲染仍只覆盖中心；保存退出 ticket 移除补丁（`544f556`/141）未手动复验。S3 仅要求玩家正常；其它实体/POI/光照不在首预览；2^88/2^1016 延后。pre-release 仍阻塞。
-> **Checkpoint（2026-10-31）**：`docs/CHECKPOINT-2026-10-31.md`；HEAD `b10ad82`，`PATCH_REVISION 137`，树干净。
+> 更新：2026-11-15。版本 0.1.0（发布 zip `0.1.0-alpha1`）。
+> 权威范围：[ALPHA1.md](ALPHA1.md)；安装：[../INSTALL.md](../INSTALL.md)；内测：[BETA.md](BETA.md)。
+> 旧文档（`STATUS.md` 2026-10-27、旧 `CURRENT.md` 2026-10-29）只作历史。
 
-## 1. 现在什么能用（有门禁）
+## 30 秒版
 
-| 项 | 结果 | 门禁 |
+- **是什么**：Minecraft 26.2 的宽坐标 fork + 配套 mod，引擎跑真实坐标，用来研究**距离现象**。
+- **Alpha1 边界**：2^53 以内**可用**（门禁 5/5）；2^53~2^63−1 **尽力可用**；2^63−1 以外**不做**（Alpha2）。
+- **现象**：只保证**机制层可测**——2^53 两格一组、2^55 八格平台、2^57 整块同值；
+  2^53 的**地表外观正常**是已有结论；**目视形态未验证**，不承诺。
+- **下一步**：内测报缺（只报"有没有"），Alpha2 再碰 2^63 以外/2^88 高墙。
+
+## 现在什么能用（有证据）
+
+| 项 | 结果 | 证据 |
 |---|---|---|
-| 正常世界指纹 | `surf=b9216bad2029 floor=8936c275d063 biome=4bf4e2ea5526` | `verify.ps1 -Mode norm` |
-| 2^31 缝 | `maxDelta=1 maxFloorDelta=1 biomeMismatch=0/256` | `verify.ps1 -Mode seam` |
-| 2^31 碰撞/拾取 | `CLIP=hit COLLBLK=n=1` | `verify.ps1 -Mode coll` |
-| 远 Y Cwg 填充 | `sy=134217703..726 filled=46080` | `exp-run` + `testgen.cwg` |
-| 远 Y 页预取/交换 | `PREFETCH applied band=134217672 filled=46080`、`PAGETEST applied=true` | `testgen.pageprefetch` + `y.prefetchSync` |
-| 远 Y 跟随/重生成 | `YFOLLOW trigger` → `CWGFILL filled=46080` → `done ok=true` | `testgen.followsy` |
-| 远 Y 客户端渲染（strict） | `dataSec=24 meshNonEmpty=17 viewY==chunkWin=134217703..726 below=stone emptySolid=false`（spectator，Y=2147483250） | 2026-10-29 18:36 截图 |
-| 页对齐 UX | 邻居搬带 near-first；默认**不按住**玩家（`farlands.y.hold` 仅测试用） | `YFOLLOW` 日志顺序 |
-| 远 Y 存档回读 | `[SAVEMARK] gold` → 重进 `[READSY] ok=true`（侧车 `farlands_sections/*.g2s`） | `verify.ps1 -Mode save` |
-| 距离现象 2^53 | chunk 2^49（block 2^53）`gen OK`、`section2560 ok=true`；本次 surf=`879024146b33` floor=`9319dd6a448a` | `verify.ps1 -Mode dist` |
-| 联机 | **不支持**（见 §2） | 未门禁 |
+| 正常世界指纹 | `surf=b9216bad2029 floor=8936c275d063 biome=4bf4e2ea5526` | `verify -Mode norm` |
+| 2^31 缝 | `maxDelta=1 maxFloorDelta=1 biomeMismatch=0/256` | `verify -Mode seam` |
+| 2^31 碰撞/拾取 | `CLIP=hit COLLBLK=n=1` | `verify -Mode coll` |
+| 远 Y + 方块实体存档往返 | 通过 | `verify -Mode save` |
+| 2^53（chunk 2^49）生成 | `gen OK surf=879024146b33 floor=9319dd6a448a` | `verify -Mode dist53` |
+| 2^53 安装形态 | 传送/渲染/移动/存档；`uncompiled=0` 收敛 | 2026-11-13~15 实机 |
+| 2^63 单点 | `store=81 uncompiled=0 farMeshSec=323`，本地帧正常 | 2026-11-15 实机 |
+| 2^63 以外 | 不可信（double→long 饱和，AABB=±9.23e18） | 2026-11-15 实测 |
 
-## 2. 不要宣称（未完成 / 不成立）
+## 距离现象（只记已知的）
 
-1. **远 Y 存档只到“在 `farlands$all` 里的段”**：侧车 `farlands_sections/*.g2s` 保存/恢复所有内存段（int Y + gzip），已验证 `[READSY] ok=true`；但**驱逐/卸载后不在 map 里的旧页仍会丢**，也不是 vanilla NBT 格式。不要宣称“远 Y 全量持久化/vanilla 兼容”。
-2. **远 Y 是可玩地形**：`CwgTerrain.fill` 只写 `STONE`/`AIR`；没有 surface/矿/水/群系/特征；`CwgDensity` 用 int 坐标，+2^31 与 −2^31 不可区分。它是现象观察模式，不是 vanilla 地形。
-3. **远 X + 远 Y 组合**：未覆盖。`CwgTerrain.fill` 的 `baseX/baseZ` 来自 `getMinBlockX()`（int）；远 Y 测试都在 `x≈0`。
-4. **联机**：`ClientBandBridge` 是同 JVM 直推，dedicated 直接禁用；区块包不是“段列表”。远 Y 仅单机 dev。
-5. **距离现象 2^53 只完成 headless 地形采样**：`verify -Mode dist` 只证明 chunk 2^49 单块能生成、`section2560` 身份正确；客户端可视化、实体/tick/碰撞、2^53 存档都没做。**不要用远 Y 的 Cwg 代替它**——Cwg 是 2^31 Y 的 int 溢出穹顶模型，不是 2^53 的 double 量化现象。
+| 量级 | 实测（密度层） | 备注 |
+|---|---|---|
+| 2^53 | `{0,1}{2,3}{4,5}{6,7}{8,9}{10}{11,12,13}{14}{15}` | ulp=2；地表正常（G1 §8） |
+| 2^55 | `0–7=67`、`8–15=68` | ulp=8 |
+| 2^57 | 整块 16 列同值 | ulp=32 > 区块 16 |
 
-## 3. 门禁命令
+原始数据与条件：[PHENOMENA.md](PHENOMENA.md) P7。**不承诺** 2^53 画面现象、2^55+ 目视形态、
+2^88/171.103 高墙。
+
+## 已知问题（Alpha1 不修）
+
+- 2^31 缝上特征/结构可能读镜像 chunk（已限流，`[WGWARN]` 一次）；
+- 1 格沟槽/台阶条纹未定性；
+- 客户端 `getBlockState` 在远域返回空气（取样走服务端探针）；
+- 远域光照为全亮护栏；HUD 未并入 F3；F3+G 远域不可用；不支持联机。
+
+## 怎么验证
 
 ```powershell
-cd C:\Project-G2
-.\tools\verify.ps1 -Mode all           # norm + seam + coll + save + dist，5/5 才算绿
+.\tools\verify.ps1 -Mode all        # 5/5 才算绿
+.\tools\make-release.ps1 -Version 0.1.0-alpha1   # 发布 zip
 ```
 
-远 Y 冒烟（无头，约 1 分钟）：
+内测：把 `docs/BETA.md` 发给测试者，只收"缺了哪些现象 / 是否可复现"。
 
-```powershell
-.\tools\exp-run.ps1 -Tag a-fary -TestGen "0,0" -TimeoutMin 10 -Settle 100 `
-  -Extra "-Dfarlands.test.allowDedicated=true -Dfarlands.y.window=true -Dfarlands.y.follow=true -Dfarlands.gen.cwg=true -Dfarlands.testgen.cwg=134217714 -Dfarlands.testgen.pageprefetch=134217680 -Dfarlands.y.prefetchSync=true"
-```
+## 文档地图
 
-看 `[CWG] filled=46080`、`[PREFETCH] applied ... filled=46080`、`[PAGETEST] applied=true`。
-
-## 4. 状态所有权（A 批后）
-
-| 状态 | 谁清 | 什么时候 |
-|---|---|---|
-| `PageStore` / `WindowFollower` / `StageSteps` / `YBandOverrides` | `G2Runtime.resetSession()` | server `createLevels` HEAD、`stopServer` HEAD |
-| 按住玩家的 `noGravity` | `WindowFollower.releaseHolds()` | `stopServer` HEAD（保存前） |
-| `ClientBandBridge.PENDING` / `BandState` / `RenderKeys` | client level change | `ClientBandFollowMixin` |
-| 失败的 band override | `WindowRegenerator.restoreOverride()` | 槽位失败 / cwg 失败 / pipeline 失败 / transplant 失败 |
-| 预取 key | `PageStore.Key(pos, pageMin)` | clamp 后的页起点；顶页/当前页不预取 |
-| fill 槽 | `FILL_SLOTS`（公平，下限 1） | 预取至少留 1 个给重生成 |
-| 远 Y Entity 效果扫描 | `applyEffectsFromBlocks` 系列 | `EntityCheckInsideBlocksFarYMixin`（26.2 已改名） |
-| 客户端 ViewArea band | 玩家页（`pageStart(playerSection,24)`） | `ViewAreaWindowMixin`；`ClientBandFollow` 页不一致即重建 |
-| 客户端 strict band | `-Dfarlands.client.strictBand=true`（默认） | 不本地搬窗/不 refill/不重标 dirty/不整图 reload；旧行为用 `=false` |
-| 页对齐 near-first | `WindowFollower` 邻居按距离排序 | 玩家周围先搬；预算 `farlands.y.followBudget`（默认 4/tick） |
-| 按住玩家 | `-Dfarlands.y.hold=true`（默认 false） | D 批起不是产品行为；只用于测试 |
-| 段数上限 | `-Dfarlands.y.maxSections`（默认 24*32） | 只驱逐非当前窗口、非维度带的 far 页 |
-| 远 Y 段持久化 | `FarSectionStore` 侧车（`farlands_sections/*.g2s`） | `SerializableChunkData.copyOf` 写；`ChunkAccessWindowMixin` 构造 + `LevelChunk.runPostLoad` HEAD 读 |
-
-## 5. A/B 批改了什么
-
-- `f1ef54d` 工具：`exp-run` 只杀自己 `-Dfarlands.test.run` 的 JVM；新增 `verify.ps1`。
-- `9e58f0c` 会话生命周期 reset（跨世界不串页/推送/按住）；失败 override 回滚；`noGravity` 停止时释放；失败退避 + 日志限流；预取 clamp 后 key、顶页/当前页跳过、留槽；`prefetch` 临时 override 修 `filled=0`；`applyPrepared` 更新并落盘 override。
-- `89a6da2` 远 Y Entity 守卫从失效的 `checkInsideBlocks` 改挂 `applyEffectsFromBlocks`。
-- `band-smoke`（2026-10-29 17:03）客户端 band：`ViewArea` 用玩家页；`ClientBandFollow` 在“玩家还在旧 ViewArea 内但页起点不同”时也重建（此前直接 return，viewY 696..719 与 chunkWin 703..726 只重叠 17 段）。spectator smoke：`dataSec=24 meshNonEmpty=3 below=stone`，截图 `mod/run/screenshots/2026-10-29_17.03.52.png`。
-- `B` 存档：`FarSectionStore` 侧车（所有 `farlands$all` 段，int Y + gzip）在 `SerializableChunkData.copyOf` 写、在 `ChunkAccessWindowMixin` 构造末尾读；修了构造器把“传入的 far 窗口段按 dimensionMin 播种”导致黄金标记被空段覆盖的问题。先证明后修复：修复前 `[READSY] state=air ok=false`，修复后 `[READSY] state=gold_block ok=true`。`verify.ps1 -Mode save` 成为第 4 条门禁。
-- `B2/B3` 段容器与附属状态：`getSection` 窗口外读不再建段（`farlands$all` 懒初始化，修 `createEmptyChunk` NPE）；`farlands$all` 段数上限，保护正常带；`LevelChunkWideBlockMixin` 对任何窗口外 y 走绝对 map；`LevelChunk.runPostLoad` HEAD 恢复侧车，赶在 block entity 校验前。save 门禁扩展为 `far gold + normal-band chest`。
-- `C` 客户端 strict band：默认不再本地搬窗口/refill visible/重标 dirty/整图 reload；只保留“玩家页不一致即重建”。spectator smoke：`dataSec=24 meshNonEmpty=17 viewY==chunkWin`，截图 `2026-10-29_18.36.21.png`。
-- `D` 页对齐 UX：邻居搬带 near-first；默认**不按住**玩家（`farlands.y.hold=false`）；`gen.cwg=true` 启动时打印“observation model (STONE/AIR, int32 dome)，不是 vanilla/2^53”。
-- `dist` 门禁：`verify.ps1 -Mode dist` 在 chunk 2^49（block 2^53）生成单块，检查 `gen OK` + `section2560 ok=true`；当前 `surf=879024146b33 floor=9319dd6a448a`。这是原始“距离现象”线的存活证明，不是完成证明。
-
-## 6. ABCD 之后仍然打开
-
-1. **客户端全量回归**：远 X/Y 各跑放置、破坏、粒子、声音、退存读档；strict band 的 17/24 mesh 还要看实际体感。
-2. **结构 AABB**：`BoundingBox` 的 Y 仍 int、`CODEC` 仍 6×int；远域结构盒会倒挂。
-3. **2^53 客户端 / 实体 / tick / 碰撞**：原始距离现象线只完成了 headless 单块地形；`getChunkForCollisions(int,int)` 等仍是 int chunk。
-4. **Y-2^53**：按 X/Z 的 recipe 做 N2 偏移 + double 绝对 Y 的 spike；不要把 Cwg 当它的替代。
-5. **>2^35**：chunk 坐标超 int 的域；与 2^53 客户端/存档一起做。
-6. **配置/文档/诊断**：`FarConfig.load` 仍未接线、mixin 全量 required、STATUS/WORKFLOW/USAGE 仍是 epoch 口径；按 C4 收口。
+| 文件 | 作用 |
+|---|---|
+| `ALPHA1.md` | **范围与验收的权威定义** |
+| `BETA.md` | 内测检查表、报告模板、归档规则 |
+| `PHENOMENA.md` | 现象账本（P0–P7，含原始数据） |
+| `TOMBSTONE.md` | 已退役路线（epoch 等）与复活规则 |
+| `REFERENCE-64BIT.md` | 1.19.2 参考实现的机制对照（不含代码） |
+| `USAGE.md` / `CONFIG.md` | 玩家手册 / 配置参考（Alpha1） |
+| `ARCHITECTURE.md` | 分层与坐标契约（2026-10 基线，仍适用） |
+| `EXPERIMENTS.md` | 历史实验原始记录（含 epoch 时代，查证据用） |
+| `RELEASE-NOTES-ALPHA1.md` | 发布说明 |

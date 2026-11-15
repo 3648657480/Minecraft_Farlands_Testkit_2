@@ -54,9 +54,16 @@ z = 9851, measured 2026-11-15.
 
 ## Docs
 
+The whole `docs/` tree was refreshed for Alpha1 (the old pages still described the epoch era):
+
 - `docs/ALPHA1.md` - scope, acceptance, what is not promised.
+- `docs/CURRENT.md` - one-page status: what works, evidence, boundary, next.
 - `docs/BETA.md` - closed-beta checklist, report template, triage rules.
-- `docs/PHENOMENA.md` P7 - the raw numbers and the G1 cross-check.
+- `docs/USAGE.md` / `USAGE.en.md` - player guide for Alpha1 (boundary, `/tp`, red lines R1-R6).
+- `docs/CONFIG.md` / `CONFIG.en.md` - the configuration keys Alpha1 actually reads
+  (epoch-era keys are marked historical).
+- `docs/PHENOMENA.md` P7 - raw numbers and the G1 cross-check.
+- `docs/REVIEW.md` / `ARCHITECTURE.md` - concept refresher / layering (epoch-era text retired).
 - `INSTALL.md` in the zip - install steps, patch helper, target coordinates.
 
 ## Install

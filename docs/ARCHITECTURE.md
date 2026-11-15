@@ -1,5 +1,10 @@
 # 架构基准（宽身份线，2026-10-26 清理后）
 
+> **状态注（2026-11-15）**：本文写于 2026-10-26，身份/视图/转换点的规则仍然有效；
+> 渲染（整帧本地空间）与 Y 窗口的后续实现见 [REVIEW.md](REVIEW.md) §3–§4、
+> [CHECKPOINT-2026-10-31.md](CHECKPOINT-2026-10-31.md) 与 [CURRENT.md](CURRENT.md)。
+> 文中的分支/标签信息（`arch`、`history/*`）是当时状态，不是当前分支。
+
 > 权威顺序：`AGENTS.md` → `docs/TOMBSTONE.md` → 本文 → `docs/EXPERIMENTS.md`。
 > 本文写在宽身份线（`arch`，基 `77594fa`）。`main` 是 epoch 送终前的旧线，**不要**作为基准。
 

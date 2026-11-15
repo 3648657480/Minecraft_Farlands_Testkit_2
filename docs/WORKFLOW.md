@@ -1,138 +1,93 @@
-# 工作流速查（FarLands G2）
+# 工作流（FarLands G2，Alpha1）
 
-> 版本 1.0.0（权威：仓库根目录 VERSION）
+> 版本 0.1.0。所有命令都在仓库根目录执行（`C:\Project-G2`）。
 
-## 构建
+## 1. 构建
 
 ```powershell
-cd C:\Project-G2
 .\gradlew.bat :patcher-cli:build :mod:build --no-daemon
 ```
 
-产物：`mod/build/libs/farlands-g2-mod-1.0.0.jar`（mod）
-+ `patcher-cli/build/libs/patcher-cli-1.0.0.jar`（补丁工具）
+产物：
 
-版本号来自仓库根目录 `VERSION`（唯一权威），并进入 `fabric.mod.json` 与 jar 名。
+- `mod/build/libs/farlands-g2-mod-0.1.0.jar`
+- `patcher-cli/build/libs/patcher-cli-0.1.0.jar`
 
-**铁律**：构建失败（`build: False`）**禁止部署**旧产物。
+版本号唯一权威是仓库根 `VERSION`（当前 `0.1.0`），会进 `fabric.mod.json`、jar 名与启动版本行。
+**构建失败禁止部署**（铁律 2）。
 
-## 打 fork jar（patcher）
+## 2. 打 fork jar
+
+用**你自己**的 26.2 客户端 jar（命名/mojmap），输出文件不能已存在：
 
 ```powershell
 $java = "C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot\bin\java.exe"
-& $java "-Dfarlands.wide=true" "-Dfarlands.continuity=true" "-Dfarlands.epoch=true" `
-  -jar "C:\Project-G2\patcher-cli\build\libs\patcher-cli-1.0.0.jar" `
-  --in "D:\Minecraft\.minecraft\versions\26.2-Fabric 0.19.3\26.2-Fabric 0.19.3.jar" `
-  --out "D:\Minecraft\.minecraft\versions\26.2-Fabric 0.19.3_fork\26.2-Fabric 0.19.3_fork.jar"
+& $java "-Dfarlands.wide=true" "-Dfarlands.continuity=true" `
+  -jar "patcher-cli\build\libs\patcher-cli-0.1.0.jar" `
+  --in "<官方 26.2 client.jar>" --out "<fork.jar>"
 ```
 
-**注意**：fork jar 与 mod 的补丁集必须匹配（identity 补丁 + epoch 标记）——
-旧 fork jar（全量 rebase）与 mod 不匹配会产生"双重转换"键错乱。
+补丁集由 `patcher-core` 的 `PATCH_REVISION` 标识（当前 143）。**fork jar 与 mod 必须成对**，
+不匹配 = 双重转换（AGENTS 的硬约束）。
 
-## 无头测试（服务器 rig）
+## 3. 门禁
 
 ```powershell
-# 删世界跑（干净测试）
-tools\server-test.ps1 -Tag "名字" -TestGen "0,0" [-SpawnSet "1e306,100,0"] [-TimeoutMin 20]
-
-# 保留世界跑
-tools\server-test-nodel.ps1 -Tag "名字" -TestGen "0,0"
+.\tools\verify.ps1 -Mode all
 ```
 
-- `-TestGen "cx,cz[,n]"`：生成 chunk（n×n 区域），输出 topY/biome/相邻格高度
-- `-SpawnSet "x,y,z"`：设 epoch（写配置文件）+ respawn
-- **种子**：现象实验必须固定并记录 `level-seed`（写在两侧 `server.properties`）；远域"起点坐标"**随种子浮动**，
-  不记种子 = 不可复现（见 [EXPERIMENTS.md](EXPERIMENTS.md) §8.1/§8.2）
-- 结果看 `RESULT(tag):` 行；日志在
-  `C:\Users\EASON\AppData\Local\Temp\opencode\server-<tag>.log`
+五项：norm / seam / coll / save / dist53。全 PASS 才算绿。
 
-**注意**：rig = dedicated（无客户端流程）。客户端特有路径（prepare_spawn/渲染/F3）
-rig 覆盖不到——**无头 ≠ 实际**。
-
-### 实验基建（F0/S0）
+## 4. 实机（安装形态）
 
 ```powershell
-# 确定性生成固定区块集 + WG 指纹（exp-F0-4-M1.log 等）
-tools\exp-run.ps1 -Tag F0-x -OutDir <证据目录> -TestGen "0,0;62,62;..." `
-  -Rig mod|vanilla [-Delay 300] [-Settle 400] [-BgThreads 1] [-Extra "-Dfarlands.xxx=..."]
-
-# 区块字节对比（粗筛；含种子/出生点校验、合并哈希）
-.\gradlew.bat :mod:worldDiff -PworldA=<世界A> -PworldB=<世界B> -Preport=<报告> --no-daemon
+# 直接跑安装目录里的真实 jar + mod
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\prod-client.ps1 `
+  -JvmArgs "-Dfarlands.autotest=true;-Dfarlands.autotest.openWorld=true;-Dfarlands.autotest.world=<世界名>;..."
 ```
 
-- `vanilla-rig` 子项目 = 原版参照（无补丁 jar + 仅测量桩）
-- 指纹行：`[FarLands-Test] ... wgHash=surf=... floor=... biome=...`（生成期确定性指标）
+对比实验用同一流程的两侧：
 
-## 客户端测试
-
-1. 部署 mod jar 到 `D:\Minecraft\.minecraft\versions\26.2-Fabric 0.19.3_fork\mods\`
-2. PCL 启动（epoch 从世界配置读，无需 JVM 参数）
-3. 日志：fork 目录 `logs/latest.log`（grep `[FarLands`）
-4. 游戏内：`/realtp`（真实坐标）+ F3（XYZ/Block/Chunk 真实坐标 + `Local (in-epoch)` + `Epoch/Laps (2^31)` + `Real double ULP`）
-
-## 游戏内工具
-
-```
-/realtp <x> <y> <z>              真实坐标传送（支持 1e1000+）
-/realtp <targets> <x> <y> <z>    实体传送（命令方块可用）
+```powershell
+.\tools\ab-client.ps1 -Mode dev|prod -Tag <名> -Seconds 200 -JvmArgs "..."
+.\tools\ab-compare.ps1 -PathA <log> -PathB <log>
 ```
 
-世界配置见 [CONFIG.md](CONFIG.md)：全局模板 `config/farlands-g2.properties` +
-创建世界界面 FarLands 标签页 + `<世界>/farlands.properties`。
+要点（踩过的坑）：**同一存档、同一相机（yaw/pitch）、同一游戏模式**，否则计数不可比。
 
-## 日志标记
+## 5. 无头探针
 
-| 标记 | 来源 |
-|---|---|
-| `[FarLands-G2] <version> epoch build (realtp + relocate)` | mod 版本，`<version>` 来自仓库根目录 VERSION（测试第一项必看） |
-| `[FarLands-G2] EPOCH set to real (...)` | epoch 设定（from farlands.properties / spawnset） |
-| `[FarLands-G2] config auto-created` | 新世界自动初始化 |
-| `[FarLands] /realtp ...` | 命令执行（real → local） |
-| `[FarLands] ...relocate...` | 重定位流程（归档/平移） |
-| `[FarLands-Test]` | 无头探针 |
-
-## 诊断习惯（教训五条铁律）
-
-1. **先写域账本**：动代码前先写下坐标的域（real/local/BigInteger）
-2. **先验证代码在跑**：println 必须 `flush()`；构建失败禁部署；测试第一项看版本行
-3. **两次理论失败转测量**：二分 / JFR / 打印键值
-4. **每轮单变量**
-5. **双端共享状态第一轮上日志**（谁设的、什么时候设的）
-
-## 提交与推送
-
-- 每过一个里程碑一个 commit
-- **推送由用户控制**（`git config --global http.proxy http://127.0.0.1:17891` 已配置）
-- 公共仓库只提交可用态
-
-## 目录速查
-
+```powershell
+# 生成 + 指纹
+.\tools\server-test.ps1 -Tag <名> -TestGen "<cx>,<cz>,<n>"
+# 宽列扫描（远域方块数据；客户端读不到）
+-Dfarlands.testgen.xscan=<x0>,<x1>,<z0>[,<z1>]
+-Dfarlands.testgen.fieldcols=<x0>,<x1>,<z>
 ```
-C:\Project-G2\
-├─ patcher-core\     字节码补丁（ChunkPosEpochPatch=标记only 等）
-├─ patcher-cli\      补丁 CLI
-├─ vanilla-rig\      原版参照（无补丁 jar + 仅测量桩）
-├─ mod\              Fabric mod（mixin 分类）
-│   └─ src/main/resources\
-│       ├─ farlands-core.mixins.json      坐标容器/投影
-│       ├─ farlands-epoch.mixins.json     纪元域（epoch/realtp/spawn 链）
-│       ├─ farlands-world.mixins.json     世界/生成/光照
-│       ├─ farlands-entity.mixins.json    实体/玩家/交互
-│       ├─ farlands-stability.mixins.json 稳定性/性能
-│       ├─ farlands-test.mixins.json      无头探针
-│       └─ farlands-client.mixins.json    客户端渲染 + 重定位
-├─ tools\
-│   ├─ server-test.ps1       无头 rig（删世界）
-│   ├─ server-test-nodel.ps1 无头 rig（保留世界）
-│   ├─ exp-run.ps1           实验运行（确定性协议 + WG 指纹）
-│   ├─ world-diff\           区块字节对比工具
-│   └─ chunk-translator\     存档平移工具
-└─ docs\
-    ├─ USAGE(.en).md         玩家手册（安全红线 R1-R6；R7-R10 见 AGENTS.md）
-    ├─ CONFIG(.en).md        配置参考 + 预设组合
-    ├─ EXPERIMENTS.md        实验协议 + 远域现象表
-    ├─ ROADMAP.md            路线图/里程碑/教训
-    ├─ REVIEW.md             基础知识复习（当前架构版）
-    ├─ WORKFLOW.md           本文件
-    └─ archive\              历史设计文档（E 线、宽化容器）
+
+## 6. 部署到本地 PCL2 版本
+
+目标目录：`D:\Minecraft\.minecraft\versions\26.2-Fabric_0.19.3_fork_v2\`
+
+1. 替换版本 jar（原版留 `.bak`）；
+2. `mods\farlands-g2-mod-0.1.0.jar`（**只放这一个**）；
+3. 启动日志确认 `[FarLands-G2] 0.1.0 wide build (real coordinates)`。
+
+## 7. 发布
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\make-release.ps1 -Version 0.1.0-alpha1
 ```
+
+生成 `dist/FarLands-G2-<ver>.zip`（G1 格式：mod + patcher + INSTALL + patch.bat/ps1 + README + docs）。
+发布用 `gh release create <tag> --prerelease --notes-file docs/RELEASE-NOTES-ALPHA1.md <zip>`。
+
+## 8. 内测
+
+把 zip + `docs/BETA.md` 发给测试者；只收"缺了哪些现象 / 是否可复现"，按 BETA 的归档规则处理。
+
+## 9. 文档规则
+
+- 中文文件用 read/write/edit 工具改，**不要**用 PowerShell 的 `Get-Content/Set-Content`
+  （会把 UTF-8 写成 BOM/乱码；已两次踩坑）；
+- 新文档先问"它替代哪一页"，避免再出现三份互相矛盾的 STATUS。

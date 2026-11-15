@@ -1,4 +1,4 @@
-﻿# Build the G1-style release zip for a given version.
+# Build the G1-style release zip for a given version.
 #
 # Layout (mirrors FarLands-G1-<ver>.zip):
 #   FarLands-G2-<ver>/  farlands-g2-mod-<ver>.jar, patcher-cli-<ver>.jar,
@@ -18,8 +18,15 @@ $stage = Join-Path $root "$OutDir\FarLands-G2-$Version"
 $docs = @(
     "ALPHA1.md",
     "BETA.md",
+    "CURRENT.md",
     "PHENOMENA.md",
     "TOMBSTONE.md",
+    "USAGE.md",
+    "USAGE.en.md",
+    "CONFIG.md",
+    "CONFIG.en.md",
+    "ARCHITECTURE.md",
+    "REVIEW.md",
     "RELEASE-NOTES-ALPHA1.md"
 )
 
