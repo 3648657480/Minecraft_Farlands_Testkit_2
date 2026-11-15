@@ -67,4 +67,5 @@ java -jar patcher-cli-0.1.0.jar --in <你的官方 26.2 client.jar> --out <fork.
 | `farlands-g2-mod-0.1.0.jar` | `6E3CE39A345E571FB276176A3D2B8CE5FEE84534D6681BCD7340F662CF9B41EF` |
 | `patcher-cli-0.1.0.jar` | `ED9AB0A31AE5A679C97B7807FAA838BEDF94C4EDF4FE7F9F07E9F48EF0F88AB0` |
 
-构建提交：`c575a13852c297207eeaf98cdea33cdc610bee03`
+构建提交：`c575a13852c297207eeaf98cdea33cdc610bee03`（代码）
+发布提交：`abffb30`（仅文档：CHANGELOG / README / 发布说明）
