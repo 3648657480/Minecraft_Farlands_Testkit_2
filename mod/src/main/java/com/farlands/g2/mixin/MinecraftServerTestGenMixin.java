@@ -1153,13 +1153,53 @@ public abstract class MinecraftServerTestGenMixin {
                         }
                         long fcx = fx >> 4;
                         int flx = (int) (fx & 15L);
-                        var fc = level.getChunk((int) fcx, fcz);
-                        int genFloor = fc.getHeight(
+                        // The int chunk accessor wraps above block 2^31, so at 2^53 it
+                        // read an unrelated chunk's heightmap. Use the wide chunk.
+                        var fc = ((net.minecraft.server.level.ServerChunkCache) level.getChunkSource())
+                            .farlands$getChunkWide(new net.minecraft.world.level.ChunkPos(fcx, (long) fcz));
+                        int genFloor = fc == null ? -1 : fc.getHeight(
                             net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, flx, flz);
-                        int genSurf = fc.getHeight(
+                        int genSurf = fc == null ? -1 : fc.getHeight(
                             net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, flx, flz);
                         System.out.println("[FIELDCOL] x=" + fx + " chunk=" + fcx + " lx=" + flx
                             + " field=" + fieldTop + " genFloor=" + genFloor + " genSurf=" + genSurf);
+                    }
+                    System.out.flush();
+                }
+                // Wide column scan: generated heights over an x-range, a few Z rows.
+                // This is the in-game half of the phenomenon instrument: the client
+                // cannot read blocks at far coordinates (getBlockState returns air), so
+                // the terrain data has to come from the server in the same session.
+                // Format: x0,x1,z0[,z1]
+                String xscan = System.getProperty("farlands.testgen.xscan");
+                if (xscan != null && !xscan.isEmpty()) {
+                    String[] xp = xscan.split(",");
+                    long xs0 = Long.parseLong(xp[0].trim());
+                    long xs1 = Long.parseLong(xp[1].trim());
+                    int zc0 = Integer.parseInt(xp[2].trim());
+                    int zc1 = xp.length > 3 ? Integer.parseInt(xp[3].trim()) : zc0;
+                    var scc = (net.minecraft.server.level.ServerChunkCache) level.getChunkSource();
+                    for (int zc = zc0; zc <= zc1; zc++) {
+                        StringBuilder row = new StringBuilder("[XSCAN] z=" + zc + " ");
+                        long lastCx = Long.MIN_VALUE;
+                        long lastCz = Long.MIN_VALUE;
+                        net.minecraft.world.level.chunk.LevelChunk xc = null;
+                        for (long xx = xs0; xx <= xs1; xx++) {
+                            long cx = Math.floorDiv(xx, 16L);
+                            long cz = Math.floorDiv((long) zc, 16L);
+                            int lx = (int) Math.floorMod(xx, 16L);
+                            int lz = Math.floorMod(zc, 16);
+                            if (cx != lastCx || cz != lastCz) {
+                                lastCx = cx;
+                                lastCz = cz;
+                                xc = scc.farlands$getChunkWide(
+                                    new net.minecraft.world.level.ChunkPos(cx, cz));
+                            }
+                            int h = xc == null ? -1 : xc.getHeight(
+                                net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, lx, lz);
+                            row.append(String.format(java.util.Locale.ROOT, "%02x", (h + 1) & 0xFF)).append(' ');
+                        }
+                        System.out.println(row);
                     }
                     System.out.flush();
                 }

@@ -62,11 +62,18 @@ claims.
 - Push only when the user's proxy is on; the user controls it.
 - Chinese files: use read/write/edit tools, never PowerShell
   Get-Content/Set-Content. Fork copies need UTF-8 BOM.
-- **Third-party reference implementations**: behaviour-level observation only.
-  Never copy/translate their code, comments, names or file structure; never put
-  their name, repository or links into this repo (code, docs, commits). Prefer
-  our own probes/measurements first, then public specifications. Public source
-  without a license means all rights reserved.
+- **Third-party reference implementations**: behaviour-level observation is the
+  default, but a reference may be read to answer a specific question (mechanism,
+  not wholesale copying). Adapted mechanisms must be attributed in `NOTICE` (and
+  in the file header when code is involved); keep our own names and structure.
+  Do not vendor or redistribute a reference's source in this repo. Prefer our own
+  probes/measurements over any claim taken from a reference.
+  - Current exception (owner decision 2026-11-15): the 1.19.2 64-bit mod sources
+    under `C:\Project-G2-aux\mckuhei\` may be read as a reference for coordinate/
+    render architecture. The local copy has no LICENSE file; the owner authorised
+    reference use. If a licence is later confirmed, the licence wins.
+  - Everything else keeps the old rule: no copying/translating code, comments,
+    names or file structure without attribution.
 
 ## References
 
