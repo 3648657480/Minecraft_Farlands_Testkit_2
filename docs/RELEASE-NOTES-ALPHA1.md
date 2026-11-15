@@ -1,71 +1,84 @@
-# Alpha1（0.1.0-alpha1）预发布
+# FarLands G2 0.1.0-alpha1 - Alpha1: 2^53 real coordinates + known distance phenomena
 
-> 这是**预发布**：只承诺 2^53 以内可用；2^63 以内尽力可用；**2^63 以外不在本版本**（Alpha2）。
-> 范围与验收的权威定义：`docs/ALPHA1.md`。
+## Scope
 
-## 边界
+Alpha1 is frozen: **usable within 2^53** (gated), **best-effort up to 2^63-1**, and
+**nothing beyond 2^63-1** (that is Alpha2). Authoritative definition: `docs/ALPHA1.md`.
 
-| 区间 | 承诺 |
+| Range | Promise |
 |---|---|
-| \|x\|,\|z\| ≤ 2^53 | 门禁承诺（`verify` 5/5） |
-| 2^53 ~ 2^63−1 | 尽力可用（同一管线；单点实测可渲染/推流） |
-| > 2^63−1 | 不在本版本 |
+| \|x\|,\|z\| <= 2^53 | gated (`tools/verify.ps1` 5/5) |
+| 2^53 .. 2^63-1 | best-effort, same pipeline |
+| > 2^63-1 | not in this release |
 
-## 距离现象（只交付已知的，机制层）
+## Distance phenomena (mechanism level, known only)
 
-条件：26.2 fork、真实坐标、安装形态（KnotClient + 真实 jar/mod）、世界 = 存档副本、
-x 从 2^k 起 16 列、z=9851，2026-11-15 实测。
+Only the *known* results are shipped. Conditions: Minecraft 26.2 fork, real coordinates,
+installed client (KnotClient + real jar/mod), the same world save copy, 16 columns from 2^k,
+z = 9851, measured 2026-11-15.
 
-| 量级 | 实测（密度采样层） | 与 ulp |
+| Distance | Measured (density sampling) | vs ulp |
 |---|---|---|
-| 2^53 | 分成 `{0,1}{2,3}{4,5}{6,7}{8,9}{10}{11,12,13}{14}{15}` | ulp=2，round-to-even |
-| 2^55 | 密度顶 8 格平台（`0–7=67`、`8–15=68`） | ulp=8 |
-| 2^57 | 整块 16 列同值（61） | ulp=32 > 区块 16 |
+| 2^53 | groups `{0,1}{2,3}{4,5}{6,7}{8,9}{10}{11,12,13}{14}{15}` | ulp = 2, round-to-even |
+| 2^55 | 8-block plateaus (`0-7 = 67`, `8-15 = 68`) | ulp = 8 |
+| 2^57 | whole 16-block chunk identical (61) | ulp = 32 > chunk 16 |
 
-- 阈值只由量级决定（与此前 G1 `EXPERIMENTS.md` §8.1 的结论一致）；
-- **2^53 的地表外观正常**，是 G1 §8 的既有结论，不是本版本的抹平；
-- **不承诺目视形态**（2^55 阶梯、2^56 平板/水面瓷砖尚未目视复验）；
-- **不承诺 2^88/171.103 的远域高墙**（Alpha2）。
+- Thresholds depend on **magnitude only**, matching the earlier G1 `EXPERIMENTS.md` §8.1 result.
+- **2^53's surface looks normal** - that is the existing G1 §8 result, not a regression in this build.
+- **Not claimed**: visual forms (2^55 stairs, 2^56 slabs / water tiles) have not been visually
+  verified; the 2^88/171.103 "classic high walls" belong to Alpha2.
 
-## 本版主要修复
+## Fixed
 
-- 2^31 缝上的方块实体：生成期 `DUMMY` 标签与读档重建改走 chunk 宽原点；
-- 2^31 空洞：相机段查找与补标脏改走本地帧（`camSection` absent → 正常，18 段常驻未编译 → 0）；
-- 远域模型光照：跳过 64 位位置缓存并取全亮（`15728880`）；
-- 日志洪水：移除 `setL` / `[RSEC]` 调试打印，抑制 `unsafe terrain read` 告警
-  （一次 2.5 分钟会话 1.17 GB → 数百行）；
-- 修复 mixin 配置 BOM 导致的启动崩溃；
-- 新增 `farlands.testgen.xscan`（宽 chunk 列扫描）并修正 `fieldcols` 在远 X 读错 chunk 的问题。
+- **2^31 seam block entities**: generation-time `DUMMY` tags and the reload path now rebuild the
+  position from the chunk's wide origin (was: int wrap -> wrong chunk, chest/loot NBT lost).
+- **2^31 holes**: camera-section lookup (`getRenderSectionAt`) and the render-thread dirty re-mark
+  now use the local frame. `camSection` went from `absent` to a real origin; 18 permanently
+  uncompiled sections went to 0 (they were never entering the compile queue).
+- **Far model lighting**: skips the 64-bit position cache (lossy `BlockPos.asLong()` keys) and
+  uses full bright in the far domain; normal coordinates keep the cache.
+- **Log flood**: removed the shipped `setL` / `[RSEC]` debug prints and gated the vanilla
+  `unsafe terrain read` warning. One 2.5-minute session used to write **1.17 GB**; now hundreds
+  of lines (`[WGWARN]` appears once).
+- **Startup crash**: UTF-8 BOM in a mixin config made Gson fail (`Expected BEGIN_OBJECT but was
+  STRING`); the file is now BOM-free and the jar's copy is checked.
 
-## 已知问题（不阻塞本版本）
+## Verified
 
-- 2^31 缝上的 feature/结构仍可能读镜像 chunk（已限流，`[WGWARN]` 一次）；
-- 地形条纹（1 格沟槽/台阶）尚未定性；
-- 客户端 `getBlockState` 在远域返回空气（取样需服务端探针）；
-- HUD 未并入 F3，F3+G 远域不可用；
-- 多人 / dedicated 不支持。
+- `tools/verify.ps1 -Mode all` -> **5/5**: norm `surf=b9216bad2029 floor=8936c275d063
+  biome=4bf4e2ea5526`, seam `maxDelta=1 biomeMismatch=0/256`, coll `CLIP=hit COLLBLK=n=1`,
+  save round-trip, dist53 `surf=879024146b33 floor=9319dd6a448a`.
+- Installed form at x = 2^63: `store=81 uncompiled=0 farMeshSec=323`, local frame
+  `base=2^59 local=-1`, no crash. At x = 2^64: double->long saturates, identity is no longer
+  trustworthy (out of scope, recorded).
 
-## 安装
+## Docs
 
-本仓库**不包含任何 Minecraft 内容**。用你自己的 26.2 客户端 jar：
+- `docs/ALPHA1.md` - scope, acceptance, what is not promised.
+- `docs/BETA.md` - closed-beta checklist, report template, triage rules.
+- `docs/PHENOMENA.md` P7 - the raw numbers and the G1 cross-check.
+- `INSTALL.md` in the zip - install steps, patch helper, target coordinates.
 
-```powershell
-java -jar patcher-cli-0.1.0.jar --in <你的官方 26.2 client.jar> --out <fork.jar>
-```
+## Install
 
-把 `<fork.jar>` 作为版本目录里的同名 jar，`farlands-g2-mod-0.1.0.jar` 放进该目录的 `mods\`。
-两份文件强绑定，不要只装其中一个。
+This repository ships **no Minecraft files**. Use your own named 26.2 client jar:
 
-## 内测
+- drag the jar onto `patch.bat` (auto-picks Java 21+), or run
+  `java -Dfarlands.wide=true -Dfarlands.continuity=true -jar patcher-cli-0.1.0.jar --in <jar> --out <fork.jar>`;
+- use the fork jar as the version jar (keep a backup), put `farlands-g2-mod-0.1.0.jar` in `mods\`;
+- start; the log must show `[FarLands-G2] 0.1.0 wide build (real coordinates)`.
 
-内测检查表与报告模板：`docs/BETA.md`。
+## Known issues (not blocking)
 
-## 文件校验
+- Feature/structure positions at the 2^31 seam can still read the mirrored chunk
+  (rate-limited to one `[WGWARN]`).
+- The 1-block trench/step pattern in far terrain is not characterised yet.
+- The client `getBlockState` returns air at far coordinates; measurements must use the
+  server-side probes (`farlands.testgen.fieldcols` / `xscan`).
+- Multiplayer / dedicated is unsupported. HUD is not merged into F3; F3+G does not work far.
 
-| 文件 | sha256 |
-|---|---|
-| `farlands-g2-mod-0.1.0.jar` | `6E3CE39A345E571FB276176A3D2B8CE5FEE84534D6681BCD7340F662CF9B41EF` |
-| `patcher-cli-0.1.0.jar` | `ED9AB0A31AE5A679C97B7807FAA838BEDF94C4EDF4FE7F9F07E9F48EF0F88AB0` |
+## Notes
 
-构建提交：`c575a13852c297207eeaf98cdea33cdc610bee03`（代码）
-发布提交：`abffb30`（仅文档：CHANGELOG / README / 发布说明）
+- Closed beta: use `docs/BETA.md`; report **missing** phenomena, not the known 2^53 "normal surface".
+- Alpha2 backlog: beyond 2^63 (128-bit pipeline), 2^88/171.103 walls, real lighting,
+  structure correctness, multiplayer.

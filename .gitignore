@@ -45,3 +45,4 @@ opencode.json
 # rig runtime artifacts
 vanilla-rig/run/
 mod/run/
+dist/
