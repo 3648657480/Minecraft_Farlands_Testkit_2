@@ -44,7 +44,7 @@
 | 地形条纹（1 格沟槽/台阶） | 未定性 | 与 G1 §8 的"地表正常/阶梯"描述可能同源，待开阔点顶视复验 |
 | 客户端 `getBlockState` 在远域返回空气 | 已知 | 取样必须走服务端探针（`fieldcols`/`xscan`） |
 | HUD 未并入 F3、F3+G 远域不可用 | 未做 | Alpha2 美化项 |
-| 2^31 以外的方块**选中框变形**（小火把框变整块/错位/不可见） | **已知距离现象（P8），保留不修**；`farlands.outline.wide=true` 会掩盖它，仅作对照 | 见 `PHENOMENA.md` P8 / `PHENOMENA-SUBSYSTEMS.md` E11 |
+| 2^31 以外的方块**选中框变形**（小火把框变整块/错位/不可见） | **已知现象（外部记录），本工程未实测**；若复现则保留不修，`farlands.outline.wide=true` 会掩盖它，仅作对照 | 见 `PHENOMENA.md` P8 / `PHENOMENA-SUBSYSTEMS.md` E11 |
 | 2^55+ 目视形态未复验 | 待做 | 下一个现象实验（开阔点 + 顶视） |
 
 ## 5. Alpha2 预览（不在本轮）
