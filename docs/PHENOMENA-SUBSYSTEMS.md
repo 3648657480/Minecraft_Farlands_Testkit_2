@@ -43,26 +43,28 @@
 | E10 | F3/坐标显示 | 诊断的 int 视图（`pSec` 等） | 视图有损，不是身份 | — | 显示回绕（不是物理现象） | — |
 | E11 | **选中框（outline）** | 26.2 `LevelRenderer.submitBlockOutline`：`poseStack.translate(pos.getX() - cameraPos.x, ...)`，int 视图 − double | 2^31 以上平移量 ≈ −4.29e9（2^53 时 ≈ −9e15）；框顶点是局部 0..1，float 在该量级 ulp ≫ 1 → **体积塌成 0**、位置也错 | 2^31（位置）/ 任意大偏移（精度） | 选中框看不见，或退化成点/错误位置；块越大越明显 | 2^53 对着方块截两张图：`-Dfarlands.outline.wide=false`（默认）vs `true` |
 
-**E11 的现状**：修法已存在（`BlockOutlineWideMixin`，用 `getLongX/Y/Z - camera` 平移、形状仍走局部），
-但它是 **opt-in**（`-Dfarlands.outline.wide`，默认 **关**），注释写着"等远域拾取路径在游戏里验证后再说"。
-也就是说：**Alpha1 默认状态下，2^31 以外的选中框是坏的**（这是已知缺口，不是未发现的 bug）。
+**E11 的现状（2026-11-18 更正：这是现象，不修）**：负责人实测——**红石火把的选中框在大坐标会从
+一个小长方体变成整个方块，并且错位**。按项目原则「现象保留，身份修复」，这是**保留项**，不是缺陷；
+`BlockOutlineWideMixin`（`-Dfarlands.outline.wide`，默认关）会把它修掉，那是**掩盖现象**，
+只能作为对照/诊断开关，**不应默认打开**。
 
-**E11 的子情形（实测需区分）**：
+**E11 的子情形（同一现象的不同表现，需分别记录，不是需要修的 bug）**：
 
-| 子情形 | 机制 | 症状 |
+| 子情形 | 机制（假设） | 症状 |
 |---|---|---|
 | E11a 平移回绕 | 默认路径 `translate(int坐标 − 相机)`，2^31 以上 int 回绕 | 框画到 ~4.29e9 外，看不见 |
 | E11b float 塌缩 | 平移量在 float 下 ulp≫1（2^53 时 ~9e15） | 1×1×1 的框体积变 0（看不见/一个点） |
-| E11c 形状取错 | `state.shape()` 用被 int 截断的 `BlockPos` 取 | **小火把框变成整块**，且错位到镜像位置 |
+| E11c 部分形状膨胀 | 局部顶点（火把 0.375..0.625）在大平移下被压/量化到块边界 | **小火把框变成整块**，且错位 |
 | E11d 相机坐标系 | 本地帧下若 `cameraRenderState.pos` 是小数（0..1） | `long − cam` 又变成 ~9e15 → 与 E11b 同症状 |
 
-参考实现（1.19.2 64bit）的写法是**正确模式**：`(double) longPos - cam` 先在 double 里得到小偏移，
-再加局部顶点、最后转 float（`LevelRenderer.renderHitOutline` / `renderShape`）。
-G2 的 `BlockOutlineWideMixin` 等价，但默认关。
+**参考实现的对照（重要）**：1.19.2 64bit 用 `(double) longPos - cam` 先在 double 里得到小偏移，
+再加局部顶点、最后转 float（`LevelRenderer.renderHitOutline` / `renderShape`）——**它把这个现象修掉了**。
+G2 默认走原版 int 路径，所以**保留了现象**；这是两套交付目标的差异：
+参考实现是"让远方能用"，G2 是"让远方的异常可见"。不要因为"参考实现没有"就默认修掉。
 
-区分方法：开 `-Dfarlands.diag.render=true -Dfarlands.outline.wide=true`，看
-`[RDIAG-OUTLINE] posLong=... cam=... dx=... intDx=...`：`cam` 应是 ~9e15 且 `dx`≈0..2；
-若 `cam` 是 0..1 → E11d；若 `dx` 正常但框仍是整块 → E11c。
+**要做的不是修，是刻画**：阈值（从哪个距离开始）、形状谱（火把/台阶/栅栏/按钮/中继器）、
+方向（错位方向是否与坐标符号有关）、可复现性。开 `-Dfarlands.diag.render=true` 看
+`[RDIAG-OUTLINE] posLong=... cam=... dx=... intDx=...` 辅助记录；`outline.wide=true` 只作对照。
 
 ## 4. 结论
 
