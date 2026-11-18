@@ -46,7 +46,23 @@
 **E11 的现状**：修法已存在（`BlockOutlineWideMixin`，用 `getLongX/Y/Z - camera` 平移、形状仍走局部），
 但它是 **opt-in**（`-Dfarlands.outline.wide`，默认 **关**），注释写着"等远域拾取路径在游戏里验证后再说"。
 也就是说：**Alpha1 默认状态下，2^31 以外的选中框是坏的**（这是已知缺口，不是未发现的 bug）。
-验证判据：同一方块、同一视角，`false` 看不见 / `true` 能看到 1×1×1 且贴合方块；通过后应改为默认开。
+
+**E11 的子情形（实测需区分）**：
+
+| 子情形 | 机制 | 症状 |
+|---|---|---|
+| E11a 平移回绕 | 默认路径 `translate(int坐标 − 相机)`，2^31 以上 int 回绕 | 框画到 ~4.29e9 外，看不见 |
+| E11b float 塌缩 | 平移量在 float 下 ulp≫1（2^53 时 ~9e15） | 1×1×1 的框体积变 0（看不见/一个点） |
+| E11c 形状取错 | `state.shape()` 用被 int 截断的 `BlockPos` 取 | **小火把框变成整块**，且错位到镜像位置 |
+| E11d 相机坐标系 | 本地帧下若 `cameraRenderState.pos` 是小数（0..1） | `long − cam` 又变成 ~9e15 → 与 E11b 同症状 |
+
+参考实现（1.19.2 64bit）的写法是**正确模式**：`(double) longPos - cam` 先在 double 里得到小偏移，
+再加局部顶点、最后转 float（`LevelRenderer.renderHitOutline` / `renderShape`）。
+G2 的 `BlockOutlineWideMixin` 等价，但默认关。
+
+区分方法：开 `-Dfarlands.diag.render=true -Dfarlands.outline.wide=true`，看
+`[RDIAG-OUTLINE] posLong=... cam=... dx=... intDx=...`：`cam` 应是 ~9e15 且 `dx`≈0..2；
+若 `cam` 是 0..1 → E11d；若 `dx` 正常但框仍是整块 → E11c。
 
 ## 4. 结论
 
