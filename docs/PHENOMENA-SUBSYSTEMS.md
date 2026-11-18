@@ -41,6 +41,12 @@
 | E8 | 流体交互 | `EntityFluidInteractionFarGuardMixin` 等 | **护栏**：远端跳过流体推挤/游泳 | — | 远域游泳/浮力异常（可能被护栏掩盖） | 关护栏对比 |
 | E9 | 光照 | `FarLightMode` + 常量 14/15 | **stub**：远域全亮 | — | 无光照现象（本版本不承诺） | — |
 | E10 | F3/坐标显示 | 诊断的 int 视图（`pSec` 等） | 视图有损，不是身份 | — | 显示回绕（不是物理现象） | — |
+| E11 | **选中框（outline）** | 26.2 `LevelRenderer.submitBlockOutline`：`poseStack.translate(pos.getX() - cameraPos.x, ...)`，int 视图 − double | 2^31 以上平移量 ≈ −4.29e9（2^53 时 ≈ −9e15）；框顶点是局部 0..1，float 在该量级 ulp ≫ 1 → **体积塌成 0**、位置也错 | 2^31（位置）/ 任意大偏移（精度） | 选中框看不见，或退化成点/错误位置；块越大越明显 | 2^53 对着方块截两张图：`-Dfarlands.outline.wide=false`（默认）vs `true` |
+
+**E11 的现状**：修法已存在（`BlockOutlineWideMixin`，用 `getLongX/Y/Z - camera` 平移、形状仍走局部），
+但它是 **opt-in**（`-Dfarlands.outline.wide`，默认 **关**），注释写着"等远域拾取路径在游戏里验证后再说"。
+也就是说：**Alpha1 默认状态下，2^31 以外的选中框是坏的**（这是已知缺口，不是未发现的 bug）。
+验证判据：同一方块、同一视角，`false` 看不见 / `true` 能看到 1×1×1 且贴合方块；通过后应改为默认开。
 
 ## 4. 结论
 
